@@ -1,0 +1,10 @@
+[user]
+	name = Isaac IY Saito
+	email = 130s@lateeye.net
+[core]
+	editor = emacs
+	excludesfile = /home/n130s/.gitignore_global
+[merge]
+	tool = meld
+[credential]
+	helper = cache --timeout=7200
