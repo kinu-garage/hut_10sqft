@@ -1,0 +1,2 @@
+(load "~/data/Dropbox/app/Emacs/emacs.el")
+(load "~/data/Dropbox/app/Emacs/emacs_130s-serval.el")
