@@ -43,7 +43,7 @@ wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitconfig 
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitignore_global && mv dot_gitignore_global .gitignore_global
 
 # Random tools
-PKG_RANDOM_TOOLS="googleearth-package sysinfo synaptic"
+PKG_RANDOM_TOOLS="ack-grep googleearth-package sysinfo synaptic"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
