@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# cron job script for mirroring ROS wiki and api doc contents. See http://wiki.ros.org/Mirrors
+
+set -e
+
+rsync -azv docs.ros.org::mirror/hydro /var/www/ros.org/docs.ros.org --bwlimit=200 --copy-unsafe-links --delete
+rsync -azv docs.ros.org::mirror/indigo /var/www/ros.org/docs.ros.org --bwlimit=200 --copy-unsafe-links --delete
+
+rsync -azv wiki.ros.org::wiki_mirror /var/www/ros.org/wiki.ros.org --bwlimit=200 --delete
