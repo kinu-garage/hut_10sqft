@@ -30,7 +30,7 @@ wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_defa
 
 # For Japanese input.
 ##TODO if DISTRO < Saucy
-PKG_JP_INPUT="ibus ibus-el mozc-server emacs-mozc"
+PKG_JP_INPUT="ibus ibus-el ibus-mozc mozc-server emacs-mozc"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
