@@ -35,7 +35,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="git gitk meld"
+PKG_OSS_DEV="git gitk ipython openjdk-7-jre meld"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # Setup git account
 cd ~
@@ -43,7 +43,7 @@ wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitconfig 
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitignore_global && mv dot_gitignore_global .gitignore_global
 
 # Random tools
-PKG_RANDOM_TOOLS="ack-grep gnome-tweak-tool googleearth-package indicator-multiload psensor ssh sysinfo synaptic tree"
+PKG_RANDOM_TOOLS="ack-grep gnome-tweak-tool googleearth-package indicator-multiload pidgin psensor ssh sysinfo synaptic tree"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
