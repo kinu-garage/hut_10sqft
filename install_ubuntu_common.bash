@@ -35,7 +35,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="git gitk ipython openjdk-7-jre meld"
+PKG_OSS_DEV="git gitk ipython meld ntp openjdk-7-jre"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # Setup git account
 cd ~
