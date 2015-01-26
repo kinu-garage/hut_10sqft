@@ -43,7 +43,7 @@ wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitconfig 
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitignore_global && mv dot_gitignore_global .gitignore_global
 
 # Random tools
-PKG_RANDOM_TOOLS="ack-grep dconf-editor gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload nmap pdftk pidgin psensor ssh sysinfo synaptic texlive-latex-base tree whois"
+PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload nmap pdftk pidgin psensor ptex-base ssh sysinfo synaptic texlive-latex-base tree whois"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
