@@ -35,7 +35,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad git gitk ipython meld meshlab ntp openjdk-7-jre"
+PKG_OSS_DEV="freecad git gitk ipython meld meshlab ntp openjdk-7-jre python-catkin-tools"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # Setup git account
 cd ~
