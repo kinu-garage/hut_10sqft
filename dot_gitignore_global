@@ -47,5 +47,6 @@ Thumbs.db
 *.settings
 *.prefs
 .cproject
-.project
+.csettings
+.project*
 .pydevproject
