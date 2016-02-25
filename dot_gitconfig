@@ -1,6 +1,6 @@
 [user]
-	name = Isaac IY Saito
-	email = 130s@lateeye.net
+	name = Isaac I.Y. Saito
+	email = iiysaito@opensource-robotics.tokyo.jp
 [core]
 	editor = emacs
 	excludesfile = /home/n130s/.gitignore_global
