@@ -24,11 +24,11 @@ PKG_TO_INSTALL=""
 
 # Setup terminal
 cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default .bashrc
+wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
 
 # Setup emacs
 cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default .emacs
+wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
 
 # For Japanese input.
 ##TODO if DISTRO < Saucy
@@ -60,3 +60,9 @@ sudo dpkg -i $FILENAME_SYNERGY_INSTALLER
 
 # Install Dropbox
 wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2015.10.28_amd64.deb && sudo dpkg -i download?dl=packages%2Fubuntu%2Fdropbox_2015.10.28_amd64.deb
+
+# Setup initial directory structure
+cd ~
+rm -fr Documents Music Pictures Public Templates Video # These folders are never used.
+mkdir -p data
+mkdir link && cd link && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/ Current && ln -sf ~/data/Dropbox/GoogleDrive/1.TORK_Internal TORK && ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos && ln -sf ~/data/Dropbox/ROS ROS && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s 30y-130s
