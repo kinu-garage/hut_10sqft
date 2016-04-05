@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 function show_usage {
     echo >&2 "usage: $0 [user accout (default:n130s)]"
     echo >&2 " [-h|--help] print this message"
