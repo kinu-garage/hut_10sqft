@@ -48,3 +48,8 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
 sudo apt-get install -y $PKG_TO_INSTALL
+
+# Install synergy separately
+FILENAME_SYNERGY_INSTALLER=synergy-v1.7.6-stable-bcb9da8-Linux-x86_64.deb?dl=0
+wget https://www.dropbox.com/s/5d8vnnd0g72jfah/$FILENAME_SYNERGY_INSTALLER # stored in 130s private dropbox
+sudo dpkg -i $FILENAME_SYNERGY_INSTALLER
