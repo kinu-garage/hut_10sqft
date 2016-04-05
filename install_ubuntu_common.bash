@@ -47,7 +47,7 @@ PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree gnome-tweak-tool google
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
-sudo apt-get install -y $PKG_TO_INSTALL
+sudo apt-get install -y --ignore-missing $PKG_TO_INSTALL
 
 # Install synergy separately
 FILENAME_SYNERGY_INSTALLER=synergy-v1.7.6-stable-bcb9da8-Linux-x86_64.deb?dl=0
