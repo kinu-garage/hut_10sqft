@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Exec=gnome-system-monitor
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+Name[en_US]=gnome-system-monitor
+Name=gnome-system-monitor
+Comment[en_US]=
+Comment=
