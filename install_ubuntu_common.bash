@@ -76,5 +76,5 @@ mv $AUTOSTART_CONFIGS
 ~/.config/autostart
 
 # terminal config
-cd ~/.gconf/apps
+cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
