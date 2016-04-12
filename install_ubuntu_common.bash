@@ -61,6 +61,9 @@ sudo dpkg -i $FILENAME_SYNERGY_INSTALLER
 # Install Dropbox
 wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2015.10.28_amd64.deb && sudo dpkg -i download?dl=packages%2Fubuntu%2Fdropbox_2015.10.28_amd64.deb
 
+# Install Google-Chrome
+wget https://www.dropbox.com/s/8fc4z0zyea0wz5h/google-chrome-stable_current_amd64.deb?dl=0 && sudo dpkg -i google-chrome-stable_current_amd64.deb?dl=0
+
 # Setup initial directory structure
 cd ~
 rm -fr Documents Music Pictures Public Templates Video # These folders are never used.
