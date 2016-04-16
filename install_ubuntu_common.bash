@@ -22,14 +22,6 @@ sudo apt-get update
 
 PKG_TO_INSTALL=""
 
-# Setup terminal
-cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
-
-# Setup emacs
-cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
-
 # For Japanese input.
 ##TODO if DISTRO < Saucy
 PKG_JP_INPUT="ibus ibus-el ibus-mozc mozc-server emacs-mozc"
@@ -70,6 +62,7 @@ rm -fr Documents Music Pictures Public Templates Video # These folders are never
 mkdir -p data
 mkdir link && cd link && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/ Current && ln -sf ~/data/Dropbox/GoogleDrive/1.TORK_Internal TORK && ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos && ln -sf ~/data/Dropbox/ROS ROS && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s 30y-130s
 
+## App configs
 # Autostart config
 AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
 for i in $AUTOSTART_CONFIGS; do
@@ -81,3 +74,12 @@ mv $AUTOSTART_CONFIGS
 # terminal config
 cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
+
+# Setup terminal
+cd ~
+wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
+
+# Setup emacs
+cd ~
+wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+
