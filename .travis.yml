@@ -1,0 +1,10 @@
+sudo: required
+dist: trusty
+# Force travis to use its minimal image with default Python settings
+language: generic
+compiler:
+  - gcc
+install:
+  - sudo ./install_ubuntu_common.bash
+#script:
+#  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
