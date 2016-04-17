@@ -83,3 +83,11 @@ wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_def
 cd ~
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
 
+# Setup tmux
+FILENAME_TMUX_CONF_DEFAULT=~/.tmux.conf
+cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/dot_tmux.conf
+if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
+  echo '$FILENAME_TMUX_CONF_DEFAULT already exists, so skipping using the downloaded conf.'
+else
+  mv dot_tmux.conf $FILENAME_TMUX_CONF_DEFAULT
+fi
