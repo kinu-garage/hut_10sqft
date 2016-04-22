@@ -1,0 +1,138 @@
+;from cns.sfc/2005/sep/27
+; windowに色をつける
+(cond
+ ((and window-system (string-match "^19" emacs-version))
+  (require 'hilit19)))
+
+(setq mh-letter-mode-hook
+      (function
+         (lambda ()
+(setq mh-ins-buf-prefix ">")
+(setq mh-yank-from-start-of-msg 'body)
+(turn-on-auto-fill))))
+
+;;; リスプの起動
+;;
+;;  NL1
+;;
+
+;(setq inferior-lisp-program "gcl")
+;
+;(setq default-kanji-process-code 3)
+;
+;(defun save-buffer-euc ()
+;  (interactive)
+;  (let ((lisp-mode "lisp-mode")
+;	(mode major-mode))
+;    (if (string= mode lisp-mode)
+;	(progn (setq kanji-fileio-code 3)
+;	       (save-buffer)
+;	       (message "Save buffer in EUC.")
+;	       (setq kanji-fileio-code 1)
+;	       (change-fileio-code)))))
+
+;(define-key lisp-mode-map "\C-x\C-s" 'save-buffer-euc)
+
+;(setq auto-mode-alist (cons '("\\.dic$" . lisp-mode)
+;			    (cons '("\\.grm$" . lisp-mode) auto-mode-alist)))
+
+;for GCL use
+;(setq inferior-lisp-program "gcl")
+
+;;Swap \C-h on delete-backward-char
+;(load-library "term/keyswap")
+;(if (eq window-system 'x)
+;    (progn
+;      (define-keyfunction-key-map [delete] [8])
+;      (put 'delete 'ascii-character 8)))
+(keyboard-translate ?\C-h ?\C-?)
+(global-set-key "\C-h" nil)
+
+;ime/2005/oct/15
+;(global-set-key "\C-o" 'mw32-ime-toggle)
+
+;2005/nov/10/setting color
+;http://home.att.ne.jp/alpha/z123/elisp-j.html
+(if window-system (progn
+
+  ;; 文字の色を設定します。
+  (set-foreground-color "aquamarine")
+  ;; 背景色を設定します。
+  (set-background-color "DarkGreen")
+;;;  (set-background-color "gold4")
+;;;  (set-background-color "DarkSlateGrey")
+;;;  (set-background-color "SlateBlue")
+  ;; モードラインの文字の色を設定します。
+  (set-face-foreground 'modeline "white")
+  ;; モードラインの背景色を設定します。
+  (set-face-background 'modeline "MediumPurple2")
+  ;; カーソルの色を設定します。
+  (set-cursor-color "MediumPurple2")
+  ;; マウスポインタの色を設定します。
+  (set-mouse-color  "MediumPurple2")
+
+))
+
+;; For folding a line by specified number of characters
+(add-hook 'text-mode-hook
+          '(lambda ()
+             (setq fill-column 78)
+;             (auto-fill-mode 1)
+             ))
+
+;; Creating short cut
+(set-register ?c '(file . "/home/n130s/data/Dropbox/contents_nomadic/academic/MSSE_SMU/Class_SMU/"))
+(set-register ?d '(file . "/home/n130s/data/Dropbox/periodic/2011/7-Jul2011"))
+(set-register ?j '(file . "/home/n130s/data/Dropbox/contents_nomadic/Career/JobSuchen/jobSuchen.log"))
+(set-register ?s '(file . "/home/n130s/data/Dropbox/app/Synergy/"))
+(set-register ?r '(file . "/home/n130s/data/Dropbox/contents_nomadic/academic/MSSE_SMU/Research_SMU/Robotic_RMSA/APCOSE2011/"))
+
+
+;; === Fix the "copy-paste from MS Word" issue on Mac OS X ===
+;; prohibit pasting as TIFFs
+;(defun x-selection-value (type)
+; (let ((data-types '(public.file-url
+;                      public.utf16-plain-text
+;                      com.apple.traditional-mac-plain-text))
+;   text)
+;   (while (and (null text) data-types)
+;     (setq text (condition-case nil
+;            (x-get-selection type (car data-types))
+;          (error nil)))
+;     (setq data-types (cdr data-types)))
+;   (if text
+;   (remove-text-properties 0 (length text) '(foreign-selection nil)
+;text))
+;   text))
+;
+; 2/8/2011 AUCTex aware of style files and multi-file documents right away
+;     (setq TeX-auto-save t)
+;     (setq TeX-parse-self t)
+;     (setq-default TeX-master nil)
+
+; window size upon boot
+(set-frame-height (selected-frame) 44)
+(set-frame-width (selected-frame) 86)
+
+;; 5/31/2011 Word Count
+;; http://blog.lilyx.net/2007/10/02/emacs-word-count-mode/
+(setq load-path (cons (expand-file-name "/Applications/Emacs_Carbon/") load-path))
+(autoload 'word-count-mode "word-count"
+          "Minor mode to count words." t nil)
+(global-set-key "\M-+" 'word-count-mode)
+
+;; 8/20/2011 For Google Chrome Emacs
+(require 'edit-server)
+(edit-server-start)
+
+;; 9/16/2011 For Mozc + ibus
+;; Turn on ibus-mode automatically after loading .emacs
+(require 'ibus)
+(add-hook 'after-init-hook 'ibus-mode-on)
+;; Use C-SPC for Set Mark command
+(ibus-define-common-key ?\C-\s nil)
+;; Use C-/ for Undo command
+;(ibus-define-common-key ?\C-/ nil)
+;; Change cursor color depending on IBus status
+(setq ibus-cursor-color '("limegreen" "white" "blue"))
+(global-set-key "\C-\o" 'ibus-toggle)

@@ -1,0 +1,6 @@
+; .emacs specific for 130s-cranberry
+
+; 4/6/2012/emacs tex live config
+(server-start)
+
+
