@@ -1,8 +1,8 @@
 ; .emacs specific for tork-kudu1
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "./emacs_ubuntu.el")
-(load "./emacs_ubuntu_trusty.el")
+(load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs_ubuntu.el")
+(load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs_ubuntu_trusty.el")
 
 ;; mozc
 (require 'mozc)
@@ -21,4 +21,4 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;(set-frame-height (selected-frame) 48)
 ;(set-frame-width (selected-frame) 172)
-(when window-system (set-frame-size (selected-frame) 172 58))
+(when window-system (set-frame-size (selected-frame) 188 52))

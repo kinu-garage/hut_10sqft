@@ -14,8 +14,11 @@
 (global-set-key "\C-xd" `lisp-eval-defun)
 (global-set-key "\C-x\C-d" `lisp-eval-defun-and-go)  
 
-(set-frame-height (selected-frame) 50)
-(set-frame-width (selected-frame) 184)
+;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
+;; https://www.emacswiki.org/emacs/FrameSize
+;(set-frame-height (selected-frame) 48)
+;(set-frame-width (selected-frame) 172)
+(when window-system (set-frame-size (selected-frame) 186 44))
 
 ; Mew + Gmail
 ; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
@@ -23,4 +26,3 @@
 (autoload 'mew-send "mew" nil t)
 (setq mew-fcc "+outbox") ; Save sent mails
 (setq exec-path (cons "/usr/bin" exec-path))
-
