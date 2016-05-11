@@ -1,7 +1,7 @@
 ; .emacs specific for 130s-serval
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/data/Dropbox/app/Emacs/emacs_ubuntu.el")
+(load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)
