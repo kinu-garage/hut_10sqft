@@ -34,6 +34,3 @@
 (autoload 'mew-send "mew" nil t)
 (setq mew-fcc "+outbox") ; Save sent mails
 (setq exec-path (cons "/usr/bin" exec-path))
-
-;; Creating short cut for serval
-(set-register ?r '(file . "~/link/ROS/hydro_precise/"))
