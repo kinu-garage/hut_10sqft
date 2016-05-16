@@ -8,6 +8,19 @@ function show_usage {
     exit 0
 }
 
+function install_eclipse() {
+    TARBALL_ECLIPSE_URL=http://eclipse.mirror.rafal.ca/technology/epp/downloads/release/mars/2/eclipse-cpp-mars-2-linux-gtk-x86_64.tar.gz  # This needs to be updated whenever we want to use new version.
+    TARBALL_ECLIPSE_NAME="${TARBALL_ECLIPSE_URL##*/}"
+    NICKNAME_ECLIPSE="${TARBALL_ECLIPSE_NAME%.*}"
+    TEMPDIR_ECLIPSE_DL=/tmp/eclipse_install
+    mkdir $TEMPDIR_ECLIPSE_DL
+    wget --show-progress $TARBALL_ECLIPSE_URL -P $TEMPDIR_ECLIPSE_DL || (echo "Failed to download Eclipse tarball from URL: ${TARBALL_ECLIPSE_URL}. Skipping Eclipse installation."; return)
+    cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
+    sudo mkdir /usr/share/eclipse
+    sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE
+    sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse    
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -91,3 +104,7 @@ if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
 else
   mv dot_tmux.conf $FILENAME_TMUX_CONF_DEFAULT
 fi
+
+# DL and put Eclipse binary in PATH
+install_eclipse
+
