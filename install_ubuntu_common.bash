@@ -2,6 +2,30 @@
 
 set -x
 
+#######################################
+# Default error handling method that should be used throughout the script. With this function the process exits.
+# http://stackoverflow.com/questions/64786/error-handling-in-bash
+# Globals:
+#   (None)
+# Arguments:
+#   _LINENO: Cane be obtained from envvar LINENO.
+#   _ERR_MSG: Msg to explain the situation that error occurs.
+#   _ERR_CODE: Posix error code.
+# Returns:
+#   None
+#######################################
+function error() {
+  local _LINENO="$1"
+  local _ERR_MSG="$2"
+  local _ERR_CODE="${3:-1}"
+  if [[ -n "$_ERR_MSG" ]] ; then
+      echo "Error on or near line ${_LINENO}: ${_ERR_MSG}; Exiting with status code: ${_ERR_CODE}"
+  else
+      echo "Error on or near line ${_LINENO}; Exiting with status code: ${_ERR_CODE}"
+  fi
+  exit "${_ERR_CODE}"
+}
+
 function show_usage {
     echo >&2 "usage: $0 [user accout (default:n130s)]"
     echo >&2 " [-h|--help] print this message"
@@ -26,11 +50,10 @@ function install_eclipse() {
     NICKNAME_ECLIPSE="${TARBALL_ECLIPSE_NAME%.*}"
     TEMPDIR_ECLIPSE_DL=/tmp/eclipse_install
     mkdir $TEMPDIR_ECLIPSE_DL
-    wget --show-progress $TARBALL_ECLIPSE_URL -P $TEMPDIR_ECLIPSE_DL || (echo "Failed to download Eclipse tarball from URL: ${TARBALL_ECLIPSE_URL}. Skipping Eclipse installation."; return)
+    wget --show-progress $TARBALL_ECLIPSE_URL -P $TEMPDIR_ECLIPSE_DL || error $LINENO "Failed to download Eclipse tarball from URL: ${TARBALL_ECLIPSE_URL}. Skipping Eclipse installation."
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
-    sudo mkdir /usr/share/eclipse
-    sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE
-    sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse    
+    (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Exiting."
+    sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Exiting."
 }
 
 # command line parse
@@ -39,6 +62,8 @@ if [ $? != 0 ]; then
     # If no arg, run show_usage function.
     show_usage
 fi
+
+trap 'error ${LINENO}' ERR SIGHUP SIGINT SIGTERM
 
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
@@ -113,4 +138,3 @@ tmux_setup
 
 # DL and put Eclipse binary in PATH
 install_eclipse
-
