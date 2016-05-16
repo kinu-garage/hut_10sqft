@@ -8,6 +8,18 @@ function show_usage {
     exit 0
 }
 
+function tmux_setup {
+    FILENAME_TMUX_CONF_DEFAULT=~/.tmux.conf
+    TMUXCONF_URL=https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/dot_tmux.conf
+    TMUXCONF_FILENAME="${TMUXCONF_URL##*/}"
+    cd ~ && wget $TMUXCONF_URL
+    if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
+	echo "${FILENAME_TMUX_CONF_DEFAULT} already exists, so skipping using the downloaded conf."
+    else
+        mv $TMUXCONF_FILENAME $FILENAME_TMUX_CONF_DEFAULT
+    fi
+}
+
 function install_eclipse() {
     TARBALL_ECLIPSE_URL=http://eclipse.mirror.rafal.ca/technology/epp/downloads/release/mars/2/eclipse-cpp-mars-2-linux-gtk-x86_64.tar.gz  # This needs to be updated whenever we want to use new version.
     TARBALL_ECLIPSE_NAME="${TARBALL_ECLIPSE_URL##*/}"
@@ -97,13 +109,7 @@ cd ~
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
 
 # Setup tmux
-FILENAME_TMUX_CONF_DEFAULT=~/.tmux.conf
-cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/dot_tmux.conf
-if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
-  echo '$FILENAME_TMUX_CONF_DEFAULT already exists, so skipping using the downloaded conf.'
-else
-  mv dot_tmux.conf $FILENAME_TMUX_CONF_DEFAULT
-fi
+tmux_setup
 
 # DL and put Eclipse binary in PATH
 install_eclipse
