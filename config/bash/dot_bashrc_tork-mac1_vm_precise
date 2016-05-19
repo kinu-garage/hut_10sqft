@@ -1,0 +1,5 @@
+sudo mount -t vboxsf -o uid=1000,gid=1000 data_host /home/n130s/data/
+
+source ~/data/Dropbox/app/bash/bash_setup_common.bash
+source ~/data/Dropbox/app/bash/rc_tork-mac1_12.04_vm.bash
+

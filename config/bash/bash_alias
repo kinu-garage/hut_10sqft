@@ -1,0 +1,19 @@
+## Add the following declaration to ~/.bashrc to activate aliases.
+## <from here>
+##if [ -f ~/data/Dropbox/app/bash/bash_alias ]; then
+##    . ~/data/Dropbox/app/bash/bash_alias ## 9/12/2011/Isaac
+##fi
+## <up to here>
+alias pssynergy='ps awx|grep synergy'
+alias histecho='history|grep echo'
+alias histroute='history|grep route'
+alias histssh='history|grep ssh'
+alias histsynergy='history|grep synergy'
+alias udu='sudo apt-get update && sudo apt-get dist-upgrade' ## sudo should be included here, otherwise this alias line doesn't work.
+alias histeasy='history|grep easy'
+
+# 1/4/2013 Remove files unncessary files that are generated upon "make eclipse-project" with catkin.
+alias rm_eclipse-project_remainder='rm -fR catkin* CATKIN_IGNORE cmake_install.cmake devel/ gtest/ Makefile.ros test_results'
+
+# http://serverfault.com/questions/156359/can-i-recover-command-line-deleted-file-on-ubuntu
+##alias rmm='mv -t ~/.Trash'
