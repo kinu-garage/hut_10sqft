@@ -1,0 +1,18 @@
+[user]
+	name = Isaac I.Y. Saito
+	email = 130s@2000.jukuin.keio.ac.jp
+[core]
+	editor = emacs -nw
+	excludesfile = /home/n130s/.gitignore_global
+[merge]
+	tool = meld
+[credential]
+	helper = cache --timeout=14400
+# Enforce SSH
+##[url "ssh://git@github.com/"]
+##  insteadOf = https://github.com/
+# Always use ssh for github, even if the remote URL uses https or git
+[url "130s@github.com:"]
+  insteadOf = git://github.com/
+[url "130s@github.com:"]
+  insteadOf = https://github.com/
