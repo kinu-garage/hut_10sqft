@@ -4,16 +4,6 @@
 (load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs_ubuntu.el")
 (load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs_ubuntu_trusty.el")
 
-; 4/6/2012/emacs tex live config
-(server-start)
-
-; 2/17/2012/To enabele run-lisp
-; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
-(setq inferior-lisp-program "/usr/bin/clisp")
-(global-set-key "\C-x\C-l" `run-lisp)
-(global-set-key "\C-xd" `lisp-eval-defun)
-(global-set-key "\C-x\C-d" `lisp-eval-defun-and-go)  
-
 ;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;(set-frame-height (selected-frame) 48)
