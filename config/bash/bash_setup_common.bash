@@ -102,8 +102,8 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
-if [ -f ~/data/Dropbox/app/bash/bash_alias ]; then
-    . ~/data/Dropbox/app/bash/bash_alias ## 9/12/2011/Isaac
+if [ -f ~/link/github_repos/130s/compenv_ubuntu/config/bash/bash_alias ]; then
+    . ~/link/github_repos/130s/compenv_ubuntu/config/bash/bash_alias ## 9/12/2011/Isaac. Updated 5/18/2016
 fi
 
 
