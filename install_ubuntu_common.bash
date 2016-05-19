@@ -33,8 +33,8 @@ PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # Setup git account
 cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitconfig && mv dot_gitconfig .gitconfig
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_gitignore_global && mv dot_gitignore_global .gitignore_global
+ln -sf ./config/dot_gitconfig ~/.gitconfig
+ln -sf ./dot_gitignore_global ~/.gitignore_global
 
 # Random tools
 PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
