@@ -121,20 +121,17 @@ AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
 for i in $AUTOSTART_CONFIGS; do
   wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/$i
 done
-mv $AUTOSTART_CONFIGS 
-~/.config/autostart
+mv $AUTOSTART_CONFIGS ~/.config/autostart
 
 # terminal config
 cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
-cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
+cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
 
 # Setup emacs
-cd ~
-wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
 
 # Setup tmux
 tmux_setup
