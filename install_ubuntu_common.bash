@@ -27,7 +27,7 @@ function error() {
 }
 
 function show_usage {
-    echo >&2 "usage: $0 [user accout (default:n130s)]"
+    echo >&2 "usage: $0 [hostname (default:130s-serval)] $1 [user accout (default:n130s)]"
     echo >&2 " [-h|--help] print this message"
     exit 0
 }
@@ -65,9 +65,10 @@ fi
 
 trap 'error ${LINENO}' ERR SIGHUP SIGINT SIGTERM
 
+export CI_SOURCE_PATH=$(pwd)
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
-
+HOSTNAME=${1-"130s-serval"}
 PKG_TO_INSTALL=""
 
 # For Japanese input.
@@ -130,7 +131,16 @@ cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
-cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
+cd ~
+BASH_CONFIG_NAME=  # Initializing.
+EMACS_CONFIG_NAME=  # Initializing.
+case $HOSTNAME in
+    "130s-serval")
+	BASH_CONFIG_NAME="rc_130s-serval.bash"
+	EMACS_CONFIG_NAME="emacs_130s-serval.el"
+	;;
+esac	
+ln -sf $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc	
 
 # Setup emacs
 cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
