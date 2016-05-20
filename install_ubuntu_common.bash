@@ -50,10 +50,10 @@ function install_eclipse() {
     NICKNAME_ECLIPSE="${TARBALL_ECLIPSE_NAME%.*}"
     TEMPDIR_ECLIPSE_DL=/tmp/eclipse_install
     mkdir $TEMPDIR_ECLIPSE_DL
-    wget --show-progress $TARBALL_ECLIPSE_URL -P $TEMPDIR_ECLIPSE_DL || error $LINENO "Failed to download Eclipse tarball from URL: ${TARBALL_ECLIPSE_URL}. Skipping Eclipse installation."
+    wget $TARBALL_ECLIPSE_URL -P $TEMPDIR_ECLIPSE_DL || error $LINENO "Failed to download Eclipse tarball from URL: ${TARBALL_ECLIPSE_URL}. Skipping Eclipse installation." -1
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
-    (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Exiting."
-    sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Exiting."
+    (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Skipping Eclipse installation." -1
+    sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
 }
 
 # command line parse
