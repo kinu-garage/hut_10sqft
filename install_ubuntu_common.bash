@@ -118,9 +118,11 @@ mkdir link && cd link && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic
 ## App configs
 # Autostart config
 AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
+AUTOSTART_CONFIGS_DIR=.config/autostart
 for i in $AUTOSTART_CONFIGS; do
   wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/$i
 done
+if [ ! -d ~/$AUTOSTART_CONFIGS_DIR ]; then mkdir -p ~/$AUTOSTART_CONFIGS_DIR; fi
 mv $AUTOSTART_CONFIGS ~/.config/autostart
 
 # terminal config
