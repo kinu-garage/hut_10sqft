@@ -1,5 +1,11 @@
 #!/bin/bash
 
+export CI_SOURCE_PATH=$(pwd)
+DIST_TRUSTY="Trusty"
+DISTRO=$DIST_TRUSTY
+HOSTNAME=${1-"130s-serval"}
+PKG_TO_INSTALL=""
+
 set -x
 
 #######################################
@@ -33,15 +39,9 @@ function show_usage {
 }
 
 function tmux_setup {
-    FILENAME_TMUX_CONF_DEFAULT=~/.tmux.conf
-    TMUXCONF_URL=https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/dot_tmux.conf
-    TMUXCONF_FILENAME="${TMUXCONF_URL##*/}"
-    cd ~ && wget $TMUXCONF_URL
-    if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
-	echo "${FILENAME_TMUX_CONF_DEFAULT} already exists, so skipping using the downloaded conf."
-    else
-        mv $TMUXCONF_FILENAME $FILENAME_TMUX_CONF_DEFAULT
-    fi
+    FILENAME_TMUX_CONF_DEFAULT=~/dot_tmux.conf
+    FILENAME_TMUX_CONF_TOBE_READ=~/.tmux.conf
+    ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
 
 function install_eclipse() {
@@ -64,12 +64,6 @@ if [ $? != 0 ]; then
 fi
 
 trap 'error ${LINENO}' ERR SIGHUP SIGINT SIGTERM
-
-export CI_SOURCE_PATH=$(pwd)
-DIST_TRUSTY="Trusty"
-DISTRO=$DIST_TRUSTY
-HOSTNAME=${1-"130s-serval"}
-PKG_TO_INSTALL=""
 
 # For Japanese input.
 ##TODO if DISTRO < Saucy
@@ -136,11 +130,11 @@ BASH_CONFIG_NAME=  # Initializing.
 EMACS_CONFIG_NAME=  # Initializing.
 case $HOSTNAME in
     "130s-serval")
-	BASH_CONFIG_NAME="rc_130s-serval.bash"
+	BASH_CONFIG_NAME="bashrc_130s-serval"
 	EMACS_CONFIG_NAME="emacs_130s-serval.el"
 	;;
-esac	
-ln -sf $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc	
+esac
+cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 
 # Setup emacs
 cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
