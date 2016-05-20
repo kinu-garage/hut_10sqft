@@ -1,6 +1,9 @@
 # For Mac, .bach_profile gets called.
 # http://stackoverflow.com/questions/7780030/how-to-fix-terminal-not-loading-bashrc-on-os-x-lion
 
+# 2016/05/18 http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
+DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # If not running interactively, don't do anything
 [ -z "$PS1" ] && return
 
@@ -102,8 +105,8 @@ alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo
 if [ -f ~/.bash_aliases ]; then
     . ~/.bash_aliases
 fi
-if [ -f ~/link/github_repos/130s/compenv_ubuntu/config/bash/bash_alias ]; then
-    . ~/link/github_repos/130s/compenv_ubuntu/config/bash/bash_alias ## 9/12/2011/Isaac. Updated 5/18/2016
+if [ -f $DIR_THIS/bash_alias ]; then
+    . $DIR_THIS/bash_alias ## 9/12/2011/Isaac. Updated 5/18/2016
 fi
 
 
@@ -136,5 +139,4 @@ androidpic_mv() {
 
 # 3/3/2014 to include rm_dropbox_conflictfiles.bash
 #export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
-export PATH=~/data/Dropbox/app/bash/compenv_ubuntu/util:$PATH
-
+export PATH=~/link/github_repos/130s/compenv_ubuntu/util:$PATH

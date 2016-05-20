@@ -1,5 +1,7 @@
+DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 # Enable git tab-completion
 # http://apple.stackexchange.com/questions/55875/git-auto-complete-for-branches-at-the-command-line
-if [ -f ~/data/Dropbox/app/bash/git-completion.bash ]; then
-  . ~/data/Dropbox/app/bash/git-completion.bash
+if [ -f $DIR_THIS/git-completion.bash ]; then
+  . $DIR_THIS/git-completion.bash
 fi
