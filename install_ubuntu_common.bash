@@ -10,7 +10,7 @@ set -x
 # Arguments:
 #   _LINENO: Cane be obtained from envvar LINENO.
 #   _ERR_MSG: Msg to explain the situation that error occurs.
-#   _ERR_CODE: Posix error code.
+#   _ERR_CODE: Posix error code. If -1 then won't exit.
 # Returns:
 #   None
 #######################################
@@ -23,7 +23,7 @@ function error() {
   else
       echo "Error on or near line ${_LINENO}; Exiting with status code: ${_ERR_CODE}"
   fi
-  exit "${_ERR_CODE}"
+  if [ $_ERR_CODE -ne "-1" ]; then exit "${_ERR_CODE}"; fi
 }
 
 function show_usage {
@@ -95,7 +95,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 echo Installing $PKG_TO_INSTALL
 sudo apt-get update
 for i in $PKG_TO_INSTALL; do
-  sudo apt-get install -y $i
+  sudo apt-get install -y $i || error $i "apt-get install" -1
 done
 
 # Install synergy separately
