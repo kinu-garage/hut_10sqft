@@ -1,6 +1,7 @@
+DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Mac common
-source ~/data/Dropbox/app/bash/mac_common.bash
+source $DIR_THIS/mac_common.bash
 
 # ROS
-source ~/data/Dropbox/ROS/setup_ros_tork_mac1.bash
+source $DIR_THIS/../ros/setup_ros_tork_mac1.bash
 
