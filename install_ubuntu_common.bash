@@ -68,8 +68,6 @@ trap 'error ${LINENO}' ERR SIGHUP SIGINT SIGTERM
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 
-sudo apt-get update
-
 PKG_TO_INSTALL=""
 
 # For Japanese input.
@@ -81,6 +79,10 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 # oss dev
 PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-catkin-tools"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
+# For ROS related tool
+sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
+wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
+
 # Setup git account
 cd ~
 ln -sf ./config/dot_gitconfig ~/.gitconfig
@@ -91,6 +93,7 @@ PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree gnome-tweak-tool google
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
+sudo apt-get update
 for i in $PKG_TO_INSTALL; do
   sudo apt-get install -y $i
 done
