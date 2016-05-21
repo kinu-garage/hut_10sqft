@@ -4,13 +4,14 @@ export CI_SOURCE_PATH=$(pwd)
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
-DIR_ACTUALHOSTS_COMPENV=link/github_repos/130s/compenv_ubuntu
+DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
+REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
 
 set -x
 
-mkdir -p $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_COMPENV
-ln -sf . $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_COMPENV  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
+mkdir -p $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_LINK
+ln -sf . $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
