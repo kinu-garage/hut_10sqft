@@ -10,8 +10,9 @@ PKG_TO_INSTALL=""  # Initializing.
 
 set -x
 
-mkdir -p $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_LINK
-ln -sf . $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
+echo "[DEBUG] ls: "; ls
+mkdir -p ~/$DIR_ACTUALHOSTS_LINK
+ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
