@@ -4,9 +4,13 @@ export CI_SOURCE_PATH=$(pwd)
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
-PKG_TO_INSTALL=""
+DIR_ACTUALHOSTS_COMPENV=link/github_repos/130s/compenv_ubuntu
+PKG_TO_INSTALL=""  # Initializing.
 
 set -x
+
+mkdir -p $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_COMPENV
+ln -sf . $CI_SOURCE_PATH/$DIR_ACTUALHOSTS_COMPENV  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
