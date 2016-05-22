@@ -4,6 +4,11 @@ dist: trusty
 language: generic
 compiler:
   - gcc
+env:
+  matrix:
+    - HOSTNAME=130s-serval
+    - HOSTNAME=130s-t440s
+    - HOSTNAME=tork-kudu1
 install:
   - sudo ./install_ubuntu_common.bash
 #script:

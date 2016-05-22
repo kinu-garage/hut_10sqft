@@ -1,6 +1,18 @@
 #!/bin/bash
 
+export CI_SOURCE_PATH=$(pwd)
+DIST_TRUSTY="Trusty"
+DISTRO=$DIST_TRUSTY
+HOSTNAME=${1-"130s-serval"}
+DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
+REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
+PKG_TO_INSTALL=""  # Initializing.
+
 set -x
+
+echo "[DEBUG] ls: "; ls
+mkdir -p ~/$DIR_ACTUALHOSTS_LINK
+ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
@@ -27,21 +39,15 @@ function error() {
 }
 
 function show_usage {
-    echo >&2 "usage: $0 [user accout (default:n130s)]"
+    echo >&2 "usage: $0 [hostname (default:130s-serval)] $1 [user accout (default:n130s)]"
     echo >&2 " [-h|--help] print this message"
     exit 0
 }
 
 function tmux_setup {
-    FILENAME_TMUX_CONF_DEFAULT=~/.tmux.conf
-    TMUXCONF_URL=https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/dot_tmux.conf
-    TMUXCONF_FILENAME="${TMUXCONF_URL##*/}"
-    cd ~ && wget $TMUXCONF_URL
-    if [ -f $FILENAME_TMUX_CONF_DEFAULT ]; then
-	echo "${FILENAME_TMUX_CONF_DEFAULT} already exists, so skipping using the downloaded conf."
-    else
-        mv $TMUXCONF_FILENAME $FILENAME_TMUX_CONF_DEFAULT
-    fi
+    FILENAME_TMUX_CONF_DEFAULT=~/dot_tmux.conf
+    FILENAME_TMUX_CONF_TOBE_READ=.tmux.conf
+    ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
 
 function install_eclipse() {
@@ -64,11 +70,6 @@ if [ $? != 0 ]; then
 fi
 
 trap 'error ${LINENO}' ERR SIGHUP SIGINT SIGTERM
-
-DIST_TRUSTY="Trusty"
-DISTRO=$DIST_TRUSTY
-
-PKG_TO_INSTALL=""
 
 # For Japanese input.
 ##TODO if DISTRO < Saucy
@@ -130,7 +131,16 @@ cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
-cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_bashrc_default && mv dot_bashrc_default .bashrc
+cd ~
+BASH_CONFIG_NAME=  # Initializing.
+EMACS_CONFIG_NAME=  # Initializing.
+case $HOSTNAME in
+    "130s-serval")
+	BASH_CONFIG_NAME="bashrc_130s-serval"
+	EMACS_CONFIG_NAME="emacs_130s-serval.el"
+	;;
+esac
+cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 
 # Setup emacs
 cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
