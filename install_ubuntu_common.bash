@@ -139,6 +139,14 @@ case $HOSTNAME in
 	BASH_CONFIG_NAME="bashrc_130s-serval"
 	EMACS_CONFIG_NAME="emacs_130s-serval.el"
 	;;
+    "130s-t440s")
+	BASH_CONFIG_NAME="bashrc_130s-t440s"
+	EMACS_CONFIG_NAME="emacs_130s-t440s.el"
+	;;
+    "tork-kudu1")
+	BASH_CONFIG_NAME="bashrc_tork-kudu1"
+	EMACS_CONFIG_NAME="emacs_tork-kudu1.el"
+	;;
 esac
 cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 
