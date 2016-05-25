@@ -112,7 +112,7 @@ wget https://www.dropbox.com/s/8fc4z0zyea0wz5h/google-chrome-stable_current_amd6
 
 # Setup initial directory structure
 cd ~
-rm -fr Documents Music Pictures Public Templates Video # These folders are never used.
+rm -fr Documents Music Pictures Public Templates Videos # These folders are never used.
 mkdir -p data
 mkdir link && cd link && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/ Current && ln -sf ~/data/Dropbox/GoogleDrive/1.TORK_Internal TORK && ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos && ln -sf ~/data/Dropbox/ROS ROS && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s 30y-130s
 
