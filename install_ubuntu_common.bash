@@ -45,7 +45,7 @@ function show_usage {
 }
 
 function tmux_setup {
-    FILENAME_TMUX_CONF_DEFAULT=~/dot_tmux.conf
+    FILENAME_TMUX_CONF_DEFAULT=dot_tmux.conf
     FILENAME_TMUX_CONF_TOBE_READ=.tmux.conf
     ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
