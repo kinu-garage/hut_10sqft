@@ -1,5 +1,5 @@
 DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-
+source $DIR_THIS/bash_setup_common.bash
 source $DIR_THIS/ubuntu_common.bash
 
 # 11/27/2014 Enable vertical scroll by Thinkpad k/b mid-wheel. http://www.thinkwiki.org/wiki/How_to_configure_the_TrackPoint
