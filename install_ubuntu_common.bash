@@ -62,6 +62,19 @@ function install_eclipse() {
     sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
 }
 
+function ssh_github_setup() {
+    SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
+    SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
+    
+    SSH_KEY_DIR=~/.ssh
+    if [ ! -d ${SSH_KEY_DIR} ]; then mkdir -p ${SSH_KEY_DIR}; fi
+
+    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PUB ${SSH_KEY_DIR}/id_rsa.pub
+    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PRV ${SSH_KEY_DIR}/id_rsa
+
+    #TODO test, exception handling
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -138,20 +151,30 @@ case $HOSTNAME in
     "130s-serval")
 	BASH_CONFIG_NAME="bashrc_130s-serval"
 	EMACS_CONFIG_NAME="emacs_130s-serval.el"
+
+        SSH_KEY_PRV="id_rsa_130s-serval"
+        SSH_KEY_PUB="id_rsa_130s-serval.pub"
 	;;
     "130s-t440s")
 	BASH_CONFIG_NAME="bashrc_130s-t440s"
 	EMACS_CONFIG_NAME="emacs_130s-t440s.el"
+
+        SSH_KEY_PRV="id_rsa_130s-t440s"
+        SSH_KEY_PUB="id_rsa_130s-t440s.pub"
 	;;
     "tork-kudu1")
 	BASH_CONFIG_NAME="bashrc_tork-kudu1"
 	EMACS_CONFIG_NAME="emacs_tork-kudu1.el"
+
+        SSH_KEY_PRV="id_rsa_tork-kudu1"
+        SSH_KEY_PUB="id_rsa_tork-kudu1.pub"
 	;;
 esac
 cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 
 # Setup emacs
-cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+##cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup tmux
 tmux_setup
