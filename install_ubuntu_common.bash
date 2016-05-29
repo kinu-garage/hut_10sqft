@@ -151,7 +151,8 @@ esac
 cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 
 # Setup emacs
-cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+##cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
+cp $CI_SOURCE_PATH/config/emacs/EMACS_CONFIG_NAME ~/.emacs
 
 # Setup tmux
 tmux_setup
