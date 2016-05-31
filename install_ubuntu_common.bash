@@ -75,6 +75,17 @@ function ssh_github_setup() {
     #TODO test, exception handling
 }
 
+function ubuntu_set_autostart() {
+    AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
+    AUTOSTART_CONFIGS_DIR=.config/autostart
+    for i in $AUTOSTART_CONFIGS; do
+        wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/$i
+    done
+    if [ ! -d ~/$AUTOSTART_CONFIGS_DIR ]; then mkdir -p ~/$AUTOSTART_CONFIGS_DIR; fi
+    mv $AUTOSTART_CONFIGS ~/.config/autostart
+    #TODO test, exception handling
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -130,15 +141,7 @@ mkdir -p data
 mkdir link && cd link && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/ Current && ln -sf ~/data/Dropbox/GoogleDrive/1.TORK_Internal TORK && ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos && ln -sf ~/data/Dropbox/ROS ROS && ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s 30y-130s
 
 ## App configs
-# Autostart config
-AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
-AUTOSTART_CONFIGS_DIR=.config/autostart
-for i in $AUTOSTART_CONFIGS; do
-  wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/$i
-done
-if [ ! -d ~/$AUTOSTART_CONFIGS_DIR ]; then mkdir -p ~/$AUTOSTART_CONFIGS_DIR; fi
-mv $AUTOSTART_CONFIGS ~/.config/autostart
-
+ubuntu_set_autostart
 # terminal config
 cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
