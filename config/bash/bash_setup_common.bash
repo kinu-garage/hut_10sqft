@@ -123,7 +123,7 @@ bind 'set completion-ignore-case on'
 
 # 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
 androidpic_mv() {
-  TARGET_FOLDER='01';  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  TARGET_FOLDER="date -d "$D" '+%m'";  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
   mv ~/data/Dropbox/Camera\ Uploads/*.jpg ~/data/Dropbox/Camera\ Uploads/*.mp4 ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
 
   # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
@@ -132,8 +132,9 @@ androidpic_mv() {
   cd ${TMP_FOLDER_MIO};
   ##cp ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/link/Current/${TARGET_FOLDER}/;
   mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.png ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mov ${TMP_FOLDER_MIO};
-  for f in *; do mv "$f" "${f// /_}"; done;
-  mv -n * ~/link/Current/"${TARGET_FOLDER}";
+  counter=0
+  for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;
+  mv -n * ~/link/Current/"${TARGET_FOLDER}" && echo "#${counter} files moved to ~/link/Current/${TARGET_FOLDER}";
   cd -;
 }
 
