@@ -86,6 +86,14 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
+function test_commands() {
+    RESULT=0  # success by default
+
+    bloom-release --help || RESULT=1
+    catkin --help || RESULT=1
+    return $RESULT
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -184,3 +192,8 @@ tmux_setup
 
 # DL and put Eclipse binary in PATH
 install_eclipse
+
+# Test some commands to check installation
+test_commands
+retval_test_commands=$?
+if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
