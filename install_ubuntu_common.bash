@@ -86,6 +86,14 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
+function test_commands() {
+    RESULT=0  # success by default
+
+    bloom-release --help || RESULT=1
+    catkin --help || RESULT=1
+    return $RESULT
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -102,7 +110,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-catkin-tools"
+PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # For ROS related tool
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
@@ -184,3 +192,8 @@ tmux_setup
 
 # DL and put Eclipse binary in PATH
 install_eclipse
+
+# Test some commands to check installation
+test_commands
+retval_test_commands=$?
+if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
