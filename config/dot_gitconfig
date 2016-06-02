@@ -12,7 +12,7 @@
 ##[url "ssh://git@github.com/"]
 ##  insteadOf = https://github.com/
 # Always use ssh for github, even if the remote URL uses https or git
-[url "130s@github.com:"]
-  insteadOf = git://github.com/
-[url "130s@github.com:"]
-  insteadOf = https://github.com/
+[url "git@github.com:"]
+        insteadOf = git://github.com/
+[url "git@github.com:"]
+        insteadOf = https://github.com/
