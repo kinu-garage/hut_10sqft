@@ -4,6 +4,12 @@ dist: trusty
 language: generic
 compiler:
   - gcc
+notifications:
+  email:
+    on_success: always
+    on_failure: always
+    recipients:
+      - gm130s@gmail.com
 env:
   matrix:
     - HOSTNAME=130s-serval
