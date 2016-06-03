@@ -207,4 +207,4 @@ test_commands
 retval_test_commands=$?
 if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
 
-printf $MSG_ENDROLL
+if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
