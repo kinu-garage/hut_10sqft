@@ -69,8 +69,14 @@ function ssh_github_setup() {
     SSH_KEY_DIR=~/.ssh
     if [ ! -d ${SSH_KEY_DIR} ]; then mkdir -p ${SSH_KEY_DIR}; fi
 
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PUB ${SSH_KEY_DIR}/id_rsa.pub
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PRV ${SSH_KEY_DIR}/id_rsa
+    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PUB ${SSH_KEY_DIR}
+    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PRV ${SSH_KEY_DIR}
+
+    # Create ~/.ssh/config file to enable customized filenames.
+    echo "Host github.com
+      Port 22
+        IdentityFile ~/.ssh/${SSH_KEY_PRV}
+    " >> ~/.ssh/config
 
     #TODO test, exception handling
 }
