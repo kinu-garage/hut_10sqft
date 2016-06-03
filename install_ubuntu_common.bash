@@ -5,6 +5,7 @@ DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
 DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
+export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
 
@@ -77,6 +78,8 @@ function ssh_github_setup() {
       Port 22
         IdentityFile ~/.ssh/${SSH_KEY_PRV}
     " >> ~/.ssh/config
+
+    MSG_ENDROLL+="TODO: To avoid being asked passphrase everytime, you have to manually run ssh-add (since passphrase should not be stored publicly, they are not embedded in-code). See https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/#platform-linux for github configuration."
 
     #TODO test, exception handling
 }
@@ -203,3 +206,5 @@ install_eclipse
 test_commands
 retval_test_commands=$?
 if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
+
+printf $MSG_ENDROLL
