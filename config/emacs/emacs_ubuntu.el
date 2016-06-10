@@ -1,3 +1,6 @@
+;; 6/9/2016 Common config read here.
+(load "~/link/github_repos/130s/compenv_ubuntu/config/emacs/emacs.el")
+
 ;; 9/16/2011 For Mozc + ibus
 ;; Turn on ibus-mode automatically after loading .emacs
 (require 'ibus)  ;; This requires ibus-el to be installed (available via apt)

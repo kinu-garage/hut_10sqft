@@ -1,7 +1,5 @@
 ; .emacs specific for 130s-serval
 
-(load "~/link/github_repos/130s/compenv_ubuntu/config/emacs/emacs.el")
-
 ; 2/8/2013 Ubuntu common setting ported
 (load "~/link/github_repos/130s/compenv_ubuntu/config/emacs/emacs_ubuntu.el")
 
