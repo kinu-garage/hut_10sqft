@@ -141,3 +141,6 @@ androidpic_mv() {
 # 3/3/2014 to include rm_dropbox_conflictfiles.bash
 #export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
 export PATH=~/link/github_repos/130s/compenv_ubuntu/util:$PATH
+
+# 6/9/2016 Workaround for tmux issue https://github.com/130s/compenv_ubuntu/issues/3
+export DISPLAY=:0

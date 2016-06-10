@@ -134,8 +134,8 @@ function install_docker() {
 
 # Need to test https://github.com/130s/compenv_ubuntu/issues/3
 function test_display_env() {
-    #TODO
-    return
+    # If evince GUI can be run then return 0.
+    evince . && return 0 || return 1
 }
 
 function _test_systems() {
