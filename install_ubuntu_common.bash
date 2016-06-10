@@ -121,7 +121,10 @@ function install_docker() {
     sudo apt-get purge lxc-docker
     apt-cache policy docker-engine
     sudo apt-get install linux-image-extra-$(uname -r)
-    sudo apt-get install -y docker-engine && sudo service docker start
+    # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine
+    sudo service docker start
+    unset $DEBIAN_FRONTEND
     sudo docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1)
 
     return $RESULT
