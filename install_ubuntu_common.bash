@@ -8,6 +8,7 @@ DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory p
 export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
+USER_UBUNTU="n130s"
 
 set -x
 
@@ -40,7 +41,7 @@ function error() {
 }
 
 function show_usage {
-    echo >&2 "usage: $0 [hostname (default:130s-serval)] $1 [user accout (default:n130s)]"
+    echo >&2 "usage: $0 [hostname (default:130s-serval)] $1 [user accout (default:${USER_UBUNTU})]"
     echo >&2 " [-h|--help] print this message"
     exit 0
 }
@@ -103,6 +104,32 @@ function test_commands() {
     return $RESULT
 }
 
+function install_docker() {
+    RESULT=0  # success by default
+
+    sudo groupadd docker
+    sudo usermod -aG docker $USER_UBUNTU
+
+    # http://answers.ros.org/question/212786/configure-python3-path-for-local-docker-prerelease-script/
+    sudo apt-get install python3 python3-empy
+
+    # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
+    sudo apt-get install apt-transport-https ca-certificates
+    sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+    sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list'
+    sudo apt-get update
+    sudo apt-get purge lxc-docker
+    apt-cache policy docker-engine
+    sudo apt-get install linux-image-extra-$(uname -r)
+    # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
+    sudo DEBIAN_FRONTEND=noninteractive apt-get -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine
+    sudo service docker start
+    unset $DEBIAN_FRONTEND
+    sudo docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1)
+
+    return $RESULT
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -150,6 +177,11 @@ wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2015.10.28_amd6
 
 # Install Google-Chrome
 wget https://www.dropbox.com/s/8fc4z0zyea0wz5h/google-chrome-stable_current_amd64.deb?dl=0 && sudo dpkg -i google-chrome-stable_current_amd64.deb?dl=0
+
+# Install docker
+install_docker
+retval_install_docker=$?
+if [ $retval_install_docker -ne 0 ]; then echo "Error: docker might have not been installed correctly. Skipping."; fi
 
 # Setup initial directory structure
 cd ~
