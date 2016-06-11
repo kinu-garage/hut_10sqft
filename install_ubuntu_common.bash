@@ -96,11 +96,12 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
-function test_commands() {
+function _test_commands() {
     RESULT=0  # success by default
 
     bloom-release --help || RESULT=1
     catkin --help || RESULT=1
+    wstool --help || RESULT=1
     return $RESULT
 }
 
@@ -130,6 +131,23 @@ function install_docker() {
     return $RESULT
 }
 
+# Need to test https://github.com/130s/compenv_ubuntu/issues/3
+function test_display_env() {
+    #TODO
+    return
+}
+
+function _test_systems() {
+
+    _test_commands
+    retval_test_commands=$?
+    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
+    
+    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
+
+    test_display_env
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -146,7 +164,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools"
+PKG_OSS_DEV="freecad git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-wstool"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # For ROS related tool
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
@@ -235,8 +253,4 @@ tmux_setup
 install_eclipse
 
 # Test some commands to check installation
-test_commands
-retval_test_commands=$?
-if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
-
-if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
+_test_systems
