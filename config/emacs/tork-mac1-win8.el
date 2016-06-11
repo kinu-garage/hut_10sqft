@@ -1,7 +1,7 @@
 ; .emacs specific for 130s-serval
 
 ;; 3/8/2014 Common emacs setting.
-(load "~/data/Dropbox/app/bash/compenv_ubuntu/config/emacs/emacs.el")
+(load "~/link/github_repos/130s/compenv_ubuntu/config/emacs/emacs.el")
 
 (set-frame-height (selected-frame) 58)
 (set-frame-width (selected-frame) 110)
