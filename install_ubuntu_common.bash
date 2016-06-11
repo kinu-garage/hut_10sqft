@@ -96,11 +96,12 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
-function test_commands() {
+function _test_commands() {
     RESULT=0  # success by default
 
     bloom-release --help || RESULT=1
     catkin --help || RESULT=1
+    wstool --help || RESULT=1
     return $RESULT
 }
 
@@ -128,6 +129,23 @@ function install_docker() {
     sudo docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1)
 
     return $RESULT
+}
+
+# Need to test https://github.com/130s/compenv_ubuntu/issues/3
+function test_display_env() {
+    #TODO
+    return
+}
+
+function _test_systems() {
+
+    _test_commands
+    retval_test_commands=$?
+    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
+    
+    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
+
+    test_display_env
 }
 
 # command line parse
@@ -235,8 +253,4 @@ tmux_setup
 install_eclipse
 
 # Test some commands to check installation
-test_commands
-retval_test_commands=$?
-if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
-
-if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
+_test_systems
