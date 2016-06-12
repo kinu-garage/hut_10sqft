@@ -1,6 +1,6 @@
 DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export DISTRO_ROS_LINUX=jade_trusty
+export DISTRO_ROS_LINUX=kinetic_xenial
 
 source $DIR_THIS/ubuntu_common.bash
 
