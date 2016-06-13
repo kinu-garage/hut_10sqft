@@ -26,7 +26,7 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 (set-frame-height (selected-frame) 58)
 (set-frame-width (selected-frame) 110)
-(when window-system (set-frame-size (selected-frame) 152 58))
+(when window-system (set-frame-size (selected-frame) 80 32))
 
 ; Mew + Gmail
 ; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
