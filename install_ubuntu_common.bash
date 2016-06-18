@@ -132,6 +132,22 @@ function install_docker() {
     return $RESULT
 }
 
+##
+# Needed for running Eclipse, esp. pydev plugin. Otherwise not a desired resident on my machines.
+#
+function install_oraclejava() {
+    # From http://askubuntu.com/a/55960/24203
+    sudo apt-get install -y python-software-properties
+    sudo apt-get update
+
+    # Following probably needs to be done manually due to license sub window. Some tried but did not work:
+    # - http://askubuntu.com/a/651045/24203
+    # - http://superuser.com/a/939651/106974
+    ## sudo add-apt-repository ppa:webupd8team/java
+    ## apt-get install -y oracle-java8-installer
+    ## sudo apt-get install oracle-java8-set-default
+}
+
 # Need to test https://github.com/130s/compenv_ubuntu/issues/3
 function test_display_env() {
     # If evince GUI can be run then return 0.
@@ -256,6 +272,7 @@ sudo rosdep init && rosdep update
 sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 
 # DL and put Eclipse binary in PATH
+install_oraclejava
 install_eclipse
 
 # Test some commands to check installation
