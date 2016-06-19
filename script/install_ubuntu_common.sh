@@ -171,6 +171,15 @@ install_oraclejava() {
     ## sudo apt-get install oracle-java8-set-default
 }
 
+install_teamviewer() {
+    INSTALL_TARGET_TOOL=${1:-teamviewer}
+    INSTALLER_DL_URL=http://download.teamviewer.com/download/teamviewer_i386.deb
+    INSTALLER_TMPNAME=teamviewer_i386.deb
+    TEMPDIR_INSTALLWORK=/tmp/install_`date +%N` && mkdir $TEMPDIR_INSTALLWORK
+    wget $INSTALLER_DL_URL -O $TEMPDIR_INSTALLWORK/$INSTALLER_TMPNAME || error $LINENO "Failed to download from URL: ${INSTALLER_DL_URL}. Skipping ${INSTALL_TARGET_TOOL} installation." -1
+    cd $TEMPDIR_INSTALLWORK && sudo dpkg -i $INSTALLER_TMPNAME || error $LINENO "Failed to install. Skipping ${INSTALL_TARGET_TOOL} installation." -1
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -295,6 +304,8 @@ sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 # DL and put Eclipse binary in PATH
 install_oraclejava
 install_eclipse
+
+install_teamviewer
 
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh

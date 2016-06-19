@@ -30,6 +30,10 @@ test_display_env() {
     return
 }
 
+test_teamviewer_install() {
+    teamviewer --help && return 0 || return 1
+}
+
 _test_systems() {
 
     _test_commands
@@ -39,6 +43,7 @@ _test_systems() {
     if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "No accumulated error messages."; fi
 
     test_display_env
+    test_teamviewer_install
 }
 
 # Here's kindf of main function.
