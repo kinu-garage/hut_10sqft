@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Even when DEB of a new package becomes available on packages.ros.org, they are not resolved by rosdep unless update command is run on each host. Thus this needs to run on a regular basis.
+
+rosdep update

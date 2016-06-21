@@ -101,6 +101,7 @@ function _test_commands() {
 
     bloom-release --help || RESULT=1
     catkin --help || RESULT=1
+    rosdep --help || RESULT=1
     wstool --help || RESULT=1
     return $RESULT
 }
@@ -164,7 +165,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad gimp git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-wstool"
+PKG_OSS_DEV="freecad gimp git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-rosdep python-wstool"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # For ROS related tool
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
@@ -248,6 +249,11 @@ cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup tmux
 tmux_setup
+
+# setup ROS
+sudo rosdep init && rosdep update
+# symlink to cron job daily
+sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 
 # DL and put Eclipse binary in PATH
 install_eclipse
