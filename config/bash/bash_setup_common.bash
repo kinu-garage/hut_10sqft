@@ -8,7 +8,7 @@ DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
 androidpic_mv() {
-  TARGET_FOLDER="date -d "$D" '+%m'";  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
   mv ~/data/Dropbox/Camera\ Uploads/*.jpg ~/data/Dropbox/Camera\ Uploads/*.mp4 ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
 
   # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
