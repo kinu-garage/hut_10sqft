@@ -105,3 +105,27 @@
 
 ;; 10/30/2015 http://superuser.com/questions/255475/emacs-setting-column-mode-to-be-always-on
 (setq column-number-mode t)
+
+;; 20160708 auto complete missing xml tag
+;; http://superuser.com/questions/383520/how-to-efficiently-type-in-a-pair-of-xml-tags-in-emacs
+;; associate xml, xsd, etc with nxml-mode
+(add-to-list 'auto-mode-alist (cons (concat "\\." (regexp-opt '("xml" "xsd" "rng" "xslt" "xsl") t) "\\'") 'nxml-mode))
+(setq nxml-slash-auto-complete-flag t)
+
+;; 20160708 Fold xml elements by `C-c h` 
+;; http://emacs.stackexchange.com/questions/2884/the-old-how-to-fold-xml-question?newreg=e088fec681974846a759fffd1a4aa693
+(require 'hideshow)
+(require 'sgml-mode)
+(require 'nxml-mode)
+(add-to-list 'hs-special-modes-alist
+             '(nxml-mode
+               "<!--\\|<[^/>]*[^/]>"
+               "-->\\|</[^/>]*[^/]>"
+
+               "<!--"
+               sgml-skip-tag-forward
+               nil))
+(add-hook 'nxml-mode-hook 'hs-minor-mode)
+
+;; optional key bindings, easier than hs defaults
+(define-key nxml-mode-map (kbd "C-c h") 'hs-toggle-hiding)
