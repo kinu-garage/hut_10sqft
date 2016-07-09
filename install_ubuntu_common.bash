@@ -9,6 +9,7 @@ export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
 USER_UBUNTU="n130s"
+USER_CI="travis"  # I'd want to use env vars, like $USER, but it's not recommended to depend on it. So user hardcoded. https://docs.travis-ci.com/user/environment-variables/#Default-Environment-Variables
 
 set -x
 
@@ -269,7 +270,9 @@ cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup display http://askubuntu.com/a/202481/24203
-sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus
+if [ -z ${TRAVIS} ]; then sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus;  # If this script does NOT run on Travis CI, we'll use pre-defined user.
+else sudo chown -R $USER_CI:$USER_CI ~/.dbus;
+fi
 
 # Setup tmux
 tmux_setup
