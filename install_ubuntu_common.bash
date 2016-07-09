@@ -270,8 +270,10 @@ cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup display http://askubuntu.com/a/202481/24203
-if [ -z ${TRAVIS} ]; then sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus;  # If this script does NOT run on Travis CI, we'll use pre-defined user.
-else sudo chown -R $USER_CI:$USER_CI ~/.dbus;
+if [ -e ~/.dbus ]; then
+    if [ -z ${TRAVIS} ]; then sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus;  # If this script does NOT run on Travis CI, we'll use pre-defined user.
+    else sudo chown -R $USER_CI:$USER_CI ~/.dbus;
+    fi
 fi
 
 # Setup tmux
