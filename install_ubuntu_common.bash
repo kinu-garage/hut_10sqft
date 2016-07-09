@@ -9,6 +9,7 @@ export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
 USER_UBUNTU="n130s"
+USER_CI="travis"  # I'd want to use env vars, like $USER, but it's not recommended to depend on it. So user hardcoded. https://docs.travis-ci.com/user/environment-variables/#Default-Environment-Variables
 
 set -x
 
@@ -62,6 +63,7 @@ function install_eclipse() {
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
     (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Skipping Eclipse installation." -1
     sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
+    cd ~  # At the end of whatever the operation, we always go back to home.
 }
 
 function ssh_github_setup() {
@@ -132,10 +134,30 @@ function install_docker() {
     return $RESULT
 }
 
+##
+# Needed for running Eclipse, esp. pydev plugin. Otherwise not a desired resident on my machines.
+#
+function install_oraclejava() {
+    # From http://askubuntu.com/a/55960/24203
+    sudo apt-get install -y python-software-properties
+    sudo apt-get update
+
+    # Following probably needs to be done manually due to license sub window. Some tried but did not work:
+    # - http://askubuntu.com/a/651045/24203
+    # - http://superuser.com/a/939651/106974
+    ## sudo add-apt-repository ppa:webupd8team/java
+    ## apt-get install -y oracle-java8-installer
+    ## sudo apt-get install oracle-java8-set-default
+}
+
 # Need to test https://github.com/130s/compenv_ubuntu/issues/3
 function test_display_env() {
-    #TODO
-    return
+    # For Travis CI https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-xvfb-to-Run-Tests-That-Require-a-GUI
+    sh -e /etc/init.d/xvfb start
+    sleep 3  # give xvfb some time to start
+
+    # If evince GUI can be run then return 0.
+    evince . && return 0 || return 1
 }
 
 function _test_systems() {
@@ -146,7 +168,7 @@ function _test_systems() {
     
     if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
 
-    test_display_env
+    #test_display_env  # 20160707 Comment out for now since the change in https://github.com/130s/compenv_ubuntu/pull/48 is really needed but don't yet know how to pass the test.
 }
 
 # command line parse
@@ -177,7 +199,7 @@ ln -sf ./config/dot_gitconfig ~/.gitconfig
 ln -sf ./dot_gitignore_global ~/.gitignore_global
 
 # Random tools
-PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
+PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree evince gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
@@ -247,6 +269,13 @@ cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
 ##cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
 cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
+# Setup display http://askubuntu.com/a/202481/24203
+if [ -e ~/.dbus ]; then
+    if [ -z ${TRAVIS} ]; then sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus;  # If this script does NOT run on Travis CI, we'll use pre-defined user.
+    else sudo chown -R $USER_CI:$USER_CI ~/.dbus;
+    fi
+fi
+
 # Setup tmux
 tmux_setup
 
@@ -256,6 +285,7 @@ sudo rosdep init && rosdep update
 sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 
 # DL and put Eclipse binary in PATH
+install_oraclejava
 install_eclipse
 
 # Test some commands to check installation
