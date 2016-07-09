@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # For Mac, .bach_profile gets called.
 # http://stackoverflow.com/questions/7780030/how-to-fix-terminal-not-loading-bashrc-on-os-x-lion
 
