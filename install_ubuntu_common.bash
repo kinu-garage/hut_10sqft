@@ -98,16 +98,6 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
-function _test_commands() {
-    RESULT=0  # success by default
-
-    bloom-release --help || RESULT=1
-    catkin --help || RESULT=1
-    rosdep --help || RESULT=1
-    wstool --help || RESULT=1
-    return $RESULT
-}
-
 function install_docker() {
     RESULT=0  # success by default
 
@@ -289,4 +279,4 @@ install_oraclejava
 install_eclipse
 
 # Test some commands to check installation
-_test_systems
+source $CI_SOURCE_PATH/test/test_install.sh
