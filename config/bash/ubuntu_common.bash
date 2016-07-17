@@ -28,3 +28,5 @@ source $DIR_THIS/../ros/setup_ros_ubuntu_common.bash  # This uses env var DISTRO
 # 20160716 git ssh issue https://github.com/130s/compenv_ubuntu/issues/64
 eval $(ssh-agent)  # This doesn't complete the solution to https://github.com/130s/compenv_ubuntu/issues/64. In the downstream bash config, ssh-add needs to be run with the path of specific ssh key files.
 
+# For git
+export EDITOR=emacs
