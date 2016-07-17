@@ -69,12 +69,19 @@ function install_eclipse() {
 function ssh_github_setup() {
     SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
     SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
-    
+    FILE_PATH_SSH_KEY_PUB=~/data/Dropbox/app/ssh/$SSH_KEY_PUB
+    FILE_PATH_SSH_KEY_PRV=~/data/Dropbox/app/ssh/$SSH_KEY_PRV
+
     SSH_KEY_DIR=~/.ssh
     if [ ! -d ${SSH_KEY_DIR} ]; then mkdir -p ${SSH_KEY_DIR}; fi
 
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PUB ${SSH_KEY_DIR}
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PRV ${SSH_KEY_DIR}
+    if [ -f ${FILE_PATH_SSH_KEY_PUB} ] && [ -f ${FILE_PATH_SSH_KEY_PRV} ]; then
+        ln -sf ${FILE_PATH_SSH_KEY_PUB} ${SSH_KEY_DIR}
+        ln -sf ${FILE_PATH_SSH_KEY_PRV} ${SSH_KEY_DIR}
+    else 
+        echo "Seems like necessary files (~/data/Dropbox/app/ssh/${SSH_KEY_PUB} and ~/data/Dropbox/app/ssh/${SSH_KEY_PRV}) are not yet downloaded from Dropbox."
+        return 1
+    fi
 
     # Create ~/.ssh/config file to enable customized filenames.
     echo "Host github.com
@@ -280,3 +287,4 @@ install_eclipse
 
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
+source $CI_SOURCE_PATH/test/test_conf_bash.sh
