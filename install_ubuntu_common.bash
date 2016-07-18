@@ -69,14 +69,14 @@ function install_eclipse() {
 #######################################
 # This func copies ssh public and private keys from dropbox folder to ~/.ssh.
 # With the potential of multiple key pairs on a single host, we're using specific name for pairs so that the commonly used default { id_rsa, id_rsa.pub } name is not encouraged (but still valid).
-# This method returns 1 when key files are not available in the dropbox folder so that error handling may be needed by consumer scripts.
+# This method returns nothing, but add to $MSG_ENDROLL a warning msg when key files are not available in the dropbox folder so that error handling may be needed by consumer scripts.
 #
 # Globals:
 #   (None)
 # Arguments:
 #   (None)
 # Returns:
-#   1 if key files are not available in the dropbox folder.
+#   (None)
 #######################################
 function ssh_github_setup() {
     SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
@@ -94,7 +94,6 @@ function ssh_github_setup() {
         _msg_failure="Seems like necessary files (~/data/Dropbox/app/ssh/${SSH_KEY_PUB} and ~/data/Dropbox/app/ssh/${SSH_KEY_PRV}) are not yet downloaded from Dropbox."
         echo $_msg_failure
         MSG_ENDROLL+=$_msg_failure
-        return 1
     fi
 
     # Create ~/.ssh/config file to enable customized filenames.
@@ -102,8 +101,6 @@ function ssh_github_setup() {
       Port 22
         IdentityFile ~/.ssh/${SSH_KEY_PRV}
     " >> ~/.ssh/config
-
-    #TODO test, exception handling
 }
 
 function ubuntu_set_autostart() {
