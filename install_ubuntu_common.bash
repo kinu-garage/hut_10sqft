@@ -66,25 +66,41 @@ function install_eclipse() {
     cd ~  # At the end of whatever the operation, we always go back to home.
 }
 
+#######################################
+# This func copies ssh public and private keys from dropbox folder to ~/.ssh.
+# With the potential of multiple key pairs on a single host, we're using specific name for pairs so that the commonly used default { id_rsa, id_rsa.pub } name is not encouraged (but still valid).
+# This method returns nothing, but add to $MSG_ENDROLL a warning msg when key files are not available in the dropbox folder so that error handling may be needed by consumer scripts.
+#
+# Globals:
+#   (None)
+# Arguments:
+#   (None)
+# Returns:
+#   (None)
+#######################################
 function ssh_github_setup() {
     SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
     SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
-    
+    FILE_PATH_SSH_KEY_PUB=~/data/Dropbox/app/ssh/$SSH_KEY_PUB
+    FILE_PATH_SSH_KEY_PRV=~/data/Dropbox/app/ssh/$SSH_KEY_PRV
+
     SSH_KEY_DIR=~/.ssh
     if [ ! -d ${SSH_KEY_DIR} ]; then mkdir -p ${SSH_KEY_DIR}; fi
 
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PUB ${SSH_KEY_DIR}
-    ln -sf ~/data/Dropbox/app/ssh/$SSH_KEY_PRV ${SSH_KEY_DIR}
+    if [ -f ${FILE_PATH_SSH_KEY_PUB} ] && [ -f ${FILE_PATH_SSH_KEY_PRV} ]; then
+        ln -sf ${FILE_PATH_SSH_KEY_PUB} ${SSH_KEY_DIR}
+        ln -sf ${FILE_PATH_SSH_KEY_PRV} ${SSH_KEY_DIR}
+    else
+        _msg_failure="Seems like necessary files (~/data/Dropbox/app/ssh/${SSH_KEY_PUB} and ~/data/Dropbox/app/ssh/${SSH_KEY_PRV}) are not yet downloaded from Dropbox."
+        echo $_msg_failure
+        MSG_ENDROLL+=$_msg_failure
+    fi
 
     # Create ~/.ssh/config file to enable customized filenames.
     echo "Host github.com
       Port 22
         IdentityFile ~/.ssh/${SSH_KEY_PRV}
     " >> ~/.ssh/config
-
-    MSG_ENDROLL+="TODO: To avoid being asked passphrase everytime, you have to manually run ssh-add (since passphrase should not be stored publicly, they are not embedded in-code). See https://help.github.com/articles/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent/#platform-linux for github configuration."
-
-    #TODO test, exception handling
 }
 
 function ubuntu_set_autostart() {
@@ -253,7 +269,9 @@ case $HOSTNAME in
         SSH_KEY_PUB="id_rsa_tork-kudu1.pub"
 	;;
 esac
-cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc && source ~/.bashrc
+cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc
+ssh_github_setup
+source ~/.bashrc
 
 # Setup emacs
 ##cd ~ && wget https://raw.githubusercontent.com/130s/compenv_ubuntu/master/dot_emacs_default && mv dot_emacs_default .emacs
