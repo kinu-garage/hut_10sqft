@@ -14,6 +14,7 @@ USER_CI="travis"  # I'd want to use env vars, like $USER, but it's not recommend
 set -x
 
 echo "[DEBUG] ls: "; ls
+echo "[DEBUG] REPOSITORY_NAME=$REPOSITORY_NAME"
 mkdir -p ~/$DIR_ACTUALHOSTS_LINK
 ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/compenv_ubuntu/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/compenv_ubuntu.
 
@@ -298,3 +299,4 @@ install_eclipse
 
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
+source $CI_SOURCE_PATH/test/test_conf_bash.sh
