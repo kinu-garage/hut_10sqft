@@ -26,6 +26,7 @@ function test_rm_dropbox_conflictfiles() {
     done
 
     # Run the target script.
+    echo '[DEBUG] PATH='; echo $PATH
     rm_dropbox_conflictfiles.bash
     ls -l
 

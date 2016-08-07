@@ -6,7 +6,6 @@ DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
 DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
 export MSG_ENDROLL=  # Set of messages to be echoed at the end.
-REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 PKG_TO_INSTALL=""  # Initializing.
 USER_UBUNTU="n130s"
 USER_CI="travis"  # I'd want to use env vars, like $USER, but it's not recommended to depend on it. So user hardcoded. https://docs.travis-ci.com/user/environment-variables/#Default-Environment-Variables

@@ -4,8 +4,36 @@
 # 2016/05/18 http://stackoverflow.com/questions/59895/can-a-bash-script-tell-what-directory-its-stored-in
 DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+# BEGIN: commands to be run regardless interactiveness.
+
+# 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
+androidpic_mv() {
+  TARGET_FOLDER="date -d "$D" '+%m'";  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  mv ~/data/Dropbox/Camera\ Uploads/*.jpg ~/data/Dropbox/Camera\ Uploads/*.mp4 ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
+
+  # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
+  TMP_FOLDER_MIO='/tmp/mvimgfrommio'
+  mkdir ${TMP_FOLDER_MIO};
+  cd ${TMP_FOLDER_MIO};
+  ##cp ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/link/Current/${TARGET_FOLDER}/;
+  mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.png ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mov ${TMP_FOLDER_MIO};
+  counter=0
+  for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;
+  mv -n * ~/link/Current/"${TARGET_FOLDER}" && echo "#${counter} files moved to ~/link/Current/${TARGET_FOLDER}";
+  cd -;
+}
+
+# 3/3/2014 to include rm_dropbox_conflictfiles.bash
+#export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
+export PATH=~/link/github_repos/130s/compenv_ubuntu/util:$PATH
+
+# 6/9/2016 Workaround for tmux issue https://github.com/130s/compenv_ubuntu/issues/3
+export DISPLAY=:0
+
+# END: commands to be run regardless interactiveness.
+
 # If not running interactively, don't do anything
-[ -z "$PS1" ] && return
+[ -z "$PS1" ] && return  # 20160810  http://askubuntu.com/questions/352866/why-default-bashrc-is-set-to-return-immediately-if-not-running-interactively
 
 # don't put duplicate lines in the history. See bash(1) for more options
 # ... or force ignoredups and ignorespace
@@ -109,38 +137,18 @@ if [ -f $DIR_THIS/bash_alias ]; then
     . $DIR_THIS/bash_alias ## 9/12/2011/Isaac. Updated 5/18/2016
 fi
 
-
+# 20160807 Following portion is updated by copying from Ubuntu 14.04 today.
 # enable programmable completion features (you don't need to enable
 # this, if it's already enabled in /etc/bash.bashrc and /etc/profile
 # sources /etc/bash.bashrc).
-if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
+  fi
 fi
 
 # Ignore cases on command line
 #  http://www.unix.com/ubuntu/121570-set-completion-ignore-case-doesnt-work-bash.html
 bind 'set completion-ignore-case on'
-
-# 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
-androidpic_mv() {
-  TARGET_FOLDER="date -d "$D" '+%m'";  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
-  mv ~/data/Dropbox/Camera\ Uploads/*.jpg ~/data/Dropbox/Camera\ Uploads/*.mp4 ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
-
-  # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
-  TMP_FOLDER_MIO='/tmp/mvimgfrommio'
-  mkdir ${TMP_FOLDER_MIO};
-  cd ${TMP_FOLDER_MIO};
-  ##cp ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/link/Current/${TARGET_FOLDER}/;
-  mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.png ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mov ${TMP_FOLDER_MIO};
-  counter=0
-  for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;
-  mv -n * ~/link/Current/"${TARGET_FOLDER}" && echo "#${counter} files moved to ~/link/Current/${TARGET_FOLDER}";
-  cd -;
-}
-
-# 3/3/2014 to include rm_dropbox_conflictfiles.bash
-#export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
-export PATH=~/link/github_repos/130s/compenv_ubuntu/util:$PATH
-
-# 6/9/2016 Workaround for tmux issue https://github.com/130s/compenv_ubuntu/issues/3
-export DISPLAY=:0
