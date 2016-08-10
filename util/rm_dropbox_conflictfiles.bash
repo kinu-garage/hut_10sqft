@@ -25,7 +25,7 @@ TOPFOLDER_DROPBOX=$(TOPFOLDER_DROPBOX:=~/data/Dropbox)
 SAVEIFS=$IFS
 IFS=$(echo -en "\n\b")
 counter=0
-for f in `find ~/data/Dropbox -iname '*conflicted copy*'`;
+for f in `find ~/data/Dropbox -iname '*conflicted copy*' -or -name '*(Case Conflict)*'`;
 #for f in `ls`;
 do
   echo '#'$counter 'th file being removed: ' $f

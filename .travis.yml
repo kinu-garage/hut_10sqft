@@ -11,13 +11,13 @@ notifications:
     recipients:
       - gm130s@gmail.com
 env:
-  - DISPLAY=:99.0
-env:
   matrix:
     - HOSTNAME=130s-serval
     - HOSTNAME=130s-t440s
     - HOSTNAME=tork-kudu1
-install:
-  - sudo ./install_ubuntu_common.bash
-#script:
+before_script:
+  - export DISPLAY=:99.0
+  - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
+script:
+  - ./install_ubuntu_common.bash
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash

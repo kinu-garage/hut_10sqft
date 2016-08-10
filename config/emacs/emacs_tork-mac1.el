@@ -1,4 +1,5 @@
-; .emacs specific for 130s-cranberry
+;; 6/9/2016 Common config read here.
+(load "~/link/github_repos/130s/compenv_ubuntu/config/emacs/emacs.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)
