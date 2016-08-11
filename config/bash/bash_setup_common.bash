@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # For Mac, .bach_profile gets called.
 # http://stackoverflow.com/questions/7780030/how-to-fix-terminal-not-loading-bashrc-on-os-x-lion
 
@@ -8,17 +10,22 @@ DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
 androidpic_mv() {
-  TARGET_FOLDER="date -d "$D" '+%m'";  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
-  mv ~/data/Dropbox/Camera\ Uploads/*.jpg ~/data/Dropbox/Camera\ Uploads/*.mp4 ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
+  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  FILE_EXTENSIONS=("jpg" "jpeg" "png" "mp4" "mov")
+  for file_extension in "${FILE_EXTENSIONS[@]}"; do
+      mv ~/data/Dropbox/Camera\ Uploads/*.$file_extension ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
+  done
 
   # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
   TMP_FOLDER_MIO='/tmp/mvimgfrommio'
   mkdir ${TMP_FOLDER_MIO};
   cd ${TMP_FOLDER_MIO};
   ##cp ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/link/Current/${TARGET_FOLDER}/;
-  mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.png ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mov ${TMP_FOLDER_MIO};
+  for file_extension in "${FILE_EXTENSIONS[@]}"; do
+      mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.$file_extension ${TMP_FOLDER_MIO};
+  done
   counter=0
-  for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;
+  for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;  # Replacing blank space with underscore.
   mv -n * ~/link/Current/"${TARGET_FOLDER}" && echo "#${counter} files moved to ~/link/Current/${TARGET_FOLDER}";
   cd -;
 }

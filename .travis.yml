@@ -19,5 +19,5 @@ before_script:
   - export DISPLAY=:99.0
   - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 script:
-  - ./install_ubuntu_common.bash
+  - ./install_ubuntu_common.sh
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
