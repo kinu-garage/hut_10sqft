@@ -22,7 +22,7 @@ function _test_systems() {
     retval_test_commands=$?
     if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
     
-    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
+    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "No accumulated error messages."; fi
 
     test_display_env
 }

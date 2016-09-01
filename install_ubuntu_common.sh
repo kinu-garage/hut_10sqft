@@ -156,27 +156,6 @@ function install_oraclejava() {
     ## sudo apt-get install oracle-java8-set-default
 }
 
-# Need to test https://github.com/130s/compenv_ubuntu/issues/3
-function test_display_env() {
-    # For Travis CI https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-xvfb-to-Run-Tests-That-Require-a-GUI
-    sh -e /etc/init.d/xvfb start
-    sleep 3  # give xvfb some time to start
-
-    # If evince GUI can be run then return 0.
-    evince . && return 0 || return 1
-}
-
-function _test_systems() {
-
-    _test_commands
-    retval_test_commands=$?
-    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
-    
-    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
-
-    #test_display_env  # 20160707 Comment out for now since the change in https://github.com/130s/compenv_ubuntu/pull/48 is really needed but don't yet know how to pass the test.
-}
-
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
