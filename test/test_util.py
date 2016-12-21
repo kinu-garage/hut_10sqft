@@ -4,7 +4,7 @@ import os
 import unittest
 import urllib
 
-from util import Util
+from util.util import Util
 
 
 class TestUtil(unittest.TestCase):

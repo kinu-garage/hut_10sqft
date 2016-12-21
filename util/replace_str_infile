@@ -13,11 +13,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Find all package.xml files in sub-folders.
-    files_found = Util.find_all(target_filename, target_path)
+    files_found = Util.find_all(args.target_filename, args.target_path)
     for f in files_found:
         print(f)
 #        replace(f, "<version>.*</version>", "<version>0.8.2</version>")
-        Util.replace(f, match_str_regex, new_str)
+        Util.replace(f, args.match_str_regex, args.new_str)
 
     # Testing regex
     #     if re.match("<version>.*</version>", "<version>0.7.2</version>"):

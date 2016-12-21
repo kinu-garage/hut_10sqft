@@ -46,7 +46,8 @@ class Util():
             if searchExp in line:
                 line = line.replace(searchExp, replaceExp)
             sys.stdout.write(line)
-    
+
+    @staticmethod
     def replace(filename, pattern, subst):
         '''
         http://stackoverflow.com/a/13641746/577001
