@@ -156,27 +156,6 @@ function install_oraclejava() {
     ## sudo apt-get install oracle-java8-set-default
 }
 
-# Need to test https://github.com/130s/compenv_ubuntu/issues/3
-function test_display_env() {
-    # For Travis CI https://docs.travis-ci.com/user/gui-and-headless-browsers/#Using-xvfb-to-Run-Tests-That-Require-a-GUI
-    sh -e /etc/init.d/xvfb start
-    sleep 3  # give xvfb some time to start
-
-    # If evince GUI can be run then return 0.
-    evince . && return 0 || return 1
-}
-
-function _test_systems() {
-
-    _test_commands
-    retval_test_commands=$?
-    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
-    
-    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "Script ends."; fi
-
-    #test_display_env  # 20160707 Comment out for now since the change in https://github.com/130s/compenv_ubuntu/pull/48 is really needed but don't yet know how to pass the test.
-}
-
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -193,7 +172,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad gimp git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-rosdep python-wstool"
+PKG_OSS_DEV="freecad gimp git gitk iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-nose python-rosdep python-wstool"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # For ROS related tool
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
@@ -305,3 +284,4 @@ install_eclipse
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
 source $CI_SOURCE_PATH/test/test_conf_bash.sh
+nosetests test
