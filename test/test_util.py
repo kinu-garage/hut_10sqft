@@ -35,3 +35,9 @@ class TestUtil(unittest.TestCase):
         if NEW_STR in file_strtest:
             is_replaced = True        
         self.assertTrue(is_replaced, 'String is not found in the targeted file.')
+
+    def test_measure_performance(self):
+        from subprocess import Popen, PIPE
+        process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
+        stdout, stderr = process.communicate()
+        self.assertTrue(stderr, '')
