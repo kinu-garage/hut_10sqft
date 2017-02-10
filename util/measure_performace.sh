@@ -1,3 +1,5 @@
+#/bin/sh
+
 # Copyright (C) 2017, Isaac I.Y. Saito
 #
 # Redistribution and use in source and binary forms, with or without
@@ -28,7 +30,7 @@ function iterate_command {
   num_iteration=${2:-10000};
   for i in $(seq 1 ${num_iteration}); do
     echo "${i}th iteration.";
-    $command;
+    "$command";
   done
 }
 
@@ -47,4 +49,4 @@ function measure_performance {
 command=${1:-"rospack profile"};
 num_iteration=${2:-100000};
 output_filename=${3:-"straceResult_${command// /-}_${num_iteration}_`date +%Y%m%d%H%M%S`.log"};
-measure_performance $command $num_iteration $output_filename;
+measure_performance "$command" $num_iteration $output_filename;
