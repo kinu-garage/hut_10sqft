@@ -25,7 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-function iterate_command {
+iterate_command() {
   command=${1:-"rospack profile"};
   num_iteration=${2:-10000};
   for i in $(seq 1 ${num_iteration}); do
@@ -34,7 +34,7 @@ function iterate_command {
   done
 }
 
-function measure_performance {
+measure_performance() {
   command=${1:-"rospack profile"};
   num_iteration=${2:-100000};
   output_filename=${3:-"straceResult_${command// /-}_${num_iteration}_`date +%Y%m%d%H%M%S`.log"};
