@@ -284,4 +284,4 @@ install_eclipse
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
 source $CI_SOURCE_PATH/test/test_conf_bash.sh
-nosetests test
+nosetests -v --nocapture test
