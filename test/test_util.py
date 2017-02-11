@@ -38,3 +38,6 @@ class TestUtil(unittest.TestCase):
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
+
+if __name__ == '__main__':
+    unittest.main()
