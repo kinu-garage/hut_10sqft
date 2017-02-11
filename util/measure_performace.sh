@@ -30,7 +30,7 @@ iterate_command() {
   num_iteration=${2:-10000};
   for i in $(seq 1 ${num_iteration}); do
     echo "${i}th iteration.";
-    "$command";
+    $command;
   done
 }
 
@@ -46,7 +46,7 @@ measure_performance() {
   strace -o ${output_filename} -c -Ttt bash -c "$(typeset -f iterate_command); iterate_command '${command}' $num_iteration";
 }
 
-command=${1:-"rospack profile"};
+commando=${1:-"rospack profile"};
 num_iteration=${2:-100000};
-output_filename=${3:-"straceResult_${command// /-}_${num_iteration}_`date +%Y%m%d%H%M%S`.log"};
-measure_performance "$command" $num_iteration $output_filename;
+output_filename=${3:-straceResult_"${commando// /-}"_${num_iteration}_`date +%Y%m%d%H%M%S`.log};
+measure_performance "$commando" $num_iteration $output_filename;
