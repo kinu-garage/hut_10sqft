@@ -29,7 +29,7 @@ ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workarou
 # Returns:
 #   None
 #######################################
-function error() {
+error() {
   local _LINENO="$1"
   local _ERR_MSG="$2"
   local _ERR_CODE="${3:-1}"
@@ -41,19 +41,19 @@ function error() {
   if [ $_ERR_CODE -ne "-1" ]; then exit "${_ERR_CODE}"; fi
 }
 
-function show_usage {
+show_usage() {
     echo >&2 "usage: $0 [hostname (default:130s-serval)] $1 [user accout (default:${USER_UBUNTU})]"
     echo >&2 " [-h|--help] print this message"
     exit 0
 }
 
-function tmux_setup {
+tmux_setup() {
     FILENAME_TMUX_CONF_DEFAULT=dot_tmux.conf
     FILENAME_TMUX_CONF_TOBE_READ=.tmux.conf
     ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
 
-function install_eclipse() {
+install_eclipse() {
     TARBALL_ECLIPSE_URL=http://eclipse.mirror.rafal.ca/technology/epp/downloads/release/mars/2/eclipse-cpp-mars-2-linux-gtk-x86_64.tar.gz  # This needs to be updated whenever we want to use new version.
     TARBALL_ECLIPSE_NAME="${TARBALL_ECLIPSE_URL##*/}"
     NICKNAME_ECLIPSE="${TARBALL_ECLIPSE_NAME%.*}"
@@ -78,7 +78,7 @@ function install_eclipse() {
 # Returns:
 #   (None)
 #######################################
-function ssh_github_setup() {
+ssh_github_setup() {
     SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
     SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
     FILE_PATH_SSH_KEY_PUB=~/data/Dropbox/app/ssh/$SSH_KEY_PUB
@@ -103,7 +103,7 @@ function ssh_github_setup() {
     " >> ~/.ssh/config
 }
 
-function ubuntu_set_autostart() {
+ubuntu_set_autostart() {
     AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
     AUTOSTART_CONFIGS_DIR=.config/autostart
     for i in $AUTOSTART_CONFIGS; do
@@ -114,7 +114,7 @@ function ubuntu_set_autostart() {
     #TODO test, exception handling
 }
 
-function install_docker() {
+install_docker() {
     RESULT=0  # success by default
 
     sudo groupadd docker
@@ -143,7 +143,7 @@ function install_docker() {
 ##
 # Needed for running Eclipse, esp. pydev plugin. Otherwise not a desired resident on my machines.
 #
-function install_oraclejava() {
+install_oraclejava() {
     # From http://askubuntu.com/a/55960/24203
     sudo apt-get install -y python-software-properties
     sudo apt-get update
@@ -284,4 +284,4 @@ install_eclipse
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
 source $CI_SOURCE_PATH/test/test_conf_bash.sh
-nosetests test
+nosetests -v --nocapture test
