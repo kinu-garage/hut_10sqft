@@ -71,11 +71,10 @@ class Util():
     @staticmethod
     def replace_str_in_file(target_filename, target_path, match_str_regex, new_str):
         '''
-        parser = argparse.ArgumentParser(description='Replace a line of string in all the files found at the folder tree in the given path.')
-        parser.add_argument('target_filename', default='package.xml', help='Name of the file(s) to be manipulated.')
-        parser.add_argument('target_path', default='.', help='Path under which target file(s) will be searched at. Full or relative path (relative path is not tested).')
-        parser.add_argument('match_str_regex', default='<version>.*</version>', help='File pattern to match. You can use regular expression.')
-        parser.add_argument('new_str', default='', help='String to be used.')
+        @param target_filename: Name of the file(s) to be manipulated.
+        @param target_path: Path under which target file(s) will be searched at. Full or relative path.
+        @param match_str_regex: File pattern to match. You can use regular expression.
+        @param new_str: String to be used.
         '''
     
         # Find all package.xml files in sub-folders.
