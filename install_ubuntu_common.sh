@@ -284,4 +284,5 @@ install_eclipse
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
 source $CI_SOURCE_PATH/test/test_conf_bash.sh
-nosetests -v --nocapture test
+nosetests -vv --collect-only $CI_SOURCE_PATH  # Show which files are actually handled by nose.
+nosetests -d --exe -s -v $CI_SOURCE_PATH/test
