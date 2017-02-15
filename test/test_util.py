@@ -22,20 +22,61 @@ from replace_str_infile import replace_str_in_file
 
 
 class TestUtil(unittest.TestCase):
+    '''
+    All tests in this file are intended to be run from project top directory;
+    dir X at X/test/test_util.py
+    '''
 
-    def test_replace_str_infile(self):
-        os.chdir('/tmp')
-        # Prepare files to be manipulated.
-        FILE_STRTEST = 'https://raw.githubusercontent.com/ros-planning/moveit/kinetic-devel/moveit/package.xml'
-        FILENAME_STRTEST = 'file_strtest.txt'
-        MATCH_STR_REGEX = '<version>.*</version>'
-        NEW_STR = '<version>100000000000</version>'  # Something unrealistically used by anyone in any software.
+    def setUp(self):
+
+        self._TESTDATA_XML1 = 'package1.xml'
+        self._LIST_TESTDATA1 = [self._TESTDATA_XML1, 'prooving2.txt'] 
+        self.TESTDATA_DIR = './test/testdata1' 
+
+        self.TEST_DIR = '/tmp/proovingground_of_mad_overlord'
+
+    def _setup_testdata(self):
+        # Set test dir. In case the test script gets run at localhost, not on cloud, and affect the files, it could be bad.
+        if os.path.exists(self.TEST_DIR):
+            # Remove the dir and re-create with the same name.
+            shutil.rmtree(self.TEST_DIR)
+            os.makedirs(self.TEST_DIR)
+
+        # Copy testdata into /tmp folders.
+        src = self.TESTDATA_DIR
+        src_files = os.listdir(src)
+        dest = self.TEST_DIR
+        for file_name in src_files:
+            full_file_name = os.path.join(src, file_name)
+            print('File to be copied into: {}'.format(full_file_name))
+            if (os.path.isfile(full_file_name)):
+                shutil.copy(full_file_name, dest)
+
+    def test_find_all_files(self):
+        self._setup_testdata()
+        os.chdir(self.TEST_DIR)
+
+        # Test without argument passed to find_all_files.
+        filenames_matched_1 = Util.find_all_files()
+        self.assertItemsEqual(filenames_matched_1, self._LIST_TESTDATA1)
+
+        # Test with arguments passed to find_all_files.
+        filenames_matched_2 = Util.find_all_files(path=self.TEST_DIR)
+        self.assertItemsEqual(filenames_matched_2, self._LIST_TESTDATA1)
+
+        filenames_matched_3 = Util.find_all_files(filename_pattern='xml')
+        # This list should be [self._TESTDATA_XML1]
+        common_list = set(filenames_matched_3) & set(self._LIST_TESTDATA1)
+        assertEqual(common_list, [self._TESTDATA_XML1])
+
+    def _test_replace_str_infile(self, match_str_regex, new_str, searchpath, filename):
+        os.chdir(self.TEST_DIR)
         testfile = urllib.URLopener()
         # Save temporarily. This method is intended for files on the filesystem.
-        testfile.retrieve(FILE_STRTEST, FILENAME_STRTEST)         
+        testfile.retrieve(FILE_STRTEST, FILENAME_STRTEST)
 
         # Find all package.xml files in sub-folders.
-        replace_str_in_file(FILENAME_STRTEST, '/tmp', MATCH_STR_REGEX, NEW_STR)
+        replace_str_in_file(match_str_regex, new_str, searchpath, filename)
 
         is_replaced = False
         file_strtest = open(FILENAME_STRTEST).read()
@@ -45,6 +86,14 @@ class TestUtil(unittest.TestCase):
             is_replaced = True        
         # Assert if the new str is contained and old str are not.
         self.assertTrue(is_replaced, 'String is not found in the targeted file.')
+
+    def test_replace_str_infile_specific(self):
+        '''Test specifying filepath and filename.'''
+        self._test_replace_str_infile(MATCH_STR_REGEX, NEW_STR, self.TEST_DIR, FILENAME_STRTEST)
+
+    def test_replace_str_infile_nospecify(self):
+        '''Test w/o specifying filepath and filename.'''
+        self._test_replace_str_infile(MATCH_STR_REGEX, NEW_STR)
 
     def _test_measure_performance(self):
         '''Prefixed since this testcase is NOT functional yet. '''
