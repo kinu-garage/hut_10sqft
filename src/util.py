@@ -23,19 +23,26 @@ import sys
 class Util():
 
     @staticmethod
-    def find_all_files(path='.', filename_pattern='*'):
+    def find_all_files(path='.', filename_pattern='*', ret_relativepath=False):
         '''
         http://stackoverflow.com/questions/1724693/find-a-file-in-python
-        @param path: (str) Top level path to search. If None, search any file names.
+        @param path: (str) Top level path to search.
         @param filename_pattern: Full file name or pattern to be found.
         @type filename_pattern: str
+        @param ret_relativepath: If True, returned file paths will be in
+                                 relative to the "path" arg.
+                                 e.g. ['file1', 'currentdir/file2']
         @return: List of absolute path of the files.
         '''
         filenames_matched = []
         for root, dirnames, filenames in os.walk(path):
             for filename in fnmatch.filter(filenames, filename_pattern):
-                filenames_matched.append(os.path.join(root, filename))
+                if ret_relativepath:
+                    filenames_matched.append(filename)
+                else:
+                    filenames_matched.append(os.path.abspath(filename))
 
+        print('[find_all_files]: matched files: {}'.format(filenames_matched))
         return filenames_matched
 
     @staticmethod
@@ -81,15 +88,14 @@ class Util():
         @param target_path: Path under which target file(s) will be searched at. Full or relative path.
         @param match_str_regex: File pattern to match. You can use regular expression.
         @param new_str: String to be used.
-        '''
-    
+        '''    
         # Find all files in sub-folders.
-        files_found = Util.find_all_files(target_filename, target_path)
+        files_found = Util.find_all_files(target_path, target_filename)
         for f in files_found:
-            print(f)
+            print('Path of the file  to be replaced: {}'.format(f))
             # replace(f, "<version>.*</version>", "<version>0.8.2</version>")
             Util.replace(f, match_str_regex, new_str)
-    
+
         # Testing regex
         #     if re.match("<version>.*</version>", "<version>0.7.2</version>"):
         #         print(11)
