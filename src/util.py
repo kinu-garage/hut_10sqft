@@ -34,16 +34,16 @@ class Util():
                                  e.g. ['file1', 'currentdir/file2']
         @return: List of absolute path of the files.
         '''
-        filenames_matched = []
+        filepaths_matched = []
         for root, dirnames, filenames in os.walk(path):
             for filename in fnmatch.filter(filenames, filename_pattern):
                 if ret_relativepath:
-                    filenames_matched.append(filename)
+                    filepaths_matched.append(filename)
                 else:
-                    filenames_matched.append(os.path.abspath(filename))
+                    filepaths_matched.append(os.path.abspath(filename))
 
-        print('[find_all_files]: matched files: {}'.format(filenames_matched))
-        return filenames_matched
+        print('[find_all_files]: matched files: {}'.format(filepaths_matched))
+        return filepaths_matched
 
     @staticmethod
     def replaceAll(file, searchExp, replaceExp):
