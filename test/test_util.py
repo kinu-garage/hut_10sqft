@@ -16,6 +16,7 @@
 
 import os
 import shutil
+import tarfile
 import unittest
 import urllib
 
@@ -64,16 +65,32 @@ class TestUtil(unittest.TestCase):
             raise OSError('Directory {} is not available.'.format(TestUtil._TEST_DIR))
         
         # Copy testdata into /tmp folders.
-        for file_name in os.listdir(TestUtil._TESTDATA_DIR):
-            shutil.copy(TestUtil._TESTDATA_DIR + '/' + file_name, TestUtil._TEST_DIR)
-
+        tgz_filename = TestUtil._TEST_DIR + "/testdata.tar.gz"
+        with tarfile.open(tgz_filename, "w:gz") as tgz_file:
+            tgz_file.add(TestUtil._TESTDATA_DIR, arcname=os.path.basename(''))
+            tgz_file.close()
         os.chdir(TestUtil._TEST_DIR)
+        with tarfile.open(tgz_filename, "r:gz") as tgz_file_dest:
+            tgz_file_dest.extractall(path=TestUtil._TEST_DIR)
+            tgz_file_dest.close()
+        # Remove the temporary tarball
+        os.remove(tgz_filename)
+        
+#        for file_name in os.listdir(TestUtil._TESTDATA_DIR):
+#            file_name_longerpath = TestUtil._TESTDATA_DIR + '/' + file_name
+#            print('File in test dir: {}'.format(file_name_longerpath))
+#            if not os.path.isdir(file_name_longerpath):
+#                print('File to copy: {}'.format(file_name_longerpath))
+#                shutil.copy(file_name_longerpath, TestUtil._TEST_DIR)  #TODO this has to handle copying folders in addtion to files. 
+
         print('After copying files into {}: {}\nCurrent dir: {}'.format(TestUtil._TEST_DIR, os.listdir(TestUtil._TEST_DIR), os.path.abspath(os.path.curdir)))
 
     def test_find_all_files_noarg_absolutepath(self):
         # Test without argument passed to find_all_files.
         # Test absolute paths.
         filenames_matched_1 = Util.find_all_files()
+        ##filenames_matched_1 = Util.find_all_files(depth_max=1)
+        
         self.assertItemsEqual(filenames_matched_1, self._LIST_TESTDATA1_ABS)
 
     def test_find_all_files_noarg_relativepath(self):
@@ -87,11 +104,14 @@ class TestUtil(unittest.TestCase):
         filenames_matched_2 = Util.find_all_files(path=TestUtil._TEST_DIR)
         self.assertItemsEqual(filenames_matched_2, self._LIST_TESTDATA1_ABS)
 
-    def _test_find_all_files_filepattern(self, filename_ptn, shouldfail=False):
-        filenames_matched_3 = Util.find_all_files(path='.',
-                                                  filename_pattern=filename_ptn)
+    def _test_find_all_files_filepattern(self, filename_ptn='*xml',
+                                         shouldfail=False, depthmax=3,
+                                         expected_files_relat=[_TESTDATA_XML1]):
+        filenames_matched_3 = Util.find_all_files(filename_pattern=filename_ptn,
+                                                  depth_max=depthmax)
         # This list should be [self._TESTDATA_XML1]
-        list_expected = [TestUtil._TEST_DIR + '/' + self._TESTDATA_XML1]
+        list_expected = [TestUtil._TEST_DIR + '/' + f for f in expected_files_relat]
+        print('list_expected: {}'.format(list_expected))
         common_list = list(set(filenames_matched_3).intersection(list_expected))
         
         if shouldfail:
@@ -103,7 +123,12 @@ class TestUtil(unittest.TestCase):
         self._test_find_all_files_filepattern('xml', True)
 
     def test_find_all_files_filepattern_asterisk(self):
-        self._test_find_all_files_filepattern('*xml*')
+        self._test_find_all_files_filepattern()
+
+    def test_find_all_files_unlimiteddepth(self):
+        '''Util.find_all_files with unlimited depth specified.'''
+        expected_files = [TestUtil._TESTDATA_XML1, 'prooving3.xml']
+        self._test_find_all_files_filepattern(depthmax=0, expected_files_relat=expected_files)
 
     def _test_replace_str_infile(self, match_str_regex='<version>.*</version>',
                                  new_str='<version>100000000000</version>',

@@ -16,14 +16,17 @@
 
 import fileinput
 import fnmatch
+import glob
 import os
 import re
+from subprocess import call
 import sys
 
 class Util():
 
     @staticmethod
-    def find_all_files(path='.', filename_pattern='*', ret_relativepath=False):
+    def find_all_files(path='.', filename_pattern='*', ret_relativepath=False,
+                       depth_max=3):
         '''
         http://stackoverflow.com/questions/1724693/find-a-file-in-python
         @param path: (str) Top level path to search.
@@ -32,15 +35,34 @@ class Util():
         @param ret_relativepath: If True, returned file paths will be in
                                  relative to the "path" arg.
                                  e.g. ['file1', 'currentdir/file2']
+        @param depth_max: If 0 traverse until the program ends
+                          (not tested well so NOT recommended).
+        @type depth_max: int
         @return: List of absolute path of the files.
         '''
         filepaths_matched = []
-        for root, dirnames, filenames in os.walk(path):
-            for filename in fnmatch.filter(filenames, filename_pattern):
-                if ret_relativepath:
-                    filepaths_matched.append(filename)
-                else:
-                    filepaths_matched.append(os.path.abspath(filename))
+        _filenames = []
+        if depth_max == 0:
+            print('when depth_max=0: Search path: {}, abspath: {}'.format(path, os.path.abspath(path)))
+            for root, dirnames, filenames in os.walk(path):
+                if len(filenames):
+                    _filenames.extend(filenames)
+                    print('_filenames when depth_max=0: {}'.format(_filenames))
+        else:
+            for depth in range(depth_max):
+                # Remove the last '/' to match files, not dir.
+                regex_depths =  ('*/' * depth)[:-1]
+                print('regex_depths: {}'.format(regex_depths))
+                _filenames.extend(glob.glob(regex_depths))
+                print('_filenames at the moment: {}'.format(_filenames))
+            
+        for filename in fnmatch.filter(_filenames, filename_pattern):
+            if os.path.isdir(filename):
+                continue            
+            if ret_relativepath:
+                filepaths_matched.append(filename)
+            else:
+                filepaths_matched.append(os.path.abspath(filename))
 
         print('[find_all_files]: matched files: {}'.format(filepaths_matched))
         return filepaths_matched
@@ -84,10 +106,10 @@ class Util():
     @staticmethod
     def replace_str_in_file(match_str_regex, new_str, target_path='.', target_filename='*'):
         '''
-        @param target_filename: Name of the file(s) to be manipulated.
-        @param target_path: Path under which target file(s) will be searched at. Full or relative path.
         @param match_str_regex: File pattern to match. You can use regular expression.
         @param new_str: String to be used.
+        @param target_path: Path under which target file(s) will be searched at. Full or relative path.
+        @param target_filename: Name of the file(s) to be manipulated.
         '''    
         # Find all files in sub-folders.
         files_found = Util.find_all_files(target_path, target_filename)
