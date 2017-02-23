@@ -22,7 +22,7 @@ import re
 from subprocess import call
 import sys
 
-class Util():
+class Util:
 
     @staticmethod
     def find_all_files(path='.', filename_pattern='*', ret_relativepath=False,

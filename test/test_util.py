@@ -25,14 +25,17 @@ from util import Util
 
 class TestUtil(unittest.TestCase):
     '''
-    All tests in this file are intended to be run from project top directory;
-    dir X at X/test/test_util.py
+    All tests in this file are intended to be run from the "test" directory;
+    i.e. ProjectTop
+         |-test
+           |-testdata1
+           |-test_util.py
     '''
 
     _pwd_beginning = os.path.abspath(os.path.curdir)
     _TESTDATA_XML1 = 'package1.xml'
     _LIST_TESTDATA1 = [_TESTDATA_XML1, 'prooving2.txt'] 
-    _TESTDATA_DIR = './test/testdata1'
+    _TESTDATA_DIR = './testdata1'
     _TEST_DIR = '/tmp/proovingground_of_mad_overlord'
     _LIST_TESTDATA1_ABS = [_TEST_DIR + '/' + elem
                            for elem in _LIST_TESTDATA1] 

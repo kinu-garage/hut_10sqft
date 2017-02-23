@@ -79,11 +79,31 @@ _test_androidpic_mv() {
     return $RESULT
 }
 
+test_replace_py(){
+    RESULT=1  # failure by default
+	
+	DIR_TEST=/tmp/proovingground_of_mad_overlord/replace_py
+	mkdir -p $DIR_TEST && cp -R ./testdata1 $DIR_TEST  
+	cd $DIR_TEST
+	
+	# Command to be tested.
+	replace_str Isaac Isao . *
+	
+	# Verify the command.
+	# Success if "grep -i isaac" returns empty result. 
+	if [[ $(grep -i -r isaac .) ]]; then $RESULT=1; else echo "[test_replace_py] Success."; fi
+
+    return $RESULT
+}
+
+#
+# This function works as "main" so all testcases should be defined above here.
+#
 _test_systems() {
 
     test_rm_dropbox_conflictfiles
-
     _test_androidpic_mv
+    #test_replace_py  # Disabled for now. Once repo name is changed this should be enabled.
     retval_test_commands=$?
     if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting."; exit 1; fi
     

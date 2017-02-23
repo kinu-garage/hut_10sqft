@@ -298,5 +298,8 @@ install_eclipse
 # Test some commands to check installation
 source $CI_SOURCE_PATH/test/test_install.sh
 source $CI_SOURCE_PATH/test/test_conf_bash.sh
-nosetests -vv --collect-only $CI_SOURCE_PATH  # Show which files are actually handled by nose.
-nosetests -d --exe -s -v -x $CI_SOURCE_PATH/test
+
+# 20170224 test/test_util.py is path dependent as of today. We have to move there to run the tests there.
+cd $CI_SOURCE_PATH/test
+nosetests -vv --collect-only  # Show which files are actually handled by nose.
+nosetests -d --exe -s -v -x
