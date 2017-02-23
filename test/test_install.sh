@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright 2017 Isaac I. Y. Saito.
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-function _test_commands() {
+_test_commands() {
     RESULT=0  # success by default
 
     bloom-release --help || RESULT=1
@@ -25,12 +25,12 @@ function _test_commands() {
 }
 
 # Need to test https://github.com/130s/compenv_ubuntu/issues/3
-function test_display_env() {
+test_display_env() {
     #TODO
     return
 }
 
-function _test_systems() {
+_test_systems() {
 
     _test_commands
     retval_test_commands=$?

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Copyright 2017 Isaac I. Y. Saito.
 #
@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-function test_rm_dropbox_conflictfiles() {
+test_rm_dropbox_conflictfiles() {
     RESULT=0  # success by default
     LIST_FILES_A=("aa.jpg"
 "bb (Case Conflict).png"
@@ -31,7 +31,7 @@ function test_rm_dropbox_conflictfiles() {
 
     # Run the target script.
     echo '[DEBUG] PATH='; echo $PATH
-    rm_dropbox_conflictfiles.bash
+    rm_dropbox_conflictfiles.sh
     ls -l
 
     # Verify if files are moved.
@@ -41,7 +41,7 @@ function test_rm_dropbox_conflictfiles() {
     return $RESULT
 }
 
-function _test_androidpic_mv() {
+_test_androidpic_mv() {
     RESULT=0  # success by default
     LIST_FILES_A=("aa.jpg" "bb.jpeg" "cc.png" "dd.mp4" "ee.mov")
     LIST_FILES_B=("ff.jpg" "g g.jpeg" "hh.mp4" "ii.mov")
@@ -79,7 +79,7 @@ function _test_androidpic_mv() {
     return $RESULT
 }
 
-function _test_systems() {
+_test_systems() {
 
     test_rm_dropbox_conflictfiles
 
