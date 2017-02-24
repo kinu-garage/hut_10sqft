@@ -1,4 +1,4 @@
-compenv_ubuntu
+10sqft_hut
 ==============
 
 Computer environment setup script for Ubuntu
