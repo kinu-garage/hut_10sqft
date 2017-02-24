@@ -1,2 +1,2 @@
 # This line needs to be absolute path.
-source ~/link/github_repos/130s/compenv_ubuntu/config/bash/rc_tork-kudu1.bash
+source ~/link/github_repos/130s/10sqft_hut/config/bash/rc_tork-kudu1.bash
