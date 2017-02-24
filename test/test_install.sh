@@ -1,6 +1,20 @@
-#!/bin/bash
+#!/bin/sh
 
-function _test_commands() {
+# Copyright 2017 Isaac I. Y. Saito.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+_test_commands() {
     RESULT=0  # success by default
 
     bloom-release --help || RESULT=1
@@ -11,12 +25,12 @@ function _test_commands() {
 }
 
 # Need to test https://github.com/130s/compenv_ubuntu/issues/3
-function test_display_env() {
+test_display_env() {
     #TODO
     return
 }
 
-function _test_systems() {
+_test_systems() {
 
     _test_commands
     retval_test_commands=$?
