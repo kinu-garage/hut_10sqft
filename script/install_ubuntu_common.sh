@@ -310,5 +310,5 @@ install_eclipse
 if [ "$RUN_TEST" == true ]; then
 	source $CI_SOURCE_PATH/test/test_overall_travis.sh
 	run_tests || retval_test_commands=$?
-	if [ $retval_test_commands -ne 0 ]; then echo '[install_ubuntu.sh][ERROR] Some test(s) did not pass. Exiting.'; return $retval_test_commands; fi
+	if [ $retval_test_commands -ne 0 ]; then echo '[install_ubuntu.sh][ERROR] Some test(s) did not pass. Exiting.'; exit $retval_test_commands; fi
 fi	

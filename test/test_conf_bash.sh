@@ -98,8 +98,12 @@ _test_replace_py(){
 	replace_str Isaac Isao . *
 	
 	# Verify the command.
-	# Success if "grep -i isaac" returns empty result. 
-	if [[ $(grep -i -r isaac .) ]]; then $RESULT=0; else echo "[test_replace_py] Failed."; fi
+	# Success if "grep -i isaac" returns empty result.
+	if [[ $(grep -i -r isaac .) ]]; then
+		echo "[test_replace_py] Failed. Supposedly replaced string is still found."
+	else
+		RESULT=0
+	fi
 
     return $RESULT
 }
@@ -111,7 +115,7 @@ run_test_conf_bash() {
 	retval_test_commands=0
     _test_rm_dropbox_conflictfiles || retval_test_commands=$?
     _test_androidpic_mv || retval_test_commands=$?
-    #_test_replace_py  # Once overall testsuite passes include this testcase. 
+    _test_replace_py || retval_test_commands=$?
     if [ $retval_test_commands -ne 0 ]; then
     	echo "Error: not all commands are installed yet. Exiting."
     else
