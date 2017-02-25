@@ -20,7 +20,7 @@ import tarfile
 import unittest
 import urllib
 
-from util import Util
+from hut_10sqft.util import Util
 
 
 class TestUtil(unittest.TestCase):

@@ -1,4 +1,4 @@
-10sqft_hut
+hut_10sqft
 ==============
 
 Computer environment setup script for Ubuntu

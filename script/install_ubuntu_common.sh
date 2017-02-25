@@ -29,7 +29,7 @@ set -x
 echo "[DEBUG] ls: "; ls
 echo "[DEBUG] REPOSITORY_NAME=$REPOSITORY_NAME"
 mkdir -p ~/$DIR_ACTUALHOSTS_LINK
-ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/10sqft_hut/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/10sqft_hut.
+ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/hut_10sqft/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/hut_10sqft.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
@@ -121,7 +121,7 @@ ubuntu_set_autostart() {
     AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
     AUTOSTART_CONFIGS_DIR=.config/autostart
     for i in $AUTOSTART_CONFIGS; do
-        wget https://raw.githubusercontent.com/130s/10sqft_hut/master/config/$i
+        wget https://raw.githubusercontent.com/130s/hut_10sqft/master/config/$i
     done
     if [ ! -d ~/$AUTOSTART_CONFIGS_DIR ]; then mkdir -p ~/$AUTOSTART_CONFIGS_DIR; fi
     mv $AUTOSTART_CONFIGS ~/.config/autostart
@@ -239,7 +239,7 @@ ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc academicDoc
 ubuntu_set_autostart
 # terminal config
 cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
-wget https://raw.githubusercontent.com/130s/10sqft_hut/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
+wget https://raw.githubusercontent.com/130s/hut_10sqft/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
 cd ~
@@ -273,7 +273,7 @@ ssh_github_setup
 source ~/.bashrc
 
 # Setup emacs
-##cd ~ && wget https://raw.githubusercontent.com/130s/10sqft_hut/master/dot_emacs_default && mv dot_emacs_default .emacs
+##cd ~ && wget https://raw.githubusercontent.com/130s/hut_10sqft/master/dot_emacs_default && mv dot_emacs_default .emacs
 cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup display http://askubuntu.com/a/202481/24203

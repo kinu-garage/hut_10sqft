@@ -24,7 +24,7 @@ _test_commands() {
     return $RESULT
 }
 
-# Need to test https://github.com/130s/10sqft_hut/issues/3
+# Need to test https://github.com/130s/hut_10sqft/issues/3
 test_display_env() {
     #TODO
     return

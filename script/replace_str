@@ -2,7 +2,7 @@
 
 import argparse
 
-from util.Util import replace_str_in_file
+from hut_10sqft.util.Util import replace_str_in_file
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Replace a line of string in all the files found at the folder tree in the given path.')
