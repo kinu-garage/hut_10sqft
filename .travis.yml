@@ -21,3 +21,5 @@ before_script:
 script:
   - ./script/install_ubuntu_common.sh
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
+after_script:
+  - ./test/test_overall_travis.sh

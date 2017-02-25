@@ -70,7 +70,11 @@ class TestUtil(unittest.TestCase):
         # Copy testdata into /tmp folders.
         tgz_filename = TestUtil._TEST_DIR + "/testdata.tar.gz"
         with tarfile.open(tgz_filename, "w:gz") as tgz_file:
-            tgz_file.add(TestUtil._TESTDATA_DIR, arcname=os.path.basename(''))
+            try:
+                tgz_file.add(TestUtil._TESTDATA_DIR, arcname=os.path.basename(''))
+            except OSError as e: # [Errno 2] No such file or directory: './testdata1'
+                print("OSError; Make sure to run nosetests from 'test' dir.")
+                raise e
             tgz_file.close()
         os.chdir(TestUtil._TEST_DIR)
         with tarfile.open(tgz_filename, "r:gz") as tgz_file_dest:

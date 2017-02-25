@@ -83,15 +83,17 @@ test_replace_py(){
     RESULT=1  # failure by default
 	
 	DIR_TEST=/tmp/proovingground_of_mad_overlord/replace_py
-	mkdir -p $DIR_TEST && cp -R ./testdata1 $DIR_TEST  
+	# Unlike test_util.py, this testcase will be run from the top directory
+	# of the repo so we still need test folder's path passed. 
+	mkdir -p $DIR_TEST && cp -R ./test/testdata1 $DIR_TEST
 	cd $DIR_TEST
 	
-	# Command to be tested.
+	# Command to be tested. Replace string "Isaac" with "Isao"
 	replace_str Isaac Isao . *
 	
 	# Verify the command.
 	# Success if "grep -i isaac" returns empty result. 
-	if [[ $(grep -i -r isaac .) ]]; then $RESULT=1; else echo "[test_replace_py] Success."; fi
+	if [[ $(grep -i -r isaac .) ]]; then $RESULT=0; else echo "[test_replace_py] Failed."; fi
 
     return $RESULT
 }
@@ -103,7 +105,7 @@ _test_systems() {
 
     test_rm_dropbox_conflictfiles
     _test_androidpic_mv
-    #test_replace_py  # Disabled for now. Once repo name is changed this should be enabled.
+    test_replace_py
     retval_test_commands=$?
     if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting."; exit 1; fi
     
