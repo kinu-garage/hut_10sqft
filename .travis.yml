@@ -11,13 +11,14 @@ notifications:
     recipients:
       - gm130s@gmail.com
 env:
+  global:
+    - export DISPLAY=:99.0
+    - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
+    - export CI_SOURCE_PATH="$TRAVIS_BUILD_DIR"
   matrix:
     - HOSTNAME=130s-serval
     - HOSTNAME=130s-t440s
     - HOSTNAME=tork-kudu1
-before_script:
-  - export DISPLAY=:99.0
-  - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
 install:
   - ./script/install_ubuntu_common.sh
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash

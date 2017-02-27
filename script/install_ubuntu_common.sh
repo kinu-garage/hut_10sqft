@@ -14,7 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export CI_SOURCE_PATH=$(pwd)
+if [ -z $CI_SOURCE_PATH ]; then
+	echo 'Env var CI_SOURCE_PATH needs set at the top dir of this repo/package. Exiting.'
+	exit 1	
+fi
+
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
