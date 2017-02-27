@@ -77,7 +77,7 @@ install_eclipse() {
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
     (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Skipping Eclipse installation." -1
     sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
-    cd ~  # At the end of whatever the operation, we always go back to home.
+    cd $CI_SOURCE_PATH  # At the end of whatever the operation, we always go back to home.
 }
 
 #######################################
