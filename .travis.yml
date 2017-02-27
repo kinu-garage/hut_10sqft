@@ -18,8 +18,8 @@ env:
 before_script:
   - export DISPLAY=:99.0
   - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
-script:
+install:
   - ./script/install_ubuntu_common.sh
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
-after_script:
-  - ./test/test_overall_travis.sh
+script:
+  - ./test/test_overall_travis.sh  # Test might have to be run BEFORE any after_* section. See https://docs.travis-ci.com/user/customizing-the-build#Breaking-the-Build
