@@ -62,7 +62,7 @@ class TestUtil(unittest.TestCase):
             print('Before removing dir {}: {}'.format(TestUtil._TEST_DIR, os.listdir(TestUtil._TEST_DIR)))
             shutil.rmtree(TestUtil._TEST_DIR)
         os.makedirs(TestUtil._TEST_DIR)
-        print('Current dir: {}\nAfter recreating dir {}'.format(TestUtil._pwd_beginning, TestUtil._TEST_DIR))
+        print('Current dir: {}'.format(os.getcwd()))
 
         if not os.path.exists(TestUtil._TEST_DIR):
             raise OSError('Directory {} is not available.'.format(TestUtil._TEST_DIR))
