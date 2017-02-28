@@ -22,6 +22,7 @@ fi
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
+RUN_TEST=${2-"false"}
 DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
 export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 PKG_TO_INSTALL=""  # Initializing.
@@ -298,3 +299,12 @@ sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 # DL and put Eclipse binary in PATH
 install_oraclejava
 install_eclipse
+
+# Run test if specified so.
+# Ideally this should be separatedly defined, but at the time of writing I
+# hadn't come up with a way to share the env vars so that there's no way from
+# the test script to access the env vars that are set within this script.
+# https://github.com/130s/hut_10sqft/pull/130#issuecomment-282947243
+if [ "$RUN_TEST" == true ]; then
+	$CI_SOURCE_PATH/test/test_overall_travis.sh
+fi	
