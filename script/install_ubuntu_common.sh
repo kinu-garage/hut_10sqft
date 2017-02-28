@@ -243,7 +243,9 @@ ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc academicDoc
 ## App configs
 ubuntu_set_autostart
 # terminal config
-cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
+DIR_TERMINAL_CONF="~/.gconf/apps"
+if [ -d "$DIR_TERMINAL_CONF" ]; then mkdir "$DIR_TERMINAL_CONF"; fi 
+cd "$DIR_TERMINAL_CONF" && mv gnome-terminal gnome-terminal.default
 wget https://raw.githubusercontent.com/130s/hut_10sqft/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
@@ -306,5 +308,7 @@ install_eclipse
 # the test script to access the env vars that are set within this script.
 # https://github.com/130s/hut_10sqft/pull/130#issuecomment-282947243
 if [ "$RUN_TEST" == true ]; then
-	$CI_SOURCE_PATH/test/test_overall_travis.sh
+	source $CI_SOURCE_PATH/test/test_overall_travis.sh
+	run_tests || retval_test_commands=$?
+	if [ $retval_test_commands -ne 0 ]; then echo '[install_ubuntu.sh][ERROR] Some test(s) did not pass. Exiting.'; return $retval_test_commands; fi
 fi	
