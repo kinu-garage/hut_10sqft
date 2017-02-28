@@ -105,7 +105,7 @@ _test_systems() {
 
     test_rm_dropbox_conflictfiles
     _test_androidpic_mv
-    test_replace_py
+    #test_replace_py
     retval_test_commands=$?
     if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting."; exit 1; fi
     
