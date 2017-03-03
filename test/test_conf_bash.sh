@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e  # TODO Implement something more robust. See http://stackoverflow.com/a/185900/577001
+
 _test_rm_dropbox_conflictfiles() {
     RESULT=0  # success by default
     LIST_FILES_A=("aa.jpg"
