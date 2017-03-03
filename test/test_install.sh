@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Copyright 2017 Isaac I. Y. Saito.
 #
@@ -24,22 +24,22 @@ _test_commands() {
     return $RESULT
 }
 
-# Need to test https://github.com/130s/10sqft_hut/issues/3
+# Need to test https://github.com/130s/hut_10sqft/issues/3
 test_display_env() {
     #TODO
     return
 }
 
-_test_systems() {
+run_test_install() {
+	retval_test_commands=0
 
-    _test_commands
-    retval_test_commands=$?
-    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; exit 1; fi
-    
-    if [ ! -z $MSG_ENDROLL ]; then printf $MSG_ENDROLL; else echo "No accumulated error messages."; fi
-
-    test_display_env
+    _test_commands || retval_test_commands=$?
+    test_display_env || retval_test_commands=$?
+    if [ $retval_test_commands -ne 0 ]; then echo "Error: not all commands are installed yet. Exiting.o"; fi    
+    if [ ! -z "$MSG_ENDROLL" ]; then printf "$MSG_ENDROLL"; else echo "No accumulated error messages."; fi
+    return $retval_test_commands
 }
 
 # Here's kindf of main function.
-_test_systems
+# 201703 Because now this "main" function is intended to be called by another script, we don't call this here anymore. 
+# run_test_install

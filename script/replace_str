@@ -2,7 +2,7 @@
 
 import argparse
 
-from util.Util import replace_str_in_file
+from hut_10sqft.util import Util
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Replace a line of string in all the files found at the folder tree in the given path.')
@@ -12,4 +12,4 @@ if __name__ == "__main__":
     parser.add_argument('target_filename', default='package.xml', help='Name of the file(s) to be manipulated.')
     args = parser.parse_args()
 
-    replace_str_in_file(args.target_filename, args.target_path, args.match_str_regex, args.new_str)
+    Util.replace_str_in_file(args.target_filename, args.target_path, args.match_str_regex, args.new_str)

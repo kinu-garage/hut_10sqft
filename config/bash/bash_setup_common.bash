@@ -32,10 +32,10 @@ androidpic_mv() {
 
 # 3/3/2014 to include rm_dropbox_conflictfiles.bash
 #export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
-export PATH=~/link/github_repos/130s/10sqft_hut/script:$PATH
-export PYTHONPATH=~/link/github_repos/130s/10sqft_hut/src:$PYTHONPATH
+export PATH=~/link/github_repos/130s/hut_10sqft/script:$PATH
+export PYTHONPATH=~/link/github_repos/130s/hut_10sqft/src:$PYTHONPATH
 
-# 6/9/2016 Workaround for tmux issue https://github.com/130s/10sqft_hut/issues/3
+# 6/9/2016 Workaround for tmux issue https://github.com/130s/hut_10sqft/issues/3
 export DISPLAY=:0
 
 # END: commands to be run regardless interactiveness.

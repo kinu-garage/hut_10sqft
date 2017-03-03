@@ -1,2 +1,2 @@
 # This line needs to be absolute path.
-source ~/link/github_repos/130s/10sqft_hut/config/bash/rc_t440s.bash
+source ~/link/github_repos/130s/hut_10sqft/config/bash/rc_t440s.bash

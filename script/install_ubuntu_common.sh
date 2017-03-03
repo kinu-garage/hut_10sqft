@@ -14,10 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-export CI_SOURCE_PATH=$(pwd)
+if [ -z $CI_SOURCE_PATH ]; then
+	echo 'Env var CI_SOURCE_PATH needs set at the top dir of this repo/package. Exiting.'
+	exit 1	
+fi
+
 DIST_TRUSTY="Trusty"
 DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
+RUN_TEST=${2-"false"}
 DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
 export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 PKG_TO_INSTALL=""  # Initializing.
@@ -29,7 +34,7 @@ set -x
 echo "[DEBUG] ls: "; ls
 echo "[DEBUG] REPOSITORY_NAME=$REPOSITORY_NAME"
 mkdir -p ~/$DIR_ACTUALHOSTS_LINK
-ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/10sqft_hut/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/10sqft_hut.
+ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/hut_10sqft/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/hut_10sqft.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
@@ -77,7 +82,7 @@ install_eclipse() {
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
     (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Skipping Eclipse installation." -1
     sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
-    cd ~  # At the end of whatever the operation, we always go back to home.
+    cd $CI_SOURCE_PATH  # At the end of whatever the operation, we always go back to home.
 }
 
 #######################################
@@ -121,7 +126,7 @@ ubuntu_set_autostart() {
     AUTOSTART_CONFIGS='gnome-system-monitor.desktop indicator-multiload.desktop'
     AUTOSTART_CONFIGS_DIR=.config/autostart
     for i in $AUTOSTART_CONFIGS; do
-        wget https://raw.githubusercontent.com/130s/10sqft_hut/master/config/$i
+        wget https://raw.githubusercontent.com/130s/hut_10sqft/master/config/$i
     done
     if [ ! -d ~/$AUTOSTART_CONFIGS_DIR ]; then mkdir -p ~/$AUTOSTART_CONFIGS_DIR; fi
     mv $AUTOSTART_CONFIGS ~/.config/autostart
@@ -238,8 +243,10 @@ ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc academicDoc
 ## App configs
 ubuntu_set_autostart
 # terminal config
-cd ~/.gconf/apps && mv gnome-terminal gnome-terminal.default
-wget https://raw.githubusercontent.com/130s/10sqft_hut/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
+DIR_TERMINAL_CONF="~/.gconf/apps"
+if [ -d "$DIR_TERMINAL_CONF" ]; then mkdir "$DIR_TERMINAL_CONF"; fi 
+cd "$DIR_TERMINAL_CONF" && mv gnome-terminal gnome-terminal.default
+wget https://raw.githubusercontent.com/130s/hut_10sqft/master/config/gnome-terminal.config.tgz && tar xfvz gnome-terminal.config.tgz
 
 # Setup terminal
 cd ~
@@ -273,13 +280,13 @@ ssh_github_setup
 source ~/.bashrc
 
 # Setup emacs
-##cd ~ && wget https://raw.githubusercontent.com/130s/10sqft_hut/master/dot_emacs_default && mv dot_emacs_default .emacs
+##cd ~ && wget https://raw.githubusercontent.com/130s/hut_10sqft/master/dot_emacs_default && mv dot_emacs_default .emacs
 cp $CI_SOURCE_PATH/config/emacs/$EMACS_CONFIG_NAME ~/.emacs
 
 # Setup display http://askubuntu.com/a/202481/24203
 if [ -e ~/.dbus ]; then
     if [ -z ${TRAVIS} ]; then sudo chown -R $USER_UBUNTU:$USER_UBUNTU ~/.dbus;  # If this script does NOT run on Travis CI, we'll use pre-defined user.
-    else sudo chown -R $USER_CI:$USER_CI ~/.dbus;
+    else sudo c	wn -R $USER_CI:$USER_CI ~/.dbus;
     fi
 fi
 
@@ -295,11 +302,13 @@ sudo ln -sf $CI_SOURCE_PATH/config/ros/cron.daily_ros /etc/cron.daily
 install_oraclejava
 install_eclipse
 
-# Test some commands to check installation
-source $CI_SOURCE_PATH/test/test_install.sh
-source $CI_SOURCE_PATH/test/test_conf_bash.sh
-
-# 20170224 test/test_util.py is path dependent as of today. We have to move there to run the tests there.
-cd $CI_SOURCE_PATH/test
-nosetests -vv --collect-only  # Show which files are actually handled by nose.
-nosetests -d --exe -s -v -x
+# Run test if specified so.
+# Ideally this should be separatedly defined, but at the time of writing I
+# hadn't come up with a way to share the env vars so that there's no way from
+# the test script to access the env vars that are set within this script.
+# https://github.com/130s/hut_10sqft/pull/130#issuecomment-282947243
+if [ "$RUN_TEST" == true ]; then
+	source $CI_SOURCE_PATH/test/test_overall_travis.sh
+	run_tests || retval_test_commands=$?
+	if [ $retval_test_commands -ne 0 ]; then echo '[install_ubuntu.sh][ERROR] Some test(s) did not pass. Exiting.'; return $retval_test_commands; fi
+fi	
