@@ -51,8 +51,12 @@ class TestUtil(unittest.TestCase):
         print('tearDown: chdir-ed to {}'.format(TestUtil._pwd_beginning))
         #os.chdir(self.pwd_beginning)
         os.chdir(TestUtil._pwd_beginning)
-        
-    def _setup_testdata(self):
+
+    def _setup_testdata_find_replace(self):
+        '''
+        Prepare test data for { find_all_files, replaceAll, replace } methods.
+        '''
+
         # this is where testdata files are. So do this every time.
         os.chdir(TestUtil._pwd_beginning)
 
@@ -91,6 +95,9 @@ class TestUtil(unittest.TestCase):
 #                shutil.copy(file_name_longerpath, TestUtil._TEST_DIR)  #TODO this has to handle copying folders in addtion to files. 
 
         print('After copying files into {}: {}\nCurrent dir: {}'.format(TestUtil._TEST_DIR, os.listdir(TestUtil._TEST_DIR), os.path.abspath(os.path.curdir)))
+
+    def _setup_testdata(self):
+        self._setup_testdata_find_replace()
 
     def test_find_all_files_noarg_absolutepath(self):
         # Test without argument passed to find_all_files.
