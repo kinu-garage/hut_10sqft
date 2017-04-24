@@ -22,6 +22,11 @@ androidpic_mv() {
   for file_extension in "${FILE_EXTENSIONS[@]}"; do
       mv -n ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.$file_extension ${TMP_FOLDER_MIO};
   done
+
+  # Address https://github.com/130s/hut_10sqft/issues/58
+  find -name '*.png' -print0 | xargs -0 -r mogrify -format jpg
+  rm *.png
+
   counter=0
   for f in *; do mv "$f" "${f// /_}"; ((counter++)); done;  # Replacing blank space with underscore.
   mv -n * ~/link/Current/"${TARGET_FOLDER}" && echo "#${counter} files moved to ~/link/Current/${TARGET_FOLDER}";

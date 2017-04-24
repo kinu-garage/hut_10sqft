@@ -49,8 +49,9 @@ _test_androidpic_mv() {
     fi
 
     RESULT=0  # success by default
-    LIST_FILES_A=("aa.jpg" "bb.jpeg" "cc.png" "dd.mp4" "ee.mov")
-    LIST_FILES_B=("ff.jpg" "g g.jpeg" "hh.mp4" "ii.mov")
+    LIST_FILES_A=("aa.jpg" "bb.jpeg" "cc.mp4" "dd.mov")
+    LIST_FILES_B=("ee.jpg" "f f.jpeg" "gg.mp4" "hh.mov")
+    LIST_FILES_C=( "jj.png" "k k.png")
 
     # Create folders to mimic real environment
     TARGET_FOLDER=`date -d "$D" '+%m'`;
@@ -66,6 +67,7 @@ _test_androidpic_mv() {
     cd ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio
     for file in "${LIST_FILES_A[@]}"; do touch "$file"; done
     for file in "${LIST_FILES_B[@]}"; do touch "$file"; done  # $file needs to be surrounded by double-quote in order for a file name with spaces to be properly touched.
+    mv ${TRAVIS_BUILD_DIR}/test/testdata2/*.png .
 
     $CHECKED_FUNC
 
@@ -74,10 +76,16 @@ _test_androidpic_mv() {
     echo "Files in the target folder:"; ls -al
     i=0
     # Combine 2 arrays of file names.
-    # "g g.jpeg" needs to be renamed as "g_g.jpeg" due to the algorighm of androidpic_mv
-    for elem in "${LIST_FILES_A[@]}"; do LIST_FILES_ALL[i++]=$elem; done
+    # "f f.jpeg" needs to be renamed as "g_g.jpeg" due to the algorighm of androidpic_mv
+    for elem in "${LIST_FILES_A[@]}"; do
+        LIST_FILES_ALL[i++]=$elem
+    done
     for elem in "${LIST_FILES_B[@]}"; do
-        if [ "$elem" = "g g.jpeg" ]; then elem="g_g.jpeg"; fi
+        if [ "$elem" = "f f.jpeg" ]; then elem="f_f.jpeg"; fi
+        LIST_FILES_ALL[i++]=$elem
+    done
+    for elem in "${LIST_FILES_C[@]}"; do
+        if [[ $elem == *.png ]]; then mv "$elem" "${elem%.png}.jpg"; fi  # .png should be converted to .jpg
         LIST_FILES_ALL[i++]=$elem
     done
     for f in "${LIST_FILES_ALL[@]}"; do
