@@ -42,11 +42,11 @@ _test_rm_dropbox_conflictfiles() {
 }
 
 _test_androidpic_mv() {
-	CHECKED_FUNC='androidpic_mv'
-	type -t "$CHECKED_FUNC"
-	if [ $? -ne 0 ]; then
-		echo "[ERROR] Checked function '$CHECKED_FUNC' not found."; return 1;
-	fi
+    CHECKED_FUNC='androidpic_mv'
+    type -t "$CHECKED_FUNC"
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] Checked function '$CHECKED_FUNC' not found."; return 1;
+    fi
 
     RESULT=0  # success by default
     LIST_FILES_A=("aa.jpg" "bb.jpeg" "cc.png" "dd.mp4" "ee.mov")
@@ -56,10 +56,9 @@ _test_androidpic_mv() {
     TARGET_FOLDER=`date -d "$D" '+%m'`;
     mkdir -p ~/data/Dropbox/Camera\ Uploads/ ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio ~/link/Current/"${TARGET_FOLDER}";
     # Populate dummy image files
-    cd ~/data/Dropbox/Camera\ Uploads
-    for file in "${LIST_FILES_A[@]}"; do touch "$file"; done  # $file needs to be surrounded by double-quote in order for a file name with spaces to be properly touched.
     cd ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio
-    for file in "${LIST_FILES_B[@]}"; do touch "$file"; done
+    for file in "${LIST_FILES_A[@]}"; do touch "$file"; done
+    for file in "${LIST_FILES_B[@]}"; do touch "$file"; done  # $file needs to be surrounded by double-quote in order for a file name with spaces to be properly touched.
 
     $CHECKED_FUNC
 

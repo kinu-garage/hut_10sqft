@@ -10,15 +10,13 @@ DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
 androidpic_mv() {
-  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
-  FILE_EXTENSIONS=("jpg" "jpeg" "png" "mp4" "mov")
-  for file_extension in "${FILE_EXTENSIONS[@]}"; do
-      mv ~/data/Dropbox/Camera\ Uploads/*.$file_extension ~/link/Current/"${TARGET_FOLDER}";  # For some reason mv command does not like a whole directory as a variable, leading to this error http://stackoverflow.com/questions/26519301/bash-error-renaming-files-with-spaces-mv-target-is-not-a-directory
-  done
+  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This sets the month folder as the copy destination. Requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  TMP_FOLDER_MIO='/tmp/mvimgfrommio'
+  FILE_EXTENSIONS=("jpg" "jpeg" "png" "mp4" "mov")  # Target file extensions for mv commands.
 
   # We like to discern files from Mio's folder so rename, simply just replacing whitespace with underscore.
-  TMP_FOLDER_MIO='/tmp/mvimgfrommio'
-  mkdir ${TMP_FOLDER_MIO};
+
+  if [ ! -d "${TMP_FOLDER_MIO}" ]; then mkdir ${TMP_FOLDER_MIO}; fi
   cd ${TMP_FOLDER_MIO};
   ##cp ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.jpg ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio/*.mp4 ~/link/Current/${TARGET_FOLDER}/;
   for file_extension in "${FILE_EXTENSIONS[@]}"; do
