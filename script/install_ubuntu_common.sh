@@ -72,7 +72,18 @@ tmux_setup() {
     ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
 
-install_eclipse() {
+#######################################
+# We decided to stick to Eclipse Luna https://github.com/130s/hut_10sqft/issues/66,
+# and its binary is shared on Dropbox so that there's no need to fetch tarball.
+# Once we'll choose to use newer version then we can utilize the logic here agian. Until then, this method shouldn't be used.
+# Globals:
+#   (None)
+# Arguments:
+#   (None)
+# Returns:
+#   (None)
+#######################################
+_install_eclipse_web() {
     TARBALL_ECLIPSE_URL=http://eclipse.mirror.rafal.ca/technology/epp/downloads/release/mars/2/eclipse-cpp-mars-2-linux-gtk-x86_64.tar.gz  # This needs to be updated whenever we want to use new version.
     TARBALL_ECLIPSE_NAME="${TARBALL_ECLIPSE_URL##*/}"
     NICKNAME_ECLIPSE="${TARBALL_ECLIPSE_NAME%.*}"
@@ -82,6 +93,14 @@ install_eclipse() {
     cd $TEMPDIR_ECLIPSE_DL && tar xfvz $TARBALL_ECLIPSE_NAME
     (sudo mkdir /usr/share/eclipse && sudo mv $TEMPDIR_ECLIPSE_DL/eclipse /usr/share/eclipse/$NICKNAME_ECLIPSE) || error $LINENO "Failed to create eclipse folder under /usr/share. Skipping Eclipse installation." -1
     sudo ln -sf /usr/share/eclipse/$NICKNAME_ECLIPSE/eclipse /bin/eclipse || error $LINENO "Failed to create eclipse symlink. Skipping Eclipse installation." -1
+    cd $CI_SOURCE_PATH  # At the end of whatever the operation, we always go back to home.
+}
+
+install_eclipse() {
+    PATH_ECLIPSE_BIN="/usr/bin"
+
+    # Even though path under Dropbox might not exist, especially upon new installation, it's ok as long as symlink is created and the data will be synced later.
+    (sudo ln -sf ~/data/Dropbox/pg/eclipse/eclipse_luna/eclipse ${PATH_ECLIPSE_BIN}/eclipse) || error $LINENO "Failed to create eclipse symlink ${PATH_ECLIPSE_BIN}. Skipping Eclipse installation." -1
     cd $CI_SOURCE_PATH  # At the end of whatever the operation, we always go back to home.
 }
 
