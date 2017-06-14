@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*- 
 
 # Copyright 2017 Isaac I. Y. Saito.
 #
@@ -97,6 +98,7 @@ class TestUtil(unittest.TestCase):
         print('After copying files into {}: {}\nCurrent dir: {}'.format(TestUtil._TEST_DIR, os.listdir(TestUtil._TEST_DIR), os.path.abspath(os.path.curdir)))
 
     def _setup_testdata(self):
+        '''backward compatibility only'''
         self._setup_testdata_find_replace()
 
     def test_find_all_files_noarg_absolutepath(self):
@@ -179,6 +181,22 @@ class TestUtil(unittest.TestCase):
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
+
+    def test_conv_pngtojpg(self):
+        '''
+        '''
+        LIST_FILES_A = ["aa.jpg", "bb.png", "cc (conflicted copy).png", "dd 日本語 space.png", "日本語 ee .png"]
+
+        # Create a dummy folder to mimic real environment
+        FOLDER_TEST = "~/data/Dropbox/tmp";
+        mkdir -p $FOLDER_TEST && cd $FOLDER_TEST
+        # Populate dummy image files
+        for f in "${LIST_FILES_A[@]}";  # http://stackoverflow.com/questions/9084257/bash-array-with-spaces-in-elements
+        do
+            touch "$f"
+        done
+        # TODO impl
+
 
 if __name__ == '__main__':
     unittest.main()
