@@ -184,7 +184,12 @@ class TestUtil(unittest.TestCase):
     def test_conv_pngtojpg(self):
         '''
         '''
-        LIST_FILES_A = ["aa.jpg", "bb.png", "cc (conflicted copy).png", "dd ÆüËÜ¸ì space.png", "ÆüËÜ¸ì ee .png"]
+        LIST_FILES_A = ["aa.jpg",
+                        "bb.png",
+                        "cc (conflicted copy).png",
+                        "dd æ—¥æœ¬èªž space.png",
+                        "æ—¥æœ¬èªžã€€ee .png"  # Includes a multi-byte space char.
+                       ]
 
         # Create a dummy folder to mimic real environment
         FOLDER_TEST = "~/data/Dropbox/tmp";
