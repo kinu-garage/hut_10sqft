@@ -17,6 +17,7 @@
 
 import os
 import shutil
+from subprocess import call, Popen, PIPE
 import tarfile
 import unittest
 import urllib
@@ -177,7 +178,6 @@ class TestUtil(unittest.TestCase):
 
     def _test_measure_performance(self):
         '''Prefixed since this testcase is NOT functional yet. '''
-        from subprocess import Popen, PIPE
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
@@ -194,12 +194,11 @@ class TestUtil(unittest.TestCase):
 
         # Create a dummy folder to mimic real environment
         FOLDER_TEST = "~/data/Dropbox/tmp";
-        mkdir -p $FOLDER_TEST && cd $FOLDER_TEST
+        if not os.path.exists(FOLDER_TEST):
+            os.makedirs(FOLDER_TEST)
         # Populate dummy image files
-        for f in "${LIST_FILES_A[@]}";  # http://stackoverflow.com/questions/9084257/bash-array-with-spaces-in-elements
-        do
-            touch "$f"
-        done
+        for f in LIST_FILES_A:
+            call('touch {}'.format(f))
         # TODO impl
 
 
