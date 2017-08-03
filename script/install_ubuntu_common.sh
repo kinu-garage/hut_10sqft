@@ -193,6 +193,7 @@ install_oraclejava() {
     # - http://askubuntu.com/a/651045/24203
     # - http://superuser.com/a/939651/106974
     ## sudo add-apt-repository ppa:webupd8team/java
+    ## apt-get update
     ## apt-get install -y oracle-java8-installer
     ## sudo apt-get install oracle-java8-set-default
 }
