@@ -98,6 +98,7 @@ install_eclipse() {
 #   (None)
 #######################################
 ssh_github_setup() {
+    echo 'ssh keys must be already present. Key generation is not automated to avoid security breach.'
     SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
     SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
     FILE_PATH_SSH_KEY_PUB=~/data/Dropbox/app/ssh/$SSH_KEY_PUB
@@ -255,7 +256,7 @@ EMACS_CONFIG_NAME=  # Initializing.
 case $HOSTNAME in
     "130s-p50")
 	BASH_CONFIG_NAME="bashrc_130s-p50"
-	EMACS_CONFIG_NAME="emacs_130s-p50.el"
+	EMACS_CONFIG_NAME="emacs_130s-serval.el"
 
         SSH_KEY_PRV="id_rsa_130s-p50"
         SSH_KEY_PUB="id_rsa_130s-p50.pub"
