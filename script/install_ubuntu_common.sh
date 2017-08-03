@@ -72,6 +72,27 @@ tmux_setup() {
     ln -sf $CI_SOURCE_PATH/conf/$FILENAME_TMUX_CONF_DEFAULT ~/$FILENAME_TMUX_CONF_TOBE_READ
 }
 
+#######################################
+# Create symlinks for .git{config, ignore_global} files under "~/".
+# Return 1 if the symlink fails.
+#
+# Globals:
+#   (None)
+# Arguments:
+#   (None)
+# Returns:
+#   None if success. 1 if symlink failure.
+#######################################
+setup_gitfiles() {
+    cd ~
+    ln -sf $CI_SOURCE_PATH/config/dot_gitconfig ~/.gitconfig
+    ln -sf $CI_SOURCE_PATH/config/dot_gitignore_global ~/.gitignore_global
+
+    # Test and return result.
+    if [[ $(find ~/.gitconfig -xtype l) ]]; then return 1; fi
+    if [[ $(find ~/.gitignore_global -xtype l) ]]; then return 1; fi
+}
+
 install_eclipse() {
     TARBALL_ECLIPSE_URL=http://eclipse.mirror.rafal.ca/technology/epp/downloads/release/mars/2/eclipse-cpp-mars-2-linux-gtk-x86_64.tar.gz  # This needs to be updated whenever we want to use new version.
     TARBALL_ECLIPSE_NAME="${TARBALL_ECLIPSE_URL##*/}"
@@ -199,9 +220,9 @@ sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main"
 wget http://packages.ros.org/ros.key -O - | sudo apt-key add -
 
 # Setup git account
-cd ~
-ln -sf ./config/dot_gitconfig ~/.gitconfig
-ln -sf ./dot_gitignore_global ~/.gitignore_global
+setup_gitfiles
+retval_setup_gitfiles=$?
+if [ $retval_setup_gitfiles -ne 0 ]; then echo "Error: ~/.git* symlinks might have not been installed correctly. Skipping."; fi
 
 # Random tools
 PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree evince gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
@@ -232,14 +253,15 @@ if [ $retval_install_docker -ne 0 ]; then echo "Error: docker might have not bee
 # Setup initial directory structure
 cd ~
 rm -fr Documents Music Pictures Public Templates Videos # These folders are never used.
-mkdir -p data
-mkdir link && cd link
-ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/ Current
-ln -sf ~/data/Dropbox/GoogleDrive/1.TORK_Internal TORK
+if [ ! -d ~/data ]; then mkdir -p ~/data; fi
+if [ ! -d ~/link ]; then mkdir ~/link; fi
+cd link
+ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
 ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos
-ln -sf ~/data/Dropbox/ROS ROS
-ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s 30y-130s
-ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc academicDoc
+ln -sf ~/data/Dropbox/ROS .
+ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s .
+ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc .
+ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos .
 
 ## App configs
 ubuntu_set_autostart
