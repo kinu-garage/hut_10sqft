@@ -254,7 +254,8 @@ if [ $retval_install_docker -ne 0 ]; then echo "Error: docker might have not bee
 cd ~
 rm -fr Documents Music Pictures Public Templates Videos # These folders are never used.
 mkdir -p data
-mkdir link && cd link
+mkdir link
+cd link
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
 ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos
 ln -sf ~/data/Dropbox/ROS .
