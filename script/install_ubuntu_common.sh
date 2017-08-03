@@ -253,6 +253,13 @@ cd ~
 BASH_CONFIG_NAME=  # Initializing.
 EMACS_CONFIG_NAME=  # Initializing.
 case $HOSTNAME in
+    "130s-p50")
+	BASH_CONFIG_NAME="bashrc_130s-p50"
+	EMACS_CONFIG_NAME="emacs_130s-p50.el"
+
+        SSH_KEY_PRV="id_rsa_130s-p50"
+        SSH_KEY_PUB="id_rsa_130s-p50.pub"
+	;;
     "130s-serval")
 	BASH_CONFIG_NAME="bashrc_130s-serval"
 	EMACS_CONFIG_NAME="emacs_130s-serval.el"
