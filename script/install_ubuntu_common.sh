@@ -253,8 +253,8 @@ if [ $retval_install_docker -ne 0 ]; then echo "Error: docker might have not bee
 # Setup initial directory structure
 cd ~
 rm -fr Documents Music Pictures Public Templates Videos # These folders are never used.
-mkdir -p data
-mkdir link
+if [ ! -d ~/data ]; then mkdir -p ~/data; fi
+if [ ! -d ~/link ]; then mkdir ~/link; fi
 cd link
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
 ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos
