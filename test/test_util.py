@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python
 
 # Copyright 2017 Isaac I. Y. Saito.
@@ -16,6 +17,7 @@
 
 import os
 import shutil
+from subprocess import call, Popen, PIPE
 import tarfile
 import unittest
 import urllib
@@ -51,8 +53,12 @@ class TestUtil(unittest.TestCase):
         print('tearDown: chdir-ed to {}'.format(TestUtil._pwd_beginning))
         #os.chdir(self.pwd_beginning)
         os.chdir(TestUtil._pwd_beginning)
-        
-    def _setup_testdata(self):
+
+    def _setup_testdata_find_replace(self):
+        '''
+        Prepare test data for { find_all_files, replaceAll, replace } methods.
+        '''
+
         # this is where testdata files are. So do this every time.
         os.chdir(TestUtil._pwd_beginning)
 
@@ -91,6 +97,10 @@ class TestUtil(unittest.TestCase):
 #                shutil.copy(file_name_longerpath, TestUtil._TEST_DIR)  #TODO this has to handle copying folders in addtion to files. 
 
         print('After copying files into {}: {}\nCurrent dir: {}'.format(TestUtil._TEST_DIR, os.listdir(TestUtil._TEST_DIR), os.path.abspath(os.path.curdir)))
+
+    def _setup_testdata(self):
+        '''backward compatibility only'''
+        self._setup_testdata_find_replace()
 
     def test_find_all_files_noarg_absolutepath(self):
         # Test without argument passed to find_all_files.
@@ -168,10 +178,29 @@ class TestUtil(unittest.TestCase):
 
     def _test_measure_performance(self):
         '''Prefixed since this testcase is NOT functional yet. '''
-        from subprocess import Popen, PIPE
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
+
+    def test_conv_pngtojpg(self):
+        '''
+        '''
+        LIST_FILES_A = ["aa.jpg",
+                        "bb.png",
+                        "cc (conflicted copy).png",
+                        "dd 日本語 space.png",
+                        "日本語　ee .png"  # Includes a multi-byte space char.
+                       ]
+
+        # Create a dummy folder to mimic real environment
+        FOLDER_TEST = "~/data/Dropbox/tmp";
+        if not os.path.exists(FOLDER_TEST):
+            os.makedirs(FOLDER_TEST)
+        # Populate dummy image files
+        for f in LIST_FILES_A:
+            call('touch {}'.format(f))
+        # TODO impl
+
 
 if __name__ == '__main__':
     unittest.main()
