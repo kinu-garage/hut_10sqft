@@ -22,6 +22,7 @@ import re
 from subprocess import call
 import sys
 
+
 class Util:
 
     @staticmethod
@@ -43,7 +44,8 @@ class Util:
         filepaths_matched = []
         _filenames = []
         if depth_max == 0:
-            print('when depth_max=0: Search path: {}, abspath: {}'.format(path, os.path.abspath(path)))
+            print('when depth_max=0: Search path: {},'
+                  ' abspath: {}'.format(path, os.path.abspath(path)))
             for root, dirnames, filenames in os.walk(path):
                 if len(filenames):
                     _filenames.extend(filenames)
@@ -51,14 +53,14 @@ class Util:
         else:
             for depth in range(depth_max):
                 # Remove the last '/' to match files, not dir.
-                regex_depths =  ('*/' * depth)[:-1]
+                regex_depths = ('*/' * depth)[:-1]
                 print('regex_depths: {}'.format(regex_depths))
                 _filenames.extend(glob.glob(regex_depths))
                 print('_filenames at the moment: {}'.format(_filenames))
-            
+
         for filename in fnmatch.filter(_filenames, filename_pattern):
             if os.path.isdir(filename):
-                continue            
+                continue
             if ret_relativepath:
                 filepaths_matched.append(filename)
             else:
@@ -71,8 +73,9 @@ class Util:
     def replaceAll(file, searchExp, replaceExp):
         '''
         http://stackoverflow.com/questions/39086/search-and-replace-a-line-in-a-file-in-python
-    
-        Example usage: replaceAll("/fooBar.txt","Hello\sWorld!$","Goodbye\sWorld.")
+
+        Example usage:
+            replaceAll("/fooBar.txt","Hello\sWorld!$","Goodbye\sWorld.")
         '''
         for line in fileinput.input(file, inplace=1):
             if searchExp in line:
@@ -93,10 +96,10 @@ class Util:
         file_handle = open(filename, 'r')
         file_string = file_handle.read()
         file_handle.close()
-    
+
         # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
         file_string = (re.sub(pattern, subst, file_string))
-    
+
         # Write contents to file.
         # Using mode 'w' truncates the file.
         file_handle = open(filename, 'w')
@@ -104,13 +107,16 @@ class Util:
         file_handle.close()
 
     @staticmethod
-    def replace_str_in_file(match_str_regex, new_str, target_path='.', target_filename='*'):
+    def replace_str_in_file(
+            match_str_regex, new_str, target_path='.', target_filename='*'):
         '''
-        @param match_str_regex: File pattern to match. You can use regular expression.
+        @param match_str_regex: File pattern to match. You can use regular
+                                expression.
         @param new_str: String to be used.
-        @param target_path: Path under which target file(s) will be searched at. Full or relative path.
+        @param target_path: Path under which target file(s) will be searched
+                            at. Full or relative path.
         @param target_filename: Name of the file(s) to be manipulated.
-        '''    
+        '''
         # Find all files in sub-folders.
         files_found = Util.find_all_files(target_path, target_filename)
         for f in files_found:
