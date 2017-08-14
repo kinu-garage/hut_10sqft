@@ -19,7 +19,7 @@ env:
     - HOSTNAME=130s-p50
     - HOSTNAME=130s-serval
     - HOSTNAME=130s-t440s
-    - HOSTNAME=tork-kudu1
+    - HOSTNAME=130s-kudu1
 install:
   - ./script/install_ubuntu_common.sh $HOSTNAME true
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash

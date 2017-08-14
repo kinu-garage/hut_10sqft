@@ -1,4 +1,4 @@
-; .emacs specific for tork-kudu1
+; .emacs specific for 130s-kudu1
 
 ; 2/8/2013 Ubuntu common setting ported
 ; 6/8/2016 Moved dir to the one in git repo.

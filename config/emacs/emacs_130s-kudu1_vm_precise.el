@@ -1,4 +1,4 @@
-; .emacs specific for tork-kudu1
+; .emacs specific for 130s-kudu1
 
 ; 2/8/2013 Ubuntu common setting ported
 (load "~/data/Dropbox/app/Emacs/emacs_ubuntu.el")
