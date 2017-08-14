@@ -54,6 +54,13 @@ _test_androidpic_mv() {
 
     # Create folders to mimic real environment
     TARGET_FOLDER=`date -d "$D" '+%m'`;
+    # DEBUG purpose.
+    ls -al ~/link/Current
+    # To avoid the error https://github.com/130s/hut_10sqft/issues/169#issuecomment-322097088, 
+    # remove an existing symlink (only in the testcase), and re-create a folder
+    # with the same name.
+    rm ~/link/Current
+    mkdir -p ~/link/Current
     mkdir -p ~/data/Dropbox/Camera\ Uploads/ ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio ~/link/Current/"${TARGET_FOLDER}";
     # Populate dummy image files
     cd ~/data/Dropbox/SharedFromOthers/Camera\ Uploads\ from\ Mio
