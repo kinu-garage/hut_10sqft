@@ -27,7 +27,7 @@ class Util:
 
     @staticmethod
     def find_all_files(path='.', filename_pattern='*', ret_relativepath=False,
-                       depth_max=3):
+                       dirs_to_exclude=None, depth_max=3):
         '''
         http://stackoverflow.com/questions/1724693/find-a-file-in-python
         @param path: (str) Top level path to search.
@@ -36,6 +36,8 @@ class Util:
         @param ret_relativepath: If True, returned file paths will be in
                                  relative to the "path" arg.
                                  e.g. ['file1', 'currentdir/file2']
+        @type dirs_to_exclude: [str]
+        @param dirs_to_exclude: Directories to exclude from the search.
         @param depth_max: If 0 traverse until the program ends
                           (not tested well so NOT recommended).
         @type depth_max: int
@@ -47,8 +49,19 @@ class Util:
             print('when depth_max=0: Search path: {},'
                   ' abspath: {}'.format(path, os.path.abspath(path)))
             for root, dirnames, filenames in os.walk(path):
+                print('DEBUG) root: {}\n\tdirnames: {}'.format(root, dirnames))
                 # When one or more file exists in a dir.
                 if len(filenames):
+                    if dirs_to_exclude:
+                        all_dirs = []
+                        if dirnames:
+                            all_dirs = dirnames.append(root)
+                        else:
+                            all_dirs.append(root)
+                        if [i for e in dirs_to_exclude for i in all_dirs if e in i]:
+                            # Skip when any dir name(s) found in dirs_to
+                            # exclude found in search result.
+                            continue
                     for filename in filenames:
                         _filenames.append(os.path.join(root, filename))
         else:
@@ -122,7 +135,8 @@ class Util:
                             new_str,
                             target_path='.',
                             target_filename='*',
-                            explore_depth_max=3):
+                            explore_depth_max=3,
+                            dir_to_exclude='.git'):
         '''
         @param match_str_regex: File pattern to match. You can use regular
                                 expression.
@@ -131,10 +145,17 @@ class Util:
                             at. Full or relative path.
         @param target_filename: Name of the file(s) to be manipulated.
         @param explore_depth_max: Depth to explore. 0 for infinity.
+        @type dir_to_exclude: str
+        @param dir_to_exclude: Comma separated list of directories to exclude.
+                               By default .git folder is set.
         '''
+        # Convert comma-separated str to a list
+        if dir_to_exclude:
+            dir_to_exclude = dir_to_exclude.split(',')
+
         # Find all files in sub-folders.
         files_found = Util.find_all_files(
-            target_path, target_filename, depth_max=explore_depth_max)
+            target_path, target_filename, dir_to_exclude, depth_max=explore_depth_max)
         for f in files_found:
             print('Path of the file  to be replaced: {}'.format(f))
             # replace(f, "<version>.*</version>", "<version>0.8.2</version>")
