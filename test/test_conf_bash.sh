@@ -94,7 +94,7 @@ _test_replace_py(){
 	cd $DIR_TEST
 	
 	# Command to be tested. Replace string "Isaac" with "Isao"
-	replace_str Isaac Isao . *
+	replace_str Isaac Isao -p . -f *
 	
 	# Verify the command.
 	# Success if "grep -i isaac" returns empty result.

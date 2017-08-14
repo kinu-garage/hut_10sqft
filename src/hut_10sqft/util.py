@@ -54,10 +54,10 @@ class Util:
             for depth in range(depth_max):
                 # Remove the last '/' to match files, not dir.
                 regex_depths = ('*/' * depth)[:-1]
-                print('regex_depths: {}'.format(regex_depths))
                 _filenames.extend(glob.glob(regex_depths))
-                print('_filenames at the moment: {}'.format(_filenames))
-
+                print('At depth {} regex_depths: {}\n\t_filenames at the'
+                      ' moment: {}'.format(depth, regex_depths, _filenames))
+        print('DEBUG) filename_pattern: {}'.format(filename_pattern))
         for filename in fnmatch.filter(_filenames, filename_pattern):
             if os.path.isdir(filename):
                 continue
