@@ -107,8 +107,11 @@ class Util:
         file_handle.close()
 
     @staticmethod
-    def replace_str_in_file(
-            match_str_regex, new_str, target_path='.', target_filename='*'):
+    def replace_str_in_file(match_str_regex,
+                            new_str,
+                            target_path='.',
+                            target_filename='*',
+                            explore_depth_max=3):
         '''
         @param match_str_regex: File pattern to match. You can use regular
                                 expression.
@@ -116,9 +119,11 @@ class Util:
         @param target_path: Path under which target file(s) will be searched
                             at. Full or relative path.
         @param target_filename: Name of the file(s) to be manipulated.
+        @param explore_depth_max: Depth to explore. 0 for infinity.
         '''
         # Find all files in sub-folders.
-        files_found = Util.find_all_files(target_path, target_filename)
+        files_found = Util.find_all_files(
+            target_path, target_filename, depth_max=explore_depth_max)
         for f in files_found:
             print('Path of the file  to be replaced: {}'.format(f))
             # replace(f, "<version>.*</version>", "<version>0.8.2</version>")
