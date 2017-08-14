@@ -1,4 +1,5 @@
-; .emacs specific for 130s-cranberry
+;; 6/9/2016 Common config read here.
+(load "~/link/github_repos/130s/hut_10sqft/config/emacs/emacs.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)
@@ -19,8 +20,9 @@
 ;; Optionally, specify the lisp program you are using. Default is "lisp"
 ;;(setq inferior-lisp-program "clisp") 
 
-(set-frame-height (selected-frame) 44)
-(set-frame-width (selected-frame) 94)
+;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
+;; https://www.emacswiki.org/emacs/FrameSize
+(when window-system (set-frame-size (selected-frame) 154 44))
 
 ;; 3/24/2013 To enable pdflatex http://emacswiki.org/emacs/AUCTeX
 (setq TeX-PDF-mode t)

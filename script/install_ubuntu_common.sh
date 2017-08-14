@@ -120,8 +120,8 @@ install_eclipse() {
 #######################################
 ssh_github_setup() {
     echo 'ssh keys must be already present. Key generation is not automated to avoid security breach.'
-    SSH_KEY_PUB=${1:-id_rsa_tork-kudu1.pub}
-    SSH_KEY_PRV=${2:-id_rsa_tork-kudu1}
+    SSH_KEY_PUB=${1:-id_rsa_130s-kudu1.pub}
+    SSH_KEY_PRV=${2:-id_rsa_130s-kudu1}
     FILE_PATH_SSH_KEY_PUB=~/data/Dropbox/app/ssh/$SSH_KEY_PUB
     FILE_PATH_SSH_KEY_PRV=~/data/Dropbox/app/ssh/$SSH_KEY_PRV
 
@@ -298,12 +298,12 @@ case $HOSTNAME in
         SSH_KEY_PRV="id_rsa_130s-t440s"
         SSH_KEY_PUB="id_rsa_130s-t440s.pub"
 	;;
-    "tork-kudu1")
-	BASH_CONFIG_NAME="bashrc_tork-kudu1"
-	EMACS_CONFIG_NAME="emacs_tork-kudu1.el"
+    "130s-kudu1")
+	BASH_CONFIG_NAME="bashrc_130s-kudu1"
+	EMACS_CONFIG_NAME="emacs_130s-kudu1.el"
 
-        SSH_KEY_PRV="id_rsa_tork-kudu1"
-        SSH_KEY_PUB="id_rsa_tork-kudu1.pub"
+        SSH_KEY_PRV="id_rsa_130s-kudu1"
+        SSH_KEY_PUB="id_rsa_130s-kudu1.pub"
 	;;
 esac
 cp $CI_SOURCE_PATH/config/bash/$BASH_CONFIG_NAME ~/.bashrc
