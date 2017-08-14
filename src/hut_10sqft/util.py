@@ -47,9 +47,10 @@ class Util:
             print('when depth_max=0: Search path: {},'
                   ' abspath: {}'.format(path, os.path.abspath(path)))
             for root, dirnames, filenames in os.walk(path):
+                # When one or more file exists in a dir.
                 if len(filenames):
-                    _filenames.extend(filenames)
-                    print('_filenames when depth_max=0: {}'.format(_filenames))
+                    for filename in filenames:
+                        _filenames.append(os.path.join(root, filename))
         else:
             for depth in range(depth_max):
                 # Remove the last '/' to match files, not dir.
@@ -57,7 +58,9 @@ class Util:
                 _filenames.extend(glob.glob(regex_depths))
                 print('At depth {} regex_depths: {}\n\t_filenames at the'
                       ' moment: {}'.format(depth, regex_depths, _filenames))
-        print('DEBUG) filename_pattern: {}'.format(filename_pattern))
+        # print('DEBUG) filename_pattern: {}'.format(filename_pattern))
+        print('Depth_max: {} num of found files: {}'.format(
+            depth_max, len(_filenames)))
         for filename in fnmatch.filter(_filenames, filename_pattern):
             if os.path.isdir(filename):
                 continue
@@ -66,7 +69,10 @@ class Util:
             else:
                 filepaths_matched.append(os.path.abspath(filename))
 
-        print('[find_all_files]: matched files: {}'.format(filepaths_matched))
+        if 0 < depth_max:
+            # This could print infinitely many files so better limit.
+            print('[find_all_files]: matched files: {}'.format(filepaths_matched))
+
         return filepaths_matched
 
     @staticmethod
@@ -91,11 +97,16 @@ class Util:
         @param pattern: Regular expression of the pattern of strings to be
                         replaced.
         @param subst: Exact string to be replaced with.
+        @raise IOError: When the entity of filename not available.
         '''
         # Read contents from filename as a single string
-        file_handle = open(filename, 'r')
-        file_string = file_handle.read()
-        file_handle.close()
+        try:
+            with open(filename, 'r') as file_handle:
+                file_string = file_handle.read()
+                file_handle.close()
+        except IOError as e:
+            print("Could not read file '{}'".format(filename))
+            raise e
 
         # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
         file_string = (re.sub(pattern, subst, file_string))
@@ -127,7 +138,10 @@ class Util:
         for f in files_found:
             print('Path of the file  to be replaced: {}'.format(f))
             # replace(f, "<version>.*</version>", "<version>0.8.2</version>")
-            Util.replace(f, match_str_regex, new_str)
+            try:
+                Util.replace(f, match_str_regex, new_str)
+            except IOError as e:
+                print(e)
 
         # Testing regex
         #     if re.match("<version>.*</version>", "<version>0.7.2</version>"):

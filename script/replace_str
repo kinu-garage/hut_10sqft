@@ -25,4 +25,4 @@ if __name__ == "__main__":
                              args.new_str,
                              args.target_path,
                              args.target_filename,
-                             args.explore_depth_max)
+                             int(args.explore_depth_max))
