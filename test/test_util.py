@@ -118,7 +118,8 @@ class TestUtil(unittest.TestCase):
                                                   depth_max=depthmax)
         # This list should be [self._TESTDATA_XML1]
         list_expected = [TestUtil._TEST_DIR + '/' + f for f in expected_files_relat]
-        print('list_expected: {}'.format(list_expected))
+        print('list_expected: {}\nfilenames_matched_3:'
+              ' {}'.format(list_expected, filenames_matched_3))
         common_list = list(set(filenames_matched_3).intersection(list_expected))
         
         if shouldfail:
@@ -134,7 +135,7 @@ class TestUtil(unittest.TestCase):
 
     def test_find_all_files_unlimiteddepth(self):
         '''Util.find_all_files with unlimited depth specified.'''
-        expected_files = [TestUtil._TESTDATA_XML1, 'prooving3.xml']
+        expected_files = [TestUtil._TESTDATA_XML1, 'depth1/depth2/depth3/depth4/depth5/depth6/depth7/prooving3.xml']
         self._test_find_all_files_filepattern(depthmax=0, expected_files_relat=expected_files)
 
     def _test_replace_str_infile(self, match_str_regex='<version>.*</version>',

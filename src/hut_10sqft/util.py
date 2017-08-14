@@ -22,6 +22,7 @@ import re
 from subprocess import call
 import sys
 
+
 class Util:
 
     @staticmethod
@@ -43,36 +44,44 @@ class Util:
         filepaths_matched = []
         _filenames = []
         if depth_max == 0:
-            print('when depth_max=0: Search path: {}, abspath: {}'.format(path, os.path.abspath(path)))
+            print('when depth_max=0: Search path: {},'
+                  ' abspath: {}'.format(path, os.path.abspath(path)))
             for root, dirnames, filenames in os.walk(path):
+                # When one or more file exists in a dir.
                 if len(filenames):
-                    _filenames.extend(filenames)
-                    print('_filenames when depth_max=0: {}'.format(_filenames))
+                    for filename in filenames:
+                        _filenames.append(os.path.join(root, filename))
         else:
             for depth in range(depth_max):
                 # Remove the last '/' to match files, not dir.
-                regex_depths =  ('*/' * depth)[:-1]
-                print('regex_depths: {}'.format(regex_depths))
+                regex_depths = ('*/' * depth)[:-1]
                 _filenames.extend(glob.glob(regex_depths))
-                print('_filenames at the moment: {}'.format(_filenames))
-            
+                print('At depth {} regex_depths: {}\n\t_filenames at the'
+                      ' moment: {}'.format(depth, regex_depths, _filenames))
+        # print('DEBUG) filename_pattern: {}'.format(filename_pattern))
+        print('Depth_max: {} num of found files: {}'.format(
+            depth_max, len(_filenames)))
         for filename in fnmatch.filter(_filenames, filename_pattern):
             if os.path.isdir(filename):
-                continue            
+                continue
             if ret_relativepath:
                 filepaths_matched.append(filename)
             else:
                 filepaths_matched.append(os.path.abspath(filename))
 
-        print('[find_all_files]: matched files: {}'.format(filepaths_matched))
+        if 0 < depth_max:
+            # This could print infinitely many files so better limit.
+            print('[find_all_files]: matched files: {}'.format(filepaths_matched))
+
         return filepaths_matched
 
     @staticmethod
     def replaceAll(file, searchExp, replaceExp):
         '''
         http://stackoverflow.com/questions/39086/search-and-replace-a-line-in-a-file-in-python
-    
-        Example usage: replaceAll("/fooBar.txt","Hello\sWorld!$","Goodbye\sWorld.")
+
+        Example usage:
+            replaceAll("/fooBar.txt","Hello\sWorld!$","Goodbye\sWorld.")
         '''
         for line in fileinput.input(file, inplace=1):
             if searchExp in line:
@@ -88,15 +97,20 @@ class Util:
         @param pattern: Regular expression of the pattern of strings to be
                         replaced.
         @param subst: Exact string to be replaced with.
+        @raise IOError: When the entity of filename not available.
         '''
         # Read contents from filename as a single string
-        file_handle = open(filename, 'r')
-        file_string = file_handle.read()
-        file_handle.close()
-    
+        try:
+            with open(filename, 'r') as file_handle:
+                file_string = file_handle.read()
+                file_handle.close()
+        except IOError as e:
+            print("Could not read file '{}'".format(filename))
+            raise e
+
         # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
         file_string = (re.sub(pattern, subst, file_string))
-    
+
         # Write contents to file.
         # Using mode 'w' truncates the file.
         file_handle = open(filename, 'w')
@@ -104,19 +118,30 @@ class Util:
         file_handle.close()
 
     @staticmethod
-    def replace_str_in_file(match_str_regex, new_str, target_path='.', target_filename='*'):
+    def replace_str_in_file(match_str_regex,
+                            new_str,
+                            target_path='.',
+                            target_filename='*',
+                            explore_depth_max=3):
         '''
-        @param match_str_regex: File pattern to match. You can use regular expression.
+        @param match_str_regex: File pattern to match. You can use regular
+                                expression.
         @param new_str: String to be used.
-        @param target_path: Path under which target file(s) will be searched at. Full or relative path.
+        @param target_path: Path under which target file(s) will be searched
+                            at. Full or relative path.
         @param target_filename: Name of the file(s) to be manipulated.
-        '''    
+        @param explore_depth_max: Depth to explore. 0 for infinity.
+        '''
         # Find all files in sub-folders.
-        files_found = Util.find_all_files(target_path, target_filename)
+        files_found = Util.find_all_files(
+            target_path, target_filename, depth_max=explore_depth_max)
         for f in files_found:
             print('Path of the file  to be replaced: {}'.format(f))
             # replace(f, "<version>.*</version>", "<version>0.8.2</version>")
-            Util.replace(f, match_str_regex, new_str)
+            try:
+                Util.replace(f, match_str_regex, new_str)
+            except IOError as e:
+                print(e)
 
         # Testing regex
         #     if re.match("<version>.*</version>", "<version>0.7.2</version>"):

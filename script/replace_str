@@ -5,11 +5,24 @@ import argparse
 from hut_10sqft.util import Util
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Replace a line of string in all the files found at the folder tree in the given path.')
-    parser.add_argument('match_str_regex', default='<version>.*</version>', help='File pattern to match. You can use regular expression.')
+    parser = argparse.ArgumentParser(description='Replace a line of string in'
+                                     ' all the files found at the folder tree'
+                                     ' in the given path.')
+    parser.add_argument('match_str_regex', default='<version>.*</version>',
+                        help='File pattern to match. You can use regular'
+                        ' expression.')
     parser.add_argument('new_str', default='', help='String to be used.')
-    parser.add_argument('target_path', default='.', help='Path under which target file(s) will be searched at. Full or relative path (relative path is not tested).')
-    parser.add_argument('target_filename', default='package.xml', help='Name of the file(s) to be manipulated.')
+    parser.add_argument('-p', '--target_path', default='.', help='Path under '
+                        'which target file(s) will be searched at. Full or'
+                        ' relative path (relative path is not tested).')
+    parser.add_argument('-f', '--target_filename', default='package.xml',
+                        help='Name of the file(s) to be manipulated.')
+    parser.add_argument('-d', '--explore_depth_max', default='3',
+                        help='Depth to explore. 0 for infinity.')
     args = parser.parse_args()
 
-    Util.replace_str_in_file(args.target_filename, args.target_path, args.match_str_regex, args.new_str)
+    Util.replace_str_in_file(args.match_str_regex,
+                             args.new_str,
+                             args.target_path,
+                             args.target_filename,
+                             int(args.explore_depth_max))
