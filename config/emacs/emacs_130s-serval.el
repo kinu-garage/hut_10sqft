@@ -4,7 +4,8 @@
 (load "~/link/github_repos/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
-(server-start)
+; 20170818 Comment out since this causes server error upon launch
+;;(server-start)
 
 ; 2/17/2012/To enabele run-lisp
 ; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
