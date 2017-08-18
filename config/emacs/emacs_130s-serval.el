@@ -4,7 +4,8 @@
 (load "~/link/github_repos/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
-(server-start)
+; 20170818 Comment out since this causes server error upon launch
+;;(server-start)
 
 ; 2/17/2012/To enabele run-lisp
 ; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
@@ -26,7 +27,7 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;;(set-frame-height (selected-frame) 58)  ;; It seems important to disable set-frame-{height, width} when set-frame-size is in use.
 ;;(set-frame-width (selected-frame) 110)
-(when window-system (set-frame-size (selected-frame) 80 32))
+(when window-system (set-frame-size (selected-frame) 172 46))
 
 ; Mew + Gmail
 ; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
