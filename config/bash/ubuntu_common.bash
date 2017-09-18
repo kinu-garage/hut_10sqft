@@ -30,3 +30,7 @@ eval $(ssh-agent) >> /dev/null  # This doesn't complete the solution to https://
 
 # For git
 export EDITOR=emacs
+
+# 20160716 git ssh issue https://github.com/130s/hut_10sqft/issues/64
+# Added in https://github.com/130s/hut_10sqft/pull/65
+if [ -f ~/.ssh/id_rsa ]; then ssh-add ~/.ssh/id_rsa; fi  # Key is for github
