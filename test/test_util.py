@@ -113,8 +113,10 @@ class TestUtil(unittest.TestCase):
 
     def _test_find_all_files_filepattern(self, filename_ptn='*xml',
                                          shouldfail=False, depthmax=3,
-                                         expected_files_relat=[_TESTDATA_XML1]):
+                                         expected_files_relat=[_TESTDATA_XML1],
+                                         dirs_to_exclude='.git'):
         filenames_matched_3 = Util.find_all_files(filename_pattern=filename_ptn,
+                                                  dirs_to_exclude=dirs_to_exclude,
                                                   depth_max=depthmax)
         # This list should be [self._TESTDATA_XML1]
         list_expected = [TestUtil._TEST_DIR + '/' + f for f in expected_files_relat]
@@ -133,6 +135,23 @@ class TestUtil(unittest.TestCase):
     def test_find_all_files_filepattern_asterisk(self):
         self._test_find_all_files_filepattern()
 
+    def test_find_all_files_filepattern_exclude(self):
+        """Exclude certain directories."""
+
+        # Not includeing './depth1/.depth1/package1.xml',
+        # './depth1/depth2/depth3_2/package1.xml' that are under excluded
+        # directories.
+        EXPECTED_FILES = [TestUtil._TESTDATA_XML1]
+
+        EXCLUDE_DIRS = '.depth1,depth3_2'
+        print('[test_replace_str_infile_exclude] Excluding directories:'
+              '{}'.format(EXCLUDE_DIRS))
+        self._test_find_all_files_filepattern(
+            expected_files_relat=EXPECTED_FILES,
+            dirs_to_exclude=EXCLUDE_DIRS, depthmax=0)
+
+        self._test_find_all_files_filepattern()
+
     def test_find_all_files_unlimiteddepth(self):
         '''Util.find_all_files with unlimited depth specified.'''
         expected_files = [TestUtil._TESTDATA_XML1, 'depth1/depth2/depth3/depth4/depth5/depth6/depth7/prooving3.xml']
@@ -140,14 +159,20 @@ class TestUtil(unittest.TestCase):
 
     def _test_replace_str_infile(self, match_str_regex='<version>.*</version>',
                                  new_str='<version>100000000000</version>',
-                                 searchpath='.', filename='*'):
+                                 searchpath='.', filename='*',
+                                 dir_to_exclude='.git',
+                                 explore_depth_max=3):
         FILE_STRTEST = 'https://raw.githubusercontent.com/ros-planning/moveit/kinetic-devel/moveit/package.xml'
         testfile = urllib.URLopener()
         # Save temporarily. This method is intended for files on the filesystem.
         testfile.retrieve(FILE_STRTEST, filename)
 
         # Find all package.xml files in sub-folders.
-        Util.replace_str_in_file(match_str_regex, new_str, searchpath, filename)
+        Util.replace_str_in_file(match_str_regex,
+                                 new_str,
+                                 searchpath,
+                                 filename,
+                                 explore_depth_max=explore_depth_max)
 
         is_replaced = False
         file_strtest = open(filename).read()
@@ -173,6 +198,7 @@ class TestUtil(unittest.TestCase):
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
-
+        
+        
 if __name__ == '__main__':
     unittest.main()

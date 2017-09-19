@@ -19,10 +19,13 @@ if __name__ == "__main__":
                         help='Name of the file(s) to be manipulated.')
     parser.add_argument('-d', '--explore_depth_max', default='3',
                         help='Depth to explore. 0 for infinity.')
+    parser.add_argument('-x', '--dir_to_exclude', default='',
+                        help='Comma separated list of directories to exclude.')
     args = parser.parse_args()
 
     Util.replace_str_in_file(args.match_str_regex,
                              args.new_str,
                              args.target_path,
                              args.target_filename,
-                             int(args.explore_depth_max))
+                             int(args.explore_depth_max),
+                             args.dir_to_exclude)
