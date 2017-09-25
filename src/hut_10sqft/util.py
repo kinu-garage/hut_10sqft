@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import datetime
 import fileinput
 import fnmatch
 import glob
 import os
 import re
-from subprocess import call
+import subprocess
 import sys
+import time
 
 
 class Util:
@@ -158,3 +160,18 @@ class Util:
         Returns a list of common values among the two passed lists.
         '''
         return [k for k in list_a.keys() if k in list_b.keys()]
+
+    @staticmethod
+    def mv_ext(source, dest):
+        '''
+        Extension to Linux mv command.
+        @type source: str
+        @type dest: str
+        @return: destination path
+        '''
+        dest_name = dest + "_" + datetime.datetime.fromtimestamp(time.time()).strftime('%Y%m%d%H%M%S')
+        print("mv dest name: {}".format(dest_name))
+        res = subprocess.call(["mv", source, dest_name])
+        if res != 0:
+            raise subprocess.CalledProcessError("source: {}, dest: {}".format(source, dest))
+        return dest_name
