@@ -1,0 +1,18 @@
+#!/usr/bin/env python
+
+import argparse
+
+from hut_10sqft.util import Util
+
+if __name__ == "__main__":
+    """
+    
+    """
+    parser = argparse.ArgumentParser(description=
+                                     'mv command with custom extensions.'
+                                     ' By default timestamp gets added as the suffix of the target folder/file.')
+    parser.add_argument('source', help='Path of the file/folder to be renamed/moved.')
+    parser.add_argument('dest', help='Path of the file/folder destination.')
+    args = parser.parse_args()
+
+    Util.mv_ext(args.source, args.dest)

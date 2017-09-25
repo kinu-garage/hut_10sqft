@@ -16,6 +16,7 @@
 
 import os
 import shutil
+import subprocess
 import tarfile
 import unittest
 import urllib
@@ -173,6 +174,18 @@ class TestUtil(unittest.TestCase):
         process = Popen(['measure_performance', 'ls', '10'], stdout=PIPE, stderr=PIPE)
         stdout, stderr = process.communicate()
         self.assertTrue(stderr, '')
+
+    def test_mv_ext(self):
+        _src = '/tmp/test_mv_ext1'
+        _dest = '/tmp/test_mv_ext2'
+        subprocess.call(['touch', _src])
+
+        dest_name = Util.mv_ext(_src, _dest)
+
+        # CNCL; Compare the timestamp and if both are close enough (e.g. less than a minute), let the test pass.
+        #
+        # Extract the timestamp portion and measure the length of the string = 14
+        self.assertEqual(len(dest_name.split("_")[-1]), 14)
 
 if __name__ == '__main__':
     unittest.main()
