@@ -15,7 +15,7 @@
 # limitations under the License.
 
 _test_rm_dropbox_conflictfiles() {
-    RESULT=0  # success by default
+    RESULT=1  # failure by default
     LIST_FILES_A=("aa.jpg"
 "bb (Case Conflict).png"
 "cc (conflicted copy).png")
@@ -36,7 +36,7 @@ _test_rm_dropbox_conflictfiles() {
 
     # Verify if files are moved.
     files_notremoved=`ls | wc -l | cut -f1 -d' '`
-    if [ $files_notremoved != 1 ]; then RESULT=1; fi
+    if [ $files_notremoved -eq 1 ]; then RESULT=0; fi
 
     return $RESULT
 }
@@ -48,7 +48,7 @@ _test_androidpic_mv() {
         echo "[ERROR] Checked function '$CHECKED_FUNC' not found."; return 1;
     fi
 
-    RESULT=0  # success by default
+    RESULT=1  # failure by default
     LIST_FILES_A=("aa.jpg" "bb.jpeg" "cc.mp4" "dd.mov")
     LIST_FILES_B=("ee.jpg" "f f.jpeg" "gg.mp4" "hh.mov")
     LIST_FILES_C=( "jj.png" "k k.png")
@@ -90,9 +90,9 @@ _test_androidpic_mv() {
     done
     for f in "${LIST_FILES_ALL[@]}"; do
         if [ ! -e "$f" ]; then
-            echo "[ERROR] $f is missing from the target folder."; ls -al $f; RESULT=1;
+            echo "[ERROR] $f is missing from the target folder."; ls -al $f;
         else
-            echo "[SUCCESS] $f is found at the target folder."; ls -al $f;
+            echo "[SUCCESS] $f is found at the target folder."; ls -al $f; RESULT=0;
         fi
     done
 
