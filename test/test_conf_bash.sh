@@ -76,7 +76,7 @@ _test_androidpic_mv() {
     echo "Files in the target folder:"; ls -al
     i=0
     # Combine 2 arrays of file names.
-    # "f f.jpeg" needs to be renamed as "g_g.jpeg" due to the algorighm of androidpic_mv
+    # "f f.jpeg" needs to be renamed as "f_f.jpeg" due to the algorighm of androidpic_mv
     for elem in "${LIST_FILES_A[@]}"; do
         LIST_FILES_ALL[i++]=$elem
     done
@@ -85,7 +85,7 @@ _test_androidpic_mv() {
         LIST_FILES_ALL[i++]=$elem
     done
     for elem in "${LIST_FILES_C[@]}"; do
-        if [[ $elem == *.png ]]; then mv "$elem" "${elem%.png}.jpg"; fi  # .png should be converted to .jpg
+        if [[ $elem == *.png ]]; then elem="${elem%.png*}.jpg"; fi  # .png should be renamed to .jpg
         LIST_FILES_ALL[i++]=$elem
     done
     for f in "${LIST_FILES_ALL[@]}"; do
