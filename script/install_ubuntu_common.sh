@@ -214,7 +214,7 @@ PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_JP_INPUT"
 ##TODO if Saucy <= DISTRO install fcitx
 
 # oss dev
-PKG_OSS_DEV="freecad gimp git gitk gnuplot gnuplot-x11 iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-nose python-rosdep python-wstool"
+PKG_OSS_DEV="freecad gimp git gitk gnuplot gnuplot-x11 iftop ipython meld mesa-utils meshlab ntp openjdk-7-jre python-bloom python-catkin-tools python-nose python-rosdep python-wstool rpl"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_OSS_DEV"
 # For ROS related tool
 sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
