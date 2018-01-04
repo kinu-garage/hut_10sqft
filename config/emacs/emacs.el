@@ -99,9 +99,8 @@
 ;;(load "~/ROS_Workspace/Shared_MultiHosts_ROS_Workspace/.emacs_ros") ; 7/3/2012/This is now referred from ~/.emacs
 
 ;; Creating short cut
-(set-register ?d '(file . "~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/"))
+(set-register ?d '(file . "~/data/Dropbox/GoogleDrive/Periodic/GooglePhotos/2018/"))
 (set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
-(set-register ?t '(file . "~/link/TORK"))
 
 ;; 10/30/2015 http://superuser.com/questions/255475/emacs-setting-column-mode-to-be-always-on
 (setq column-number-mode t)
