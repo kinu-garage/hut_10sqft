@@ -1,0 +1,17 @@
+#!/usr/bin/env python
+
+import argparse
+
+from hut_10sqft.util import Util
+
+if __name__ == "__main__":
+    """
+    
+    """
+    parser = argparse.ArgumentParser(description="Convert multiple png/jpg files to a single PDF.")
+    parser.add_argument("imgs", nargs='+', help="path(s) of png/jpg files. Files with either formats can be mixed.")
+    parser.add_argument("-o", "--out_path", help="A path of the output file. If not given, default name will be given (etc. timestamp).")
+    args = parser.parse_args()
+
+    u = Util()
+    u.imgs_to_pdf(args.imgs, args.out_path)
