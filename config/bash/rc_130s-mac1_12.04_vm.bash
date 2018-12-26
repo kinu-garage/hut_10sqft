@@ -10,7 +10,6 @@
 
 ##for 130s' work
 ###source /home/n130s/data/Dropbox/contents_nomadic/Career/JobTaken/Toyota-ITC/ROS_OpenCV_Toyota-ITC/ROS_Workspace/Shared_MultiHosts_ROS_Workspace/setup_ros.bash
-source ~/link/ROS/setup_ros_tork-mac1_vm_12.04.bash
 
 export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-amd64
 

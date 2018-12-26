@@ -258,7 +258,7 @@ if [ ! -d ~/data ]; then mkdir -p ~/data; fi
 if [ ! -d ~/link ]; then mkdir ~/link; fi
 cd link
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
-ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos
+ln -sf ~/data/Dropbox/pg/myDevelopment/git_repo github_repos
 ln -sf ~/data/Dropbox/ROS .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc .
