@@ -1,5 +1,5 @@
 sudo: required
-dist: trusty
+dist: xenial
 # Force travis to use its minimal image with default Python settings
 language: generic
 compiler:
@@ -16,10 +16,10 @@ env:
     - export REPOSITORY_NAME="${TRAVIS_REPO_SLUG##*/}"
     - export CI_SOURCE_PATH="$TRAVIS_BUILD_DIR"
   matrix:
+    - HOSTNAME=130s-kudu1
     - HOSTNAME=130s-p50
     - HOSTNAME=130s-serval
     - HOSTNAME=130s-t440s
-    - HOSTNAME=130s-kudu1
 install:
   - ./script/install_ubuntu_common.sh $HOSTNAME true
 #  - source /opt/ros/$CI_ROS_DISTRO/setup.bash
