@@ -114,6 +114,5 @@
 (setq interprogram-paste-function 'x-cut-buffer-or-selection-value)
 
 ;; Creating short cut
-(set-register ?d '(file . "~/data/Dropbox/periodic/2014/"))
+(set-register ?d '(file . "~/data/Dropbox/periodic/2019/"))
 (set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
-(set-register ?t '(file . "~/link/TORK"))

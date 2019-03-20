@@ -19,8 +19,6 @@ if [ -z $CI_SOURCE_PATH ]; then
 	exit 1	
 fi
 
-DIST_TRUSTY="Trusty"
-DISTRO=$DIST_TRUSTY
 HOSTNAME=${1-"130s-serval"}
 RUN_TEST=${2-"false"}
 DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
@@ -198,6 +196,12 @@ install_oraclejava() {
     ## sudo apt-get install oracle-java8-set-default
 }
 
+install_google_chrome() {
+    wget https://www.dropbox.com/s/8fc4z0zyea0wz5h/google-chrome-stable_current_amd64.deb?dl=0
+    sudo apt-get install libappindicator1
+    sudo dpkg -i google-chrome-stable_current_amd64.deb?dl=0
+}
+
 # command line parse
 OPT=`getopt -o h -l help -- $*`
 if [ $? != 0 ]; then
@@ -230,6 +234,7 @@ PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree evince gnome-tweak-tool
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
+sudo add-apt-repository universe  # For mainly Google-Chrome https://askubuntu.com/a/221343/24203
 sudo apt-get update
 for i in $PKG_TO_INSTALL; do
   sudo apt-get install -y $i || error $i "apt-get install" -1
@@ -244,7 +249,7 @@ sudo dpkg -i $FILENAME_SYNERGY_INSTALLER
 wget https://www.dropbox.com/download?dl=packages/ubuntu/dropbox_2015.10.28_amd64.deb && sudo dpkg -i download?dl=packages%2Fubuntu%2Fdropbox_2015.10.28_amd64.deb
 
 # Install Google-Chrome
-wget https://www.dropbox.com/s/8fc4z0zyea0wz5h/google-chrome-stable_current_amd64.deb?dl=0 && sudo dpkg -i google-chrome-stable_current_amd64.deb?dl=0
+install_google_chrome
 
 # Install docker
 install_docker
@@ -258,7 +263,7 @@ if [ ! -d ~/data ]; then mkdir -p ~/data; fi
 if [ ! -d ~/link ]; then mkdir ~/link; fi
 cd link
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
-ln -sf ~/data/Dropbox/pg/myDevelopment/repo_tork_start github_repos
+ln -sf ~/data/Dropbox/pg/myDevelopment/git_repo github_repos
 ln -sf ~/data/Dropbox/ROS .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc .
