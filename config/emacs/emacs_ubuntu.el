@@ -15,3 +15,7 @@
 ; 6/30/2012/http://superuser.com/questions/165278/copying-text-from-emacs-into-other-programs
 (setq x-select-enable-clipboard t)      ;Make kill/yank work with the X clipboard
 (setq interprogram-paste-function 'x-cut-buffer-or-selection-value)
+
+; 2019/05/15 Macro to convert fragmented merge requests link to a full valid http URL for Gitlab.com.
+(fset 'strreplace_mr_gitlab
+   (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ("see merge request phttps://!/merge_requests/" 0 "%d")) arg)))
