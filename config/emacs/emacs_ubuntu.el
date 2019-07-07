@@ -18,4 +18,4 @@
 
 ; 2019/05/15 Macro to convert fragmented merge requests link to a full valid http URL for Gitlab.com.
 (fset 'strreplace_mr_gitlab
-   (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ("see merge request phttps://!/merge_requests/" 0 "%d")) arg)))
+   (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ("see merge request phttps://gitlab.com/!/merge_requests/" 0 "%d")) arg)))
