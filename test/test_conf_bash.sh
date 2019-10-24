@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e  # TODO Implement something more robust. See http://stackoverflow.com/a/185900/577001
+
 _test_rm_dropbox_conflictfiles() {
     RESULT=0  # success by default
     LIST_FILES_A=("aa.jpg"
@@ -95,9 +97,9 @@ _test_replace_py(){
     RESULT=1  # failure by default
 	
 	DIR_TEST=/tmp/proovingground_of_mad_overlord/replace_py
-	# Unlike test_util.py, this testcase will be run from the top directory
-	# of the repo so we still need test folder's path passed. 
-	mkdir -p $DIR_TEST && cp -R ./test/testdata1 $DIR_TEST
+	# This testcase is intended to be run from another script on the same
+	# directory, so the testdata folder should be directly here under. 
+	mkdir -p $DIR_TEST && cp -R ./testdata1 $DIR_TEST
 	cd $DIR_TEST
 	
 	# Command to be tested. Replace string "Isaac" with "Isao"

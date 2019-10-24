@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -e  # TODO Implement something more robust. See http://stackoverflow.com/a/185900/577001
+
 if [ -z $CI_SOURCE_PATH ]; then
 	echo 'Env var CI_SOURCE_PATH needs set at the top dir of this repo/package. Exiting.'
 	exit 1	
