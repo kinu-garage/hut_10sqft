@@ -17,3 +17,9 @@ alias rm_eclipse-project_remainder='rm -fR catkin* CATKIN_IGNORE cmake_install.c
 
 # http://serverfault.com/questions/156359/can-i-recover-command-line-deleted-file-on-ubuntu
 ##alias rmm='mv -t ~/.Trash'
+
+# git log decorated https://stackoverflow.com/questions/5361019/viewing-full-version-tree-in-git
+alias gitl='git log --oneline --graph --decorate'
+
+# emacs commandline
+alias emacsn='emacs -nw'
