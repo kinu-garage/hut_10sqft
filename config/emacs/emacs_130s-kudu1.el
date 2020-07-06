@@ -8,4 +8,4 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;(set-frame-height (selected-frame) 48)
 ;(set-frame-width (selected-frame) 172)
-(when window-system (set-frame-size (selected-frame) 188 52))
+(when window-system (set-frame-size (selected-frame) 164 44))
