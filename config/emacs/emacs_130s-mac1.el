@@ -22,7 +22,7 @@
 
 ;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
 ;; https://www.emacswiki.org/emacs/FrameSize
-(when window-system (set-frame-size (selected-frame) 154 44))
+(when window-system (set-frame-size (selected-frame) 94 20))
 
 ;; 3/24/2013 To enable pdflatex http://emacswiki.org/emacs/AUCTeX
 (setq TeX-PDF-mode t)
