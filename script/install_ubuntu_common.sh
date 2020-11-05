@@ -21,7 +21,7 @@ fi
 
 HOSTNAME=${1-"130s-serval"}
 RUN_TEST=${2-"false"}
-DIR_ACTUALHOSTS_LINK=link/github_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
+DIR_ACTUALHOSTS_LINK=link/git_repos/130s  # This is the arbitrary directory path that 130s likes to use to the folder of this package.
 export MSG_ENDROLL=  # Set of messages to be echoed at the end.
 PKG_TO_INSTALL=""  # Initializing.
 USER_UBUNTU="n130s"
@@ -32,7 +32,7 @@ set -x
 echo "[DEBUG] ls: "; ls
 echo "[DEBUG] REPOSITORY_NAME=$REPOSITORY_NAME"
 mkdir -p ~/$DIR_ACTUALHOSTS_LINK
-ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/hut_10sqft/jobs/131835176#L3951, enable to access files at /home/travis/link/github_repos/130s/hut_10sqft.
+ln -sf $CI_SOURCE_PATH ~/$DIR_ACTUALHOSTS_LINK/$REPOSITORY_NAME  # As a workaround an issue e.g. https://travis-ci.org/130s/hut_10sqft/jobs/131835176#L3951, enable to access files at /home/travis/link/git_repos/130s/hut_10sqft.
 
 #######################################
 # Default error handling method that should be used throughout the script. With this function the process exits.
@@ -263,7 +263,7 @@ if [ ! -d ~/data ]; then mkdir -p ~/data; fi
 if [ ! -d ~/link ]; then mkdir ~/link; fi
 cd link
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
-ln -sf ~/data/Dropbox/pg/myDevelopment/git_repo github_repos
+ln -sf ~/data/Dropbox/pg/myDevelopment/git_repo git_repos
 ln -sf ~/data/Dropbox/ROS .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc .
