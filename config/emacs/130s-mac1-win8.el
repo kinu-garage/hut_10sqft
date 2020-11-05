@@ -1,7 +1,7 @@
 ; .emacs specific for 130s-serval
 
 ;; 3/8/2014 Common emacs setting.
-(load "~/link/github_repos/130s/hut_10sqft/config/emacs/emacs.el")
+(load "~/link/git_repos/130s/hut_10sqft/config/emacs/emacs.el")
 
 (set-frame-height (selected-frame) 58)
 (set-frame-width (selected-frame) 110)
