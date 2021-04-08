@@ -128,3 +128,7 @@
 
 ;; optional key bindings, easier than hs defaults
 (define-key nxml-mode-map (kbd "C-c h") 'hs-toggle-hiding)
+
+;; 20201203 Frame https://emacs.stackexchange.com/questions/5371/how-to-change-emacs-windows-from-vertical-split-to-horizontal-split
+(setq load-path (cons (expand-file-name "~/link/git_repos/130s/hut_10sqft/config/emacs/3rd_party_emacs/") load-path))
+(require 'transpose-frame)
