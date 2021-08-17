@@ -10,7 +10,7 @@ DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # 11/14/2012 To move pictures taken on android and synched via dropbox, to certain folder.
 androidpic_mv() {
-  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This sets the month folder as the copy destination. Requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2016/)
+  TARGET_FOLDER=`date -d "$D" '+%m'`;  # This sets the month folder as the copy destination. Requires the ~/link/Current is set to the year folder (e.g. ~/data/Dropbox/periodic/2016/)
   TMP_FOLDER_MIO='/tmp/mvimgfrommio'
   FILE_EXTENSIONS=("jpg" "jpeg" "png" "mp4" "mov")  # Target file extensions for mv commands.
 

@@ -262,12 +262,12 @@ rm -fr Documents Music Pictures Public Templates Videos # These folders are neve
 if [ ! -d ~/data ]; then mkdir -p ~/data; fi
 if [ ! -d ~/link ]; then mkdir ~/link; fi
 cd link
-ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos/2017/ Current
+ln -sf ~/data/Dropbox/periodic/2021/ Current
 ln -sf ~/data/Dropbox/pg/myDevelopment/git_repo git_repos
 ln -sf ~/data/Dropbox/ROS .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/30y-130s .
 ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Academic/academicDoc .
-ln -sf ~/data/Dropbox/GoogleDrive/gm130s_other/Periodic/GooglePhotos .
+ln -sf ~/data/Dropbox/periodic .
 
 ## App configs
 ubuntu_set_autostart

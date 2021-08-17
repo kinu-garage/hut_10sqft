@@ -99,7 +99,7 @@
 ;;(load "~/ROS_Workspace/Shared_MultiHosts_ROS_Workspace/.emacs_ros") ; 7/3/2012/This is now referred from ~/.emacs
 
 ;; Creating short cut
-(set-register ?d '(file . "~/data/Dropbox/GoogleDrive/Periodic/GooglePhotos/2020/"))
+(set-register ?d '(file . "~/data/Dropbox/periodic/2021/"))
 (set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
 
 ;; 10/30/2015 http://superuser.com/questions/255475/emacs-setting-column-mode-to-be-always-on
