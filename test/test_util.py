@@ -36,17 +36,22 @@ class TestUtil(unittest.TestCase):
     _pwd_beginning = os.path.abspath(os.path.curdir)
     _TESTDATA_XML1 = 'package1.xml'
     _LIST_TESTDATA1 = [_TESTDATA_XML1, 'prooving2.txt'] 
+    _LIST_TESTDATA2 = ["black.jpg", "grey_1.jpg", "grey_2.jpg", "red.png"] 
     _TESTDATA_DIR = './testdata1'
+    _TESTDATA2_DIR = "./testdata2"
     _TEST_DIR = '/tmp/proovingground_of_mad_overlord'
-    _LIST_TESTDATA1_ABS = [_TEST_DIR + '/' + elem
-                           for elem in _LIST_TESTDATA1] 
-
+    _LIST_TESTDATA1_ABS = [os.path.join(_TEST_DIR, elem)                                         
+                           for elem in _LIST_TESTDATA1]
+    _LIST_TESTDATA2_ABS = [os.path.join(_TEST_DIR, elem)                                         
+                           for elem in _LIST_TESTDATA2]
+    
     @classmethod
     def setUpClass(cls):
         super(TestUtil, cls).setUpClass()
         
     def setUp(self):        
-        self._setup_testdata()        
+        self._setup_testdata()
+        self._util = Util()
 
     def tearDown(self):
         print('tearDown: chdir-ed to {}'.format(TestUtil._pwd_beginning))
@@ -73,6 +78,7 @@ class TestUtil(unittest.TestCase):
         with tarfile.open(tgz_filename, "w:gz") as tgz_file:
             try:
                 tgz_file.add(TestUtil._TESTDATA_DIR, arcname=os.path.basename(''))
+                tgz_file.add(TestUtil._TESTDATA2_DIR, arcname=os.path.basename(''))
             except OSError as e: # [Errno 2] No such file or directory: './testdata1'
                 print("OSError; Make sure to run nosetests from 'test' dir.")
                 raise e
@@ -99,7 +105,7 @@ class TestUtil(unittest.TestCase):
         filenames_matched_1 = Util.find_all_files()
         ##filenames_matched_1 = Util.find_all_files(depth_max=1)
         
-        self.assertItemsEqual(filenames_matched_1, self._LIST_TESTDATA1_ABS)
+        self.assertItemsEqual(filenames_matched_1, self._LIST_TESTDATA1_ABS + self._LIST_TESTDATA2_ABS)
 
     def test_find_all_files_noarg_relativepath(self):
         # Test without argument passed to find_all_files.
@@ -186,6 +192,12 @@ class TestUtil(unittest.TestCase):
         #
         # Extract the timestamp portion and measure the length of the string = 14
         self.assertEqual(len(dest_name.split("_")[-1]), 14)
+
+    def test_imgs_to_pdf(self):
+        _PATHS_ABS_INPUT_FILES = os.listdir(os.path.join(TestUtil._TEST_DIR, TestUtil._TESTDATA2_DIR))
+        outfile = self._util.imgs_to_pdf(_PATHS_ABS_INPUT_FILES)
+        statinfo = os.stat(outfile)
+        self.assertGreater(statinfo.st_size, 0)
 
 if __name__ == '__main__':
     unittest.main()

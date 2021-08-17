@@ -18,8 +18,10 @@ import datetime
 import fileinput
 import fnmatch
 import glob
+import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -175,3 +177,26 @@ class Util:
         if res != 0:
             raise subprocess.CalledProcessError("source: {}, dest: {}".format(source, dest))
         return dest_name
+
+    def imgs_to_pdf(self, imgs, out_path):
+        """
+        @type imgs: [str]
+        """
+        imgs_pdf = []
+        # Convert image files to an individual PDFs.
+        for img in imgs:
+            logging.warn("BEFORE: File path {}".format(img))
+            if not os.path.exists(img):
+                img = Util.find_all_files(filename_pattern=img, depth_max=0)
+                logging.warn("AFTER: File path {}".format(img))
+            filename_root = img.rsplit(".", 1)[0]
+            filename_pdf = "{}.pdf".format(filename_root)
+            cmd = "convert {} {}".format(img, filename_pdf)
+            logging.warn("Command: {}".format(cmd))
+            subprocess.call(shlex.split(cmd))
+            imgs_pdf.append(filename_pdf)
+
+        # Combine PDF files.
+        cmd_tk = "pdftk {} cat output {}".format(" ".join(imgs_pdf), out_path)
+        subprocess.call(shlex.split(cmd_tk))
+
