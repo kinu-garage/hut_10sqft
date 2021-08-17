@@ -35,3 +35,6 @@ export EDITOR=emacs
 # Added in https://github.com/130s/hut_10sqft/pull/65
 # 20170916 To workaround https://github.com/130s/hut_10sqft/issues/67#issuecomment-330153887 upon scp, tentatively decided to comment this out. Each time accessing remote server that requires password (e.g. github.com), manually run ssh-add command (only once per terminal).
 #if [ -f ~/.ssh/id_rsa ]; then ssh-add ~/.ssh/id_rsa; fi  # Key is for github
+
+# 20210518 Temp workaround(?) for pip install not adding binary to PATH. See https://gitlab.com/plusone-robotics/product/docs/-/merge_requests/71/diffs#note_577327855
+PATH="$HOME/.local/bin/:$PATH"
