@@ -230,7 +230,7 @@ retval_setup_gitfiles=$?
 if [ $retval_setup_gitfiles -ne 0 ]; then echo "Error: ~/.git* symlinks might have not been installed correctly. Skipping."; fi
 
 # Random tools
-PKG_RANDOM_TOOLS="ack-grep aptitude dconf-editor debtree evince gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
+PKG_RANDOM_TOOLS="ack-grep aptitude colorized-logs dconf-editor debtree evince gnome-tweak-tool googleearth-package gtk-recordmydesktop indicator-multiload libavahi-compat-libdnssd1 nmap pdftk pidgin psensor ptex-base ptex-bin ssh sysinfo synaptic texlive-fonts-recommended texlive-latex-base tmux tree whois"
 PKG_TO_INSTALL="$PKG_TO_INSTALL $PKG_RANDOM_TOOLS"
 
 echo Installing $PKG_TO_INSTALL
