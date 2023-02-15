@@ -27,7 +27,7 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;;(set-frame-height (selected-frame) 58)  ;; It seems important to disable set-frame-{height, width} when set-frame-size is in use.
 ;;(set-frame-width (selected-frame) 110)
-(when window-system (set-frame-size (selected-frame) 172 46))
+(when window-system (set-frame-size (selected-frame) 112 36))
 
 ; Mew + Gmail
 ; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
