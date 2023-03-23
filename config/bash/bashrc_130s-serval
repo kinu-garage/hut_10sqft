@@ -1,2 +1,2 @@
 # This line needs to be absolute path.
-source ~/link/git_repos/130s/hut_10sqft/config/bash/rc_130s-serval.bash
+source ~/link/ROS/src/130s/hut_10sqft/config/bash/rc_130s-serval.bash

@@ -1,5 +1,5 @@
 ;; 6/9/2016 Common config read here.
-(load "~/link/git_repos/130s/hut_10sqft/config/emacs/emacs.el")
+(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)

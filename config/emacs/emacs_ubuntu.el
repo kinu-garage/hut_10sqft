@@ -1,5 +1,5 @@
 ;; 6/9/2016 Common config read here.
-(load "~/link/git_repos/130s/hut_10sqft/config/emacs/emacs.el")
+(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs.el")
 
 ;;20160429 Moved from downstream (kudu1, Trusty 14.04), hoping this is valid for all Ubuntu machines.
 ;; mozc
