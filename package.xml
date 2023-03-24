@@ -1,0 +1,42 @@
+<package format="3">
+  <name>hut_10sqft</name>
+  <version>0.2.0</version>
+  <description>Tool suite for setting up lives, mostly for computer environment.</description>
+  <maintainer email="iisaac.saito@gmail.com">Isaac Saito</maintainer>
+  <license>Apache</license>
+  <url type="bugtracker">https://github.com/130s/hut_10sqft/issues</url>
+  <author>Isaac Saito</author>
+
+  <buildtool_depend>ament</buildtool_depend>
+  <exec_depend>apt-transport-https</exec_depend>
+  <exec_depend>ca-certificates</exec_depend>
+  <exec_depend>emacs</exec_depend>
+  <exec_depend>freecad</exec_depend>
+  <exec_depend>gimp</exec_depend>
+  <exec_depend>git</exec_depend>
+  <exec_depend>gitk</exec_depend>
+  <exec_depend>gnuplot</exec_depend>
+  <exec_depend>gnuplot-x11</exec_depend>
+  <exec_depend>iftop</exec_depend>
+  <exec_depend>ipython3</exec_depend>
+  <exec_depend>meld</exec_depend>
+  <exec_depend>mesa-utils</exec_depend>
+  <exec_depend>meshlab</exec_depend>
+  <exec_depend>ntp</exec_depend>
+  <exec_depend>openjdk-7-jre</exec_depend>
+  <exec_depend>python3-bloom</exec_depend>
+  <exec_depend>python3-empy</exec_depend>
+  <exec_depend>python3-rosdep</exec_depend>
+  <exec_depend>python3-vcstool</exec_depend>
+  <exec_depend>rpl</exec_depend>
+  <exec_depend>ack</exec_depend>
+  <exec_depend>debtree</exec_depend>
+  <exec_depend>nmap</exec_depend>
+  <exec_depend>openssh-client</exec_depend>
+  <exec_depend>openssh-server</exec_depend>
+  <exec_depend>texlive-fonts-recommended </exec_depend>
+  <exec_depend>texlive-latex-base</exec_depend>
+  <exec_depend>tmux</exec_depend>
+  <exec_depend>tree</exec_depend>
+
+</package>
