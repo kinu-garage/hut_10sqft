@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+echo "As of 2023/03, this tool is outdated so made un-executable. Use 'init_setup.py' instead."
+
 if [ -z $CI_SOURCE_PATH ]; then
 	echo 'Env var CI_SOURCE_PATH needs set at the top dir of this repo/package. Exiting.'
 	exit 1	
