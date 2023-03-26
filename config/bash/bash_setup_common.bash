@@ -34,7 +34,8 @@ export PATH=~/link/ROS/src/130s/hut_10sqft/script:$PATH
 export PYTHONPATH=~/link/ROS/src/130s/hut_10sqft/src:$PYTHONPATH
 
 # 6/9/2016 Workaround for tmux issue https://github.com/130s/hut_10sqft/issues/3
-export DISPLAY=:0
+# 2023/03/27 Commenting this out 7 years later. See https://github.com/kinu-garage/hut_10sqft/issues/804#issuecomment-1484008189
+#export DISPLAY=:0
 
 # END: commands to be run regardless interactiveness.
 
