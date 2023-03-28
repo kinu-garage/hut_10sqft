@@ -520,6 +520,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             "dconf-editor",
             "emacs-mozc",
             "evince",
+            "flameshot"
             "gnome-tweaks",
             "googleearth-package",
             "gtk-recordmydesktop",
