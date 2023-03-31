@@ -518,7 +518,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             "aptitude",
             "colorized-logs",
             "dconf-editor",
-            "emacs-mozc",
+            "emacs-mozc", "emacs-mozc-bin",
             "evince",
             "flameshot"
             "gnome-tweaks",
