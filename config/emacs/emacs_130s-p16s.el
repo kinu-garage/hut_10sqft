@@ -1,4 +1,4 @@
-; .emacs specific for 130s-serval
+; .emacs specific for 130s-p16s
 
 ; 2/8/2013 Ubuntu common setting ported
 (load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
@@ -11,4 +11,4 @@
 ;; https://www.emacswiki.org/emacs/FrameSize
 ;;(set-frame-height (selected-frame) 58)  ;; It seems important to disable set-frame-{height, width} when set-frame-size is in use.
 ;;(set-frame-width (selected-frame) 110)
-(when window-system (set-frame-size (selected-frame) 112 36))
+(when window-system (set-frame-size (selected-frame) 100 70))

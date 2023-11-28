@@ -1,8 +1,8 @@
 ; .emacs specific for 130s-kudu1
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu_trusty.el")
+(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu_trusty.el")
 
 ;; mozc
 (require 'mozc)

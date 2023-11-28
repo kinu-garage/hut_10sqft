@@ -1,8 +1,8 @@
 ; .emacs specific for 130s-t440s (Ubuntu Trusty)
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu_trusty.el")
+(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu_trusty.el")
 
 ;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
 ;; https://www.emacswiki.org/emacs/FrameSize
