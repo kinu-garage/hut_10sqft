@@ -27,6 +27,7 @@
   <exec_depend>openjdk-7-jre</exec_depend>
   <exec_depend>python3-bloom</exec_depend>
   <exec_depend>python3-empy</exec_depend>
+  <exec_depend>python3-rocker</exec_depend>
   <exec_depend>python3-rosdep</exec_depend>
   <exec_depend>python3-vcstool</exec_depend>
   <exec_depend>rpl</exec_depend>

@@ -129,16 +129,6 @@
 (setq load-path (cons (expand-file-name "~/.config/hut_10sqft/hut_10sqft/config/emacs/3rd_party_emacs/") load-path))
 (require 'transpose-frame)
 
-;; 20231123 Lots of configs duplicated. So,
-;; BEGIN copied here.
-
-; 2/17/2012/To enabele run-lisp
-; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
-(setq inferior-lisp-program "/usr/bin/clisp")
-(global-set-key "\C-x\C-l" `run-lisp)
-(global-set-key "\C-xd" `lisp-eval-defun)
-(global-set-key "\C-x\C-d" `lisp-eval-defun-and-go)
-
 ; 2019/05/15 Macro to convert fragmented merge requests link to a full valid http URL for Gitlab.com.
 (fset 'strreplace_mr_gitlab
    (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ("see merge request phttps://!/merge_requests/" 0 "%d")) arg)))
@@ -155,5 +145,3 @@
 
 ; 4/6/2012/emacs tex live config
 (server-start)
-
-;; END copied here.
