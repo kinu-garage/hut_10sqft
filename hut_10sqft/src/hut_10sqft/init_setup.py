@@ -534,11 +534,9 @@ treats the user ID tha is used to execute this tool as the main user."""
             "psensor",
             "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
             "python3-pip",
-            "python3-rocker"
             "python3-rosdep", 
             "ptex-base",
             "ptex-bin",
-            "rpl",
             "sysinfo",
             "synaptic",
             "whois",
