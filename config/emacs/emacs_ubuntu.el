@@ -33,3 +33,7 @@
 ; 2021/11/30 ; roslaunch highlighting http://wiki.ros.org/roslaunch/Tutorials/Using%20Roslaunch%20with%20Emacs
 (add-to-list 'auto-mode-alist '("\\.launch$" . xml-mode))
 (add-to-list 'auto-mode-alist '("\\.test$" . xml-mode))
+
+;; Creating short cut
+(set-register ?d '(file . "~/data/Dropbox/periodic/2023/"))
+(set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
