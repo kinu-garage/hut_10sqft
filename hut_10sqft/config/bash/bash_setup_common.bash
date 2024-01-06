@@ -30,8 +30,8 @@ androidpic_mv() {
 
 # 3/3/2014 to include rm_dropbox_conflictfiles.bash
 #export PATH=~/data/Dropbox/pg/Lateeye/bashapp:$PATH
-export PATH=~/link/ROS/130s/hut_10sqft/script:$PATH
-export PYTHONPATH=~/link/ROS/130s/hut_10sqft/src:$PYTHONPATH
+export PATH=~/.config/hut_10sqft/hut_10sqft/script:$PATH
+export PYTHONPATH=~/.config/hut_10sqft/hut_10sqft/src:$PYTHONPATH
 
 # 6/9/2016 Workaround for tmux issue https://github.com/130s/hut_10sqft/issues/3
 # 2023/03/27 Commenting this out 7 years later. See https://github.com/kinu-garage/hut_10sqft/issues/804#issuecomment-1484008189

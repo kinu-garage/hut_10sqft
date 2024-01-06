@@ -1,7 +1,7 @@
-; .emacs specific for btt (desktop at Willow)
+; .emacs specific for 130s-serval
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)
@@ -22,5 +22,12 @@
 ;; Optionally, specify the lisp program you are using. Default is "lisp"
 ;;(setq inferior-lisp-program "clisp") 
 
-(set-frame-height (selected-frame) 58)
-(set-frame-width (selected-frame) 130)
+(set-frame-height (selected-frame) 48)
+(set-frame-width (selected-frame) 148)
+
+; Mew + Gmail
+; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
+(autoload 'mew "mew" nil t)
+(autoload 'mew-send "mew" nil t)
+(setq mew-fcc "+outbox") ; Save sent mails
+(setq exec-path (cons "/usr/bin" exec-path))

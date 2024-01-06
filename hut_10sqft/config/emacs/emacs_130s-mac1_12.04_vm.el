@@ -1,8 +1,8 @@
 ; .emacs specific for 130s-serval
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
-(load "~/link/ROS/130s/hut_10sqft/config/emacs/emacs_ubuntu_precise.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu_precise.el")
 
 (set-frame-height (selected-frame) 44)
 (set-frame-width (selected-frame) 90)
