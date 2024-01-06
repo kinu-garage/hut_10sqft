@@ -210,8 +210,8 @@ class CompInitSetup():
     _REPO_PERMANENT_CONFIG = "hut_10sqft"
     _FOLDER_CONF_PERM_REPO = "config"
     _PATH_DEFAULT_PERMANENT_CONF_REPO = "~/.config/{}/{}".format(_REPO_PERMANENT_CONFIG, _REPO_PERMANENT_CONFIG)
-    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = "~/.config/{}/{}/{}".format(_REPO_PERMANENT_CONFIG, _REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
-    _PATH_SYMLINKS_DIR = "link"
+    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = "{}/{}".format(_PATH_DEFAULT_PERMANENT_CONF_REPO, _FOLDER_CONF_PERM_REPO)
+    _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     # Messages for stdout
     _MSG_CONSOLE_TOOL_INTRO = """This tool is for setting up a Linux-based personal computer.
      It does the following: 1) Installs dependency (which must be defined in package.xml). 
