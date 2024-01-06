@@ -1,0 +1,10 @@
+[/]
+background-transparency-percent=14
+default-size-columns=110
+default-size-rows=28
+font='Monospace 11'
+scrollback-lines=81920
+use-custom-command=false
+use-system-font=false
+use-theme-transparency=false
+use-transparent-background=true

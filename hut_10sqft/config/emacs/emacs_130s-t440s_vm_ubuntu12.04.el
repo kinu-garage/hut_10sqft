@@ -1,11 +1,10 @@
 ; .emacs specific for 130s-serval
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
-; 20170818 Comment out since this causes server error upon launch
-;;(server-start)
+(server-start)
 
 ; 2/17/2012/To enabele run-lisp
 ; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
@@ -23,11 +22,8 @@
 ;; Optionally, specify the lisp program you are using. Default is "lisp"
 ;;(setq inferior-lisp-program "clisp") 
 
-;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
-;; https://www.emacswiki.org/emacs/FrameSize
-;;(set-frame-height (selected-frame) 58)  ;; It seems important to disable set-frame-{height, width} when set-frame-size is in use.
-;;(set-frame-width (selected-frame) 110)
-(when window-system (set-frame-size (selected-frame) 112 36))
+(set-frame-height (selected-frame) 48)
+(set-frame-width (selected-frame) 148)
 
 ; Mew + Gmail
 ; http://jedipunkz.github.io/blog/2013/08/12/emacs-mew-gmail/
@@ -35,4 +31,3 @@
 (autoload 'mew-send "mew" nil t)
 (setq mew-fcc "+outbox") ; Save sent mails
 (setq exec-path (cons "/usr/bin" exec-path))
-(put 'upcase-region 'disabled nil)

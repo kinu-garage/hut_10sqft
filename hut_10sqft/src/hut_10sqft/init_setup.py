@@ -209,9 +209,9 @@ class CompInitSetup():
     # available for the entire life time of the OS. 
     _REPO_PERMANENT_CONFIG = "hut_10sqft"
     _FOLDER_CONF_PERM_REPO = "config"
-    _PATH_DEFAULT_PERMANENT_CONF_REPO = "~/.config/{}".format(_REPO_PERMANENT_CONFIG)
-    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = "~/.config/{}/{}".format(_REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
-    _PATH_SYMLINKS_DIR = "link"
+    _PATH_DEFAULT_PERMANENT_CONF_REPO = "~/.config/{}/{}".format(_REPO_PERMANENT_CONFIG, _REPO_PERMANENT_CONFIG)
+    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = "{}/{}".format(_PATH_DEFAULT_PERMANENT_CONF_REPO, _FOLDER_CONF_PERM_REPO)
+    _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     # Messages for stdout
     _MSG_CONSOLE_TOOL_INTRO = """This tool is for setting up a Linux-based personal computer.
      It does the following: 1) Installs dependency (which must be defined in package.xml). 
@@ -491,7 +491,8 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         self._logger.info("Set a member var of the path of local permanent conf repo.")
         self._path_local_conf_repo = pathlib.Path(_args.path_local_conf_repo).expanduser()
-        self._path_local_permanent_conf_repo_confdir = pathlib.Path(os.path.join(self._path_local_conf_repo, self._FOLDER_CONF_PERM_REPO)).expanduser()
+        self._path_local_permanent_conf_repo_confdir = pathlib.Path(
+            os.path.join(self._path_local_conf_repo, self._FOLDER_CONF_PERM_REPO)).expanduser()
         # Check if perm conf repo is already available on the host.
         if not os.path.exists(self._path_local_conf_repo):
             raise FileNotFoundError("At '{}', a local repo {} is expected to be present in order to continue.".format(
@@ -518,8 +519,9 @@ treats the user ID tha is used to execute this tool as the main user."""
             "aptitude",
             "colorized-logs",
             "dconf-editor",
-            "emacs-mozc",
+            "emacs-mozc", "emacs-mozc-bin",
             "evince",
+            "flameshot"
             "gnome-tweaks",
             "googleearth-package",
             "gtk-recordmydesktop",
@@ -532,9 +534,11 @@ treats the user ID tha is used to execute this tool as the main user."""
             "psensor",
             "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
             "python3-pip",
+            "python3-rocker"
             "python3-rosdep", 
             "ptex-base",
             "ptex-bin",
+            "rpl",
             "sysinfo",
             "synaptic",
             "whois",

@@ -1,7 +1,7 @@
 ; .emacs specific for btt (desktop at Willow)
 
 ; 2/8/2013 Ubuntu common setting ported
-(load "~/link/ROS/src/130s/hut_10sqft/config/emacs/emacs_ubuntu.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu.el")
 
 ; 4/6/2012/emacs tex live config
 (server-start)

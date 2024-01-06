@@ -8,6 +8,7 @@
   <author>Isaac Saito</author>
 
   <buildtool_depend>ament</buildtool_depend>
+  <exec_depend>ack</exec_depend>
   <exec_depend>apt-transport-https</exec_depend>
   <exec_depend>ca-certificates</exec_depend>
   <exec_depend>emacs</exec_depend>
