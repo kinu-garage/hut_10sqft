@@ -126,7 +126,5 @@
 (define-key nxml-mode-map (kbd "C-c h") 'hs-toggle-hiding)
 
 ;; 20201203 Frame https://emacs.stackexchange.com/questions/5371/how-to-change-emacs-windows-from-vertical-split-to-horizontal-split
-==== BASE ====
-(setq load-path (cons (expand-file-name "~/link/ROS/130s/hut_10sqft/config/emacs/3rd_party_emacs/") load-path))
-==== BASE ====
+(setq load-path (cons (expand-file-name "~/.config/hut_10sqft/hut_10sqft/config/emacs/3rd_party_emacs/") load-path))
 (require 'transpose-frame)
