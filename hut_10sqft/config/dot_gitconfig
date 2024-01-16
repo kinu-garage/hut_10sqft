@@ -1,6 +1,6 @@
 [user]
-	name = Isaac I.Y. Saito
-	email = 130s@2000.jukuin.keio.ac.jp
+	name = Isaac Saito
+	email = iisaac.saito@gmail.com
 [core]
 	editor = emacs -nw
 	excludesfile = /home/n130s/.gitignore_global
