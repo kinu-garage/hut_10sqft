@@ -204,6 +204,32 @@ class CompInitSetup():
     """
     @summary TBD
     """
+    _DEBS_ADHOC = [
+            "aptitude",
+            "colorized-logs",
+            "dconf-editor",
+            "emacs-mozc", "emacs-mozc-bin",
+            "evince",
+            "flameshot"
+            "gnome-tweaks",
+            "googleearth-package",
+            "gtk-recordmydesktop",
+            "ibus", "ibus-el", "ibus-mozc", 
+            "indicator-multiload",
+            "libavahi-compat-libdnssd1",
+            "mozc-server",
+            "pdftk",
+            "pidgin",
+            "psensor",
+            "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
+            "python3-pip",
+            "python3-rosdep", 
+            "ptex-base",
+            "ptex-bin",
+            "sysinfo",
+            "synaptic",
+            "whois",
+            ]
     _LOGGER_NAME = "CompInitSetup-logger"
     # Name of the local repo that stores the config and will have to be
     # available for the entire life time of the OS. 
@@ -503,35 +529,8 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
         # TODO Hardcoded here is not easy.
-        _deb_pkgs = [
-            "aptitude",
-            "colorized-logs",
-            "dconf-editor",
-            "emacs-mozc", "emacs-mozc-bin",
-            "evince",
-            "flameshot"
-            "gnome-tweaks",
-            "googleearth-package",
-            "gtk-recordmydesktop",
-            "ibus", "ibus-el", "ibus-mozc", 
-            "indicator-multiload",
-            "libavahi-compat-libdnssd1",
-            "mozc-server",
-            "pdftk",
-            "pidgin",
-            "psensor",
-            "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
-            "python3-pip",
-            "python3-rosdep", 
-            "ptex-base",
-            "ptex-bin",
-            "sysinfo",
-            "synaptic",
-            "whois",
-            ]
-        
         _pip_pkgs = {""}
-        self._install_deps_adhoc(deb_pkgs=_deb_pkgs, pip_pkgs=_pip_pkgs)
+        self._install_deps_adhoc(deb_pkgs=self._DEBS_ADHOC, pip_pkgs=_pip_pkgs)
 
         # Setting up rosdep
         OsUtil.setup_rosdep()
@@ -553,16 +552,16 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Env vars per host: Bash, Emacs
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
-        if self._hostname == "130s-p50":
-            BASH_CONFIG_NAME = "bashrc_130s-p50"
-            EMACS_CONFIG_NAME = "emacs_130s-serval.el"
-            SSH_KEY_PRV = "id_rsa_130s-p50"
-            SSH_KEY_PUB = "id_rsa_130s-p50.pub"
-        elif self._hostname == "130s-p16s":
+        if self._hostname == "130s-p16s":
             BASH_CONFIG_NAME = "bashrc_130s-p16s"
             EMACS_CONFIG_NAME = "emacs_130s-p16s.el"
             SSH_KEY_PRV = "id_rsa_130s-p16s"
             SSH_KEY_PUB = "id_rsa_130s-p16s.pub"
+        elif self._hostname == "130s-brya":
+            BASH_CONFIG_NAME = "bashrc_130s-brya"
+            EMACS_CONFIG_NAME = "emacs_130s-brya.el"
+            SSH_KEY_PRV = "id_rsa_130s-brya"
+            SSH_KEY_PUB = "id_rsa_130s-brya.pub"
         elif self._hostname == "130s-serval":
             BASH_CONFIG_NAME = "bashrc_130s-serval"
             EMACS_CONFIG_NAME = "emacs_130s-serval.el"
