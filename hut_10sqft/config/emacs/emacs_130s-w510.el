@@ -2,7 +2,6 @@
 
 ; 2/8/2013 Ubuntu common setting ported
 (load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu.el")
-(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_ubuntu_trusty.el")
 
 ;; mozc
 (require 'mozc)

@@ -129,31 +129,19 @@
 (setq load-path (cons (expand-file-name "~/.config/hut_10sqft/hut_10sqft/config/emacs/3rd_party_emacs/") load-path))
 (require 'transpose-frame)
 
-;; 20231123 Lots of configs duplicated. So,
-;; BEGIN copied here.
-
-; 2/17/2012/To enabele run-lisp
-; http://www.cs.berkeley.edu/~russell/classes/cs188/f05/assignments/a0/lisp-tutorial.html
-(setq inferior-lisp-program "/usr/bin/clisp")
-(global-set-key "\C-x\C-l" `run-lisp)
-(global-set-key "\C-xd" `lisp-eval-defun)
-(global-set-key "\C-x\C-d" `lisp-eval-defun-and-go)
-
 ; 2019/05/15 Macro to convert fragmented merge requests link to a full valid http URL for Gitlab.com.
-(fset 'strreplace_mr_gitlab
+(fset 'rpl_url_mr_gitlab
    (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ("see merge request phttps://!/merge_requests/" 0 "%d")) arg)))
 
 ; 2019/10/09 Macro to convert a Gitlab http URL of an issue on any POR repo to link format in .md.
 ; e.g. https://gitlab.com/remote-org/git-group/sub-group/issues/473 -> [git-group/sub-group#473](https://gitlab.com/remote-org/git-group/sub-group/issues/473)
-(fset 'strreplace_url_por_md
+(fset 'rpl_url_md
    (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ([19 104 116 116 112 115 6 19 105 115 115 117 101 115 134217830 67108896 18 104 116 116 112 115 2 6 23 25 41 18 104 116 116 112 115 2 6 91 25 93 40 18 91 6 67108896 19 112 108 117 115 111 110 101 45 114 111 98 111 116 105 99 115 6 23 19 105 115 115 117 101 6 6 127 127 127 127 127 127 127 127 35 19 41 6 27 120 107 109 97 99 114 111 45 101 tab 110 100 tab 111 114 tab] 0 "%d")) arg)))
 
 ; 2019/10/09 Macro to convert a Gitlab http URL of an issue on any POR repo to link format in .rst.
 ; e.g. https://gitlab.com/remote-org/git-group/sub-group/issues/999 -> `git-group/sub-group#999 <https://gitlab.com/remote-org/git-group/sub-group/issues/999>`_
-(fset 'strreplace_url_por_rst
+(fset 'rpl_url_rst
    (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ([19 104 116 116 112 115 6 2 2 2 2 2 2 67108896 19 105 115 115 117 101 134217830 134217830 23 25 62 96 95 18 104 116 116 112 115 6 2 96 25 32 60 18 104 116 116 6 4 127 67108896 19 112 108 117 115 111 110 101 45 114 111 98 111 116 105 99 115 6 23 19 105 115 115 4 4 4 4 127 127 127 127 35 19 62 96 6 27 120 107 109 97 tab 101 110 100 tab 111 tab] 0 "%d")) arg)))
 
 ; 4/6/2012/emacs tex live config
 (server-start)
-
-;; END copied here.

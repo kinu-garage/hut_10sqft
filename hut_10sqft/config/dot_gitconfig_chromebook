@@ -3,7 +3,7 @@
 	email = iisaac.saito@gmail.com
 [core]
 	editor = emacs -nw
-	excludesfile = /home/n130s/.gitignore_global
+	excludesfile = /home/gm130s/.gitignore_global
 [merge]
 	tool = meld
 [credential]
