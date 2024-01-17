@@ -379,12 +379,8 @@ treats the user ID tha is used to execute this tool as the main user."""
                 path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "data", "Dropbox", "periodic", "2023"),
+                path_source=os.path.join(path_user_home, "data", "Dropbox", "periodic", "2024"),
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, "data", "Dropbox", "periodic", "2022"),
-                path_dest=os.path.join(rootpath_symlinks, "2022"),
                 is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "data", "Dropbox", "GoogleDrive", "Career", "Engineering", "ARIAC"),
@@ -399,16 +395,8 @@ treats the user ID tha is used to execute this tool as the main user."""
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "data", "Dropbox", "pg", "ansible"),
-                path_dest=os.path.join(rootpath_symlinks, "ansible_apps"),
-                is_symlink=True),
-            ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_base"),
                 path_dest=os.path.join(rootpath_symlinks, "ROS"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "academicDoc", "article_surveyed", "_robotics_article"),
-                path_dest=os.path.join(rootpath_symlinks, "article_robotics-automation"),
                 is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "30y-130s", "schools_children", "GJLS"),

@@ -38,5 +38,5 @@
 (put 'upcase-region 'disabled nil)
 
 ;; Creating short cut
-(set-register ?d '(file . "~/data/Dropbox/periodic/2023/"))
+(set-register ?d '(file . "~/data/Dropbox/periodic/2024/"))
 (set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
