@@ -553,12 +553,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Env vars per host: Bash, Emacs
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
-        if self._hostname == "130s-p50":
-            BASH_CONFIG_NAME = "bashrc_130s-p50"
-            EMACS_CONFIG_NAME = "emacs_130s-serval.el"
-            SSH_KEY_PRV = "id_rsa_130s-p50"
-            SSH_KEY_PUB = "id_rsa_130s-p50.pub"
-        elif self._hostname == "130s-p16s":
+        if self._hostname == "130s-p16s":
             BASH_CONFIG_NAME = "bashrc_130s-p16s"
             EMACS_CONFIG_NAME = "emacs_130s-p16s.el"
             SSH_KEY_PRV = "id_rsa_130s-p16s"

@@ -12,6 +12,7 @@
   <exec_depend>apt-transport-https</exec_depend>
   <exec_depend>ca-certificates</exec_depend>
   <exec_depend>emacs</exec_depend>
+  <exec_depend>emacs-mozc</exec_depend>
   <exec_depend>freecad</exec_depend>
   <exec_depend>gimp</exec_depend>
   <exec_depend>git</exec_depend>
@@ -23,6 +24,7 @@
   <exec_depend>meld</exec_depend>
   <exec_depend>mesa-utils</exec_depend>
   <exec_depend>meshlab</exec_depend>
+  <exec_depend>mozc-server</exec_depend>
   <exec_depend>ntp</exec_depend>
   <exec_depend>openjdk-7-jre</exec_depend>
   <exec_depend>python3-bloom</exec_depend>
