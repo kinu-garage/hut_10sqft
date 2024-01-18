@@ -17,7 +17,7 @@ env:
     - export CI_SOURCE_PATH="$TRAVIS_BUILD_DIR"
   matrix:
     - HOSTNAME=130s-kudu1
-    - HOSTNAME=130s-p50
+    - HOSTNAME=130s-p16s
     - HOSTNAME=130s-serval
     - HOSTNAME=130s-t440s
 install:
