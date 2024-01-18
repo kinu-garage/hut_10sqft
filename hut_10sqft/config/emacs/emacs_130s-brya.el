@@ -1,7 +1,7 @@
 ; .emacs specific for 130s-brya ChromeOS
 ; 20231123 Originally copied from emacs_130s-p16s.el
 
-(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs.el")
+(load "~/.config/hut_10sqft/hut_10sqft/config/emacs/emacs_chromeos.el")
 
 ;; Issue where texts are not shown with emacs -nw option is solved by using "when window-system"
 ;; https://www.emacswiki.org/emacs/FrameSize
