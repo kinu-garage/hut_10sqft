@@ -36,3 +36,8 @@ export EDITOR=emacs
 
 # 20210518 Temp workaround(?) for pip install not adding binary to PATH. See https://gitlab.com/git-org/git-group/sub-group/-/merge_requests/71/diffs#note_577327855
 PATH="$HOME/.local/bin/:$PATH"
+
+# 202401 Dumb solution to https://github.com/kinu-garage/hut_10sqft/issues/985#issuecomment-1911905752
+# This should mostly be for non-GUI environmental (primarilly motivated for Linux mode in ChromeOS), but this might also be useful on GUI-powered but language manager doesn't start e.g. p16s Weyland
+PATH="/usr/lib/mozc/:$PATH"
+alias mozc_conf_tool="mozc_tool --mode=config_dialog"
