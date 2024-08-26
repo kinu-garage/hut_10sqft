@@ -405,7 +405,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_utakata"),
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
-                is_symlink=True)
+                is_symlink=True),
             ]
         for pair in pairs_symlinks:
             self.setup_file(pair)
@@ -527,6 +527,8 @@ treats the user ID tha is used to execute this tool as the main user."""
             "ptex-bin",
             "sysinfo",
             "synaptic",
+            "xdotool",  # https://github.com/kinu-garage/hut_10sqft/issues/1077
+            "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
             "whois",
             ]
         
@@ -609,6 +611,10 @@ treats the user ID tha is used to execute this tool as the main user."""
             ConfigDispach(
                 path_source=os.path.join(self._path_local_permanent_conf_repo_confdir, "emacs", EMACS_CONFIG_NAME),
                 path_dest=os.path.join(self._user_home_dir, ".emacs"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(self._path_local_permanent_conf_repo_confdir, "config", "dot_xbindkeysrc"),
+                path_dest=os.path.join(self._user_home_dir, ".xbindkeysrc"),
                 is_symlink=True),
             ]
         for c in pairs_conf_tools:

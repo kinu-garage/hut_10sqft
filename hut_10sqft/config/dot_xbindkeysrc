@@ -1,0 +1,3 @@
+# See https://github.com/kinu-garage/hut_10sqft/issues/1077
+"echo -n | xsel -n -i; pkill xbindkeys; xdotool click 2; xbindkeys"
+b:2
