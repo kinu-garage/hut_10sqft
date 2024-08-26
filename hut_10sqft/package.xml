@@ -42,5 +42,5 @@
   <exec_depend>texlive-latex-base</exec_depend>
   <exec_depend>tmux</exec_depend>
   <exec_depend>tree</exec_depend>
-
+  <exec_depend>xdotool</exec_depend>
 </package>
