@@ -453,6 +453,92 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
         OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
 
+
+class DebianSetup(ShellCapableOsSetup):
+    _OS_TYPE = "Debian"
+    def __init__(self, os_name=_OS_TYPE):
+        super().__init__(os_name)
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
+        """
+        @summary: Install the packages that cannot be installed by batch using
+            'rosdep install'. Example is 'python3-rosdep' itself.
+
+        @param pip_pkgs: Set format. 
+        """
+        #for deb_pkg in deb_pkgs:
+        #    OsUtil.apt_install(deb_pkg, self._logger)
+        if not deb_pkgs:
+            deb_pkgs = [
+                "aptitude",
+                "colorized-logs",
+                "dconf-editor",
+                "emacs-mozc", "emacs-mozc-bin",
+                "evince",
+                "flameshot"
+                "gnome-tweaks",
+                "googleearth-package",
+                "gtk-recordmydesktop",
+                "ibus", "ibus-el", "ibus-mozc", 
+                "indicator-multiload",
+                "libavahi-compat-libdnssd1",
+                "mozc-server",
+                "pdftk",
+                "pidgin",
+                "psensor",
+                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
+                "python3-pip",
+                "python3-rosdep", 
+                "ptex-base",
+                "ptex-bin",
+                "sysinfo",
+                "synaptic",
+                "xdotool",  # https://github.com/kinu-garage/hut_10sqft/issues/1077
+                "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
+                "whois",
+                ]
+
+        OsUtil.apt_install(deb_pkgs, self._logger)
+        OsUtil.install_pip_adhoc(pip_pkgs)
+
+    def setup_rosdep(self):
+        cmd_set_apt_source_rosdep = 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
+        cmd_obtain_apt_key_rosdep = "wget http://packages.ros.org/ros.key"
+        cmd_set_apt_key_rosdep = "apt-key add ros.key"
+        OsUtil.subproc_bash(cmd_set_apt_source_rosdep, does_sudo=True)
+        OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
+        OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
+
+    def create_data_dir(self, user_home_dir):
+        dirs_tobe_made = ["data", self._PATH_SYMLINKS_DIR]
+        self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
+        for dir in dirs_tobe_made:
+            try:
+                os.mkdir(dir)
+            except FileExistsError as e:
+                self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
+
+        self.common_symlinks(user_home_dir, path_dir_symlinks=self._PATH_SYMLINKS_DIR)
+
+    def setup_oracle_java(self):
+        self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
+
+    # Refs:
+    # - http://askubuntu.com/a/651045/24203
+    # - http://superuser.com/a/939651/106974
+    ## sudo add-apt-repository ppa:webupd8team/java
+    ## apt update && apt-get install -y oracle-java8-installer
+    ## sudo apt install oracle-java8-set-default
+""")
+
+    def _apt_update(self):
+        if self._apt_updated:
+            self._logger.info("'apt update' was already done before. Skipping")
+            return
+        OsUtil.subproc_bash("apt update", does_sudo=True)
+        self._apt_updated = True
+
+
     def run(self, args, host_cfg, conf_repo, conf_repo_path="/tmp/foo"):
         """
         @type host_cfg: HostConf
@@ -560,91 +646,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(self._path_local_conf_repo)
-
-
-class DebianSetup(ShellCapableOsSetup):
-    _OS_TYPE = "Debian"
-    def __init__(self, os_name=_OS_TYPE):
-        super().__init__(os_name)
-
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
-        """
-        @summary: Install the packages that cannot be installed by batch using
-            'rosdep install'. Example is 'python3-rosdep' itself.
-
-        @param pip_pkgs: Set format. 
-        """
-        #for deb_pkg in deb_pkgs:
-        #    OsUtil.apt_install(deb_pkg, self._logger)
-        if not deb_pkgs:
-            deb_pkgs = [
-                "aptitude",
-                "colorized-logs",
-                "dconf-editor",
-                "emacs-mozc", "emacs-mozc-bin",
-                "evince",
-                "flameshot"
-                "gnome-tweaks",
-                "googleearth-package",
-                "gtk-recordmydesktop",
-                "ibus", "ibus-el", "ibus-mozc", 
-                "indicator-multiload",
-                "libavahi-compat-libdnssd1",
-                "mozc-server",
-                "pdftk",
-                "pidgin",
-                "psensor",
-                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
-                "python3-pip",
-                "python3-rosdep", 
-                "ptex-base",
-                "ptex-bin",
-                "sysinfo",
-                "synaptic",
-                "xdotool",  # https://github.com/kinu-garage/hut_10sqft/issues/1077
-                "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
-                "whois",
-                ]
-
-        OsUtil.apt_install(deb_pkgs, self._logger)
-        OsUtil.install_pip_adhoc(pip_pkgs)
-
-    def setup_rosdep(self):
-        cmd_set_apt_source_rosdep = 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
-        cmd_obtain_apt_key_rosdep = "wget http://packages.ros.org/ros.key"
-        cmd_set_apt_key_rosdep = "apt-key add ros.key"
-        OsUtil.subproc_bash(cmd_set_apt_source_rosdep, does_sudo=True)
-        OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
-        OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
-
-    def create_data_dir(self, user_home_dir):
-        dirs_tobe_made = ["data", self._PATH_SYMLINKS_DIR]
-        self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
-        for dir in dirs_tobe_made:
-            try:
-                os.mkdir(dir)
-            except FileExistsError as e:
-                self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
-
-        self.common_symlinks(user_home_dir, path_dir_symlinks=self._PATH_SYMLINKS_DIR)
-
-    def setup_oracle_java(self):
-        self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
-
-    # Refs:
-    # - http://askubuntu.com/a/651045/24203
-    # - http://superuser.com/a/939651/106974
-    ## sudo add-apt-repository ppa:webupd8team/java
-    ## apt update && apt-get install -y oracle-java8-installer
-    ## sudo apt install oracle-java8-set-default
-""")
-
-    def _apt_update(self):
-        if self._apt_updated:
-            self._logger.info("'apt update' was already done before. Skipping")
-            return
-        OsUtil.subproc_bash("apt update", does_sudo=True)
-        self._apt_updated = True
 
 
 class ChromeOsSetup(DebianSetup):
