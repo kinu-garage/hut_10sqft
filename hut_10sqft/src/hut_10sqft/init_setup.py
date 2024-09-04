@@ -9,6 +9,7 @@ try:
     import git
 except ModuleNotFoundError as e:
     print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
+import importlib
 import logging
 import os
 import pathlib
@@ -331,6 +332,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
     def clone(self, repo_to_clone, dir_cloned_at):
         self._logger.info(f"Cloning '{repo_to_clone}' to a local dir: '{dir_cloned_at}'")
+        # In case `python3-git` module wasn't installed when this program started (so that `import git` failed when this file was read in),
+        # re-importing Python's `git` module and let Python interpreter recognize the module to be loaded.
+        # Ref. https://stackoverflow.com/a/19179497/577001
+        globals()["git"] = importlib.import_module("git")
         git.Repo.clone_from(repo_to_clone, dir_cloned_at)
 
         # Check if perm conf repo is already available on the host.
