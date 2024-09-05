@@ -248,6 +248,34 @@ class OsUtil:
             self._logger.info("Moved a file at {}".format(poku.path_dest))
             return pathlib.Path(poku.path_dest).exists()  # Testing
 
+    @staticmethod
+    def tilde_to_expand(value_to_scan, logger=None):
+        """
+        @type value_to_scan: str
+        @return: String after tilde-to-absolute path expansion.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()
+        if (value_to_scan) and (value_to_scan.find("~") != -1):  # When v is not none and contains tilde
+            v_expanded = pathlib.Path(value_to_scan).expanduser()
+            logger.info(f"Expanding a path that contains tilde with user ID. BEFORE: '{value_to_scan}', AFTER: {v_expanded}")
+            return v_expanded
+        else:
+            raise ValueError(f"Input val '{value_to_scan}' does not contain tilde.")
+
+    @staticmethod
+    def get_repo_basename_from_url(url: str) -> str:
+        """
+        @see https://stackoverflow.com/a/55137835/577001
+        """
+        last_slash_index = url.rfind("/")
+        last_suffix_index = url.rfind(".git")
+        if last_suffix_index < 0:
+            last_suffix_index = len(url)
+        if last_slash_index < 0 or last_suffix_index <= last_slash_index:
+            raise Exception("Badly formatted url {}".format(url))
+        return url[last_slash_index + 1:last_suffix_index]
+
 
 class AbstCompSetupFactory():
     """
@@ -275,13 +303,16 @@ class AbstCompSetupFactory():
     def setup_dropbox(self):
         raise NotImplementedError()
 
+    def update_hostname(self, hostname):
+        raise NotImplementedError("Updating hostname feature is not yet implemented.")
+
     def __str__(self) -> str:
         return f"{self.__class__.__name__}(os_name={self._oos_name})"
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(os_name={self._oos_name})"
 
-    def run(self):
+    def run(self, host_config, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
 
 
@@ -330,12 +361,26 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         else:
             raise RuntimeWarning("Docker setup is not done yet")
 
+    def _import_git(self):
+        """
+        @summary: Very adhoc method
+          In case `python3-git` module wasn't installed when this program started (so that `import git` failed when this file was read in),
+          re-importing Python's `git` module and let Python interpreter recognize the module to be loaded.
+          Ref. https://stackoverflow.com/a/19179497/577001
+        """
+        try:
+            importlib.reload(git)
+        except NameError as e:
+            globals()["git"] = importlib.import_module("git")
+
     def clone(self, repo_to_clone, dir_cloned_at):
-        self._logger.info(f"Cloning '{repo_to_clone}' to a local dir: '{dir_cloned_at}'")
-        # In case `python3-git` module wasn't installed when this program started (so that `import git` failed when this file was read in),
-        # re-importing Python's `git` module and let Python interpreter recognize the module to be loaded.
-        # Ref. https://stackoverflow.com/a/19179497/577001
-        globals()["git"] = importlib.import_module("git")
+        """
+        @raise ValueError when some input is null
+        """
+        if not dir_cloned_at:
+            raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
+        self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}'")
+        self._import_git()
         git.Repo.clone_from(repo_to_clone, dir_cloned_at)
 
         # Check if perm conf repo is already available on the host.
@@ -456,8 +501,18 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
 class DebianSetup(ShellCapableOsSetup):
     _OS_TYPE = "Debian"
+
     def __init__(self, os_name=_OS_TYPE):
         super().__init__(os_name)
+        self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
+
+    @property
+    def path_base_conf(self):
+        return self._path_base_conf
+
+    @path_base_conf.setter
+    def path_base_conf(self, value):
+        self._path_base_conf = value
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
         """
@@ -538,14 +593,14 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash("apt update", does_sudo=True)
         self._apt_updated = True
 
-
-    def run(self, args, host_cfg, conf_repo, conf_repo_path="/tmp/foo"):
+    def run(self, args, host_config, conf_repo_remote, conf_base_path=path_base_conf):
         """
+        @type args: (argparse' output)
         @type host_cfg: HostConf
         @param conf_repo: Absolute path URL of the repo to clone that contains host config.
-        @param conf_repo_path: Path to a local location conf_repo to be cloned to.
+        @param conf_base_path: Path to a local location conf_repo to be cloned to.
+          Default is defined in each OS type class by "_PATH_BASE_CONF" variable.
         """
-
         self._hostname = args.hostname
         self._logger.info("Update the host name as '{}'".format(self._hostname))
 
@@ -553,12 +608,14 @@ class DebianSetup(ShellCapableOsSetup):
         # This section relies on Python implementation of git, which might not be available at this point,
         # so installing manually here.
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
-        self.clone(conf_repo, conf_repo_path)
-        self._path_local_permanent_conf_repo_confdir = pathlib.Path(
-            os.path.join(conf_repo_path, self._FOLDER_CONF_PERM_REPO)).expanduser()
+        self._import_git()
+        # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
+        _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
+        self._logger.info(f"_repo_short: {_repo_basename}")
+        self.clone(conf_repo_remote, os.path.join(conf_base_path, _repo_basename))
 
         try:
-            self._update_hostname(self._hostname)
+            self.update_hostname(self._hostname)
         except NotImplementedError as e:
             self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
 
@@ -574,7 +631,7 @@ class DebianSetup(ShellCapableOsSetup):
         # Setting up rosdep
         OsUtil.setup_rosdep()
 
-        self._setup_git_config(path_local_perm_conf=self._path_local_permanent_conf_repo_confdir)
+        self.setup_git_config(path_local_perm_conf=args.path_local_conf_repo)
 
         # Skip Google Chrome specific setting as it might come bundled already
         # on Ubuntu.
@@ -689,20 +746,24 @@ class CompInitSetup():
     # available for the entire life time of the OS. 
     _REPO_PERMANENT_CONFIG = "hut_10sqft"
     _FOLDER_CONF_PERM_REPO = "config"
-    _PATH_DEFAULT_PERMANENT_CONF_REPO = "~/.config/{}/{}".format(_REPO_PERMANENT_CONFIG, _REPO_PERMANENT_CONFIG)
-    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = "{}/{}".format(_PATH_DEFAULT_PERMANENT_CONF_REPO, _FOLDER_CONF_PERM_REPO)
+    _PATH_FOLDER_CONF = os.path.join(pathlib.Path.home(), "." + _FOLDER_CONF_PERM_REPO)
+    # Repeating the same path, this is not a mistake.
+    _PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(_PATH_FOLDER_CONF, _REPO_PERMANENT_CONFIG, _REPO_PERMANENT_CONFIG)
+    _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR = os.path.join(_PATH_DEFAULT_PERMANENT_CONF_REPO, _FOLDER_CONF_PERM_REPO)
     _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     # Messages for stdout
     _MSG_CONSOLE_TOOL_INTRO = """This tool is for setting up a Linux-based personal computer.
      It does the following: 1) Installs dependency (which must be defined in package.xml). 
      2) Create symlinks to config files, which are provided in hut_10sqft local git
        repo i.e. (Having Khut_10sqft somewhere on the host is required)."""
-    _MSG_PATH_PERMANENT_CONFIG = "Path to the FINAL location of '{}' local repo. If not passed then the path will be {}.".format(
-        _REPO_PERMANENT_CONFIG,
-        _PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR)
+    _MSG_PATH_PERMANENT_CONFIG = f"""Path to the FINAL location of '{_REPO_PERMANENT_CONFIG}' local repo.
+ If not passed then the path will be the default {_PATH_DEFAULT_PERMANENT_CONFIG_CONFDIR}, 
+which is for {DebianSetup._OS_TYPE}."""
     _MSG_ARG_USERID = """User ID on the OS that will be mainly used. While this
 is optional, it is recommened to specify. If nothing passed, then the tool
 treats the user ID tha is used to execute this tool as the main user."""
+    _MSG_ARG_BASE_CONF_PATH = """Path where the conf repo will be cloned into.
+ Modifying it is an advanced/bold move, and behavior with the modified path is not planned to be tested as of 2024/08."""
     _URL_CONFREPO = f"https://github.com/kinu-garage/{_REPO_PERMANENT_CONFIG}.git"
 
     def __init__(self):
@@ -715,6 +776,15 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         self._apt_updated = False
 
+    def setup_file(self, file_dispatch):
+        """
+        @param file_dispatch: 'ConfigDispatch' obj.
+        """
+        try:
+            self._os_util.setup_config_location(file_dispatch)
+        except FileExistsError as e:
+            self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
+        
     def _cli_args(self):
         parser = argparse.ArgumentParser(description=self._MSG_CONSOLE_TOOL_INTRO)
         # Optional but close to required args
@@ -725,16 +795,10 @@ treats the user ID tha is used to execute this tool as the main user."""
                             help=self._MSG_PATH_PERMANENT_CONFIG,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
+        parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default="")
 
         args = parser.parse_args()
-        # Check args format
         self._logger.info("args: {}".format(args))
-        for k, v in vars(args).items():
-            self._logger.info(f"Arg: {k} = {v}")
-            # Compensating tilda '~' with the absolute path.
-            if (v) and (v.find("~") != -1):  # When v is not none and contains tilde
-                self._logger.info(f"Updating a value '{v}' by expanding user ID")
-                v = pathlib.Path(v).expanduser()
 
         self._logger.info("If 'user_id' is not passed, get the user id of the current process.")
         if not args.user_id:
@@ -745,18 +809,6 @@ treats the user ID tha is used to execute this tool as the main user."""
             args.hostname = os.uname()[1]
 
         return args
-
-    def setup_file(self, file_dispatch):
-        """
-        @param file_dispatch: 'ConfigDispatch' obj.
-        """
-        try:
-            self._os_util.setup_config_location(file_dispatch)
-        except FileExistsError as e:
-            self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
-        
-    def _update_hostname(self, hostname):
-        raise NotImplementedError("Updating hostname feature is not yet implemented.")
 
     def main(self):
         _args = self._cli_args()
@@ -784,10 +836,13 @@ treats the user ID tha is used to execute this tool as the main user."""
         else:
             raise UserWarning(f"user_id: '{_args.hostname}' not matching any host. This needs to be set.")
 
-        self._logger.info("Set a member var of the path of local permanent conf repo.")
-        self._path_local_conf_repo = pathlib.Path(_args.path_local_conf_repo).expanduser()
-
-        _os_builder.run(_args, _host_cfg, conf_repo=self._URL_CONFREPO, conf_repo_path=self._path_local_conf_repo)
+        # Ref. "_MSG_ARG_BASE_CONF_PATH"
+        _conf_base_path = OsUtil.tilde_to_expand(_args.path_base_conf) if _args.path_base_conf else ""
+            
+        _os_builder.run(_args,
+                        _host_cfg,
+                        conf_repo_remote=self._URL_CONFREPO,
+                        conf_base_path=_conf_base_path)
 
         _msg_endroll = _args.msg_endroll if _args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
