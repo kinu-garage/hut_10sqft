@@ -231,10 +231,9 @@ class OsUtil:
         return output, error, bash_return_code
 
     @staticmethod
-    def setup_config_location(poku, logger=None):
+    def setup_config_location(poku: ConfigDispach, logger=None):
         """
         @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
-        @param poku: Type of 'ConfigDispach'
         @return: True if dest exists after the process.
         """
         if not logger:
@@ -344,6 +343,9 @@ class AbstCompSetupFactory():
         return f"{type(self).__name__}(os_name={self._oos_name})"
 
     def run(self, host_config, conf_repo_remote, conf_base_path=""):
+        raise NotImplementedError()
+
+    def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
         raise NotImplementedError()
 
 
@@ -461,8 +463,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         OsUtil.subproc_bash('docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
 
 
-    def common_symlinks(self, path_user_home, path_dir_symlinks):
-        rootpath_symlinks = os.path.join(path_user_home, path_dir_symlinks)
+    def generate_symlinks(self, rootpath_symlinks, path_user_home):
         pairs_symlinks = [
             ConfigDispach(
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
@@ -501,7 +502,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "git_repos", "ROS", "cws_base"),
+                path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_base"),
                 path_dest=os.path.join(rootpath_symlinks, "ROS"),
                 is_symlink=True),
             ConfigDispach(
@@ -513,7 +514,12 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
                 is_symlink=True),
             ]
+        return pairs_symlinks
+
+    #def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
+    def common_symlinks(self, pairs_symlinks):
         for pair in pairs_symlinks:
+            self._logger.info(f"ConfigDispach: {pair}, pairs_symlinks: {pairs_symlinks}")
             try:
                 self.setup_file(pair)
             except FileNotFoundError as e:
@@ -709,7 +715,10 @@ class DebianSetup(ShellCapableOsSetup):
         self.setup_docker(userid_ubuntu=self._os_user_id)
 
         self.create_data_dir([self._DIR_DROXBOX_CONTAINER, args.path_symlinks_dir])
-        self.common_symlinks(self._user_home_dir, path_dir_symlinks=args.path_symlinks_dir)
+        _pairs_symlinks = self.generate_symlinks(
+            rootpath_symlinks=os.path.join(self._user_home_dir, args.path_symlinks_dir),
+            path_user_home=self._user_home_dir)
+        self.common_symlinks(_pairs_symlinks)
 
         pairs_conf_autostart = [
             ConfigDispach(
@@ -778,6 +787,32 @@ class ChromeOsSetup(DebianSetup):
     def setup_dropbox(self):
         self._logger.warn(
             f"Skipping Dropbox setup on {self._OS_TYPE}, as it runs on the Chrome OS host without allowing to mount the directory onto Linux mode.")
+
+    def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
+        pairs_symlinks = [
+            ConfigDispach(
+                path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "GoogleDrive", "MyDrive"),
+                path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join("link", "GoogleDrive", "30y-130s"),
+                path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join("link", "GoogleDrive", "Current"),
+                path_dest=os.path.join(rootpath_symlinks, "Current"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join("link", "GoogleDrive", "Career", "academicDoc"),
+                path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join("link", "GoogleDrive", "Career", "MOOC"),
+                path_dest=os.path.join(rootpath_symlinks, "MOOC"),
+                is_symlink=True),
+            ],
+        self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
+        return pairs_symlinks
 
 
 class UbuntuOsSetup(DebianSetup):
