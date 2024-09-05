@@ -44,8 +44,8 @@ In the future the test steps may change but for now do the following in order to
    ```
 1. In the container, prepare for local installation using `pip`.
    ```
-   cd /cws/src/hut_10sqft/hut_10sqft
    apt update && apt install -y python3-pip && echo "Upgrading pip seems necessary in order to allow building in editable mode."; python3 -m pip install --upgrade pip
+   cd /cws/src/hut_10sqft/hut_10sqft && echo "This is not duplicated, go to hut_10sqft/hut_10sqft."
    ```
 1. Install the `hut_10sqft` pkg locally.
    ```
@@ -53,7 +53,7 @@ In the future the test steps may change but for now do the following in order to
    ```
 1. Execute dev test for SUCO.
    ```
-   pytest-3 -v test/test_suco.py
+   pytest -v test/test_suco.py
    ```
    
 EoF
