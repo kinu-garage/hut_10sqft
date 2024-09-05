@@ -222,30 +222,33 @@ class OsUtil:
         print(f"output: {output}, error: {error}, bash_return_code: {bash_return_code}")
         return output, error, bash_return_code
 
-    def setup_config_location(self, poku):
+    @staticmethod
+    def setup_config_location(poku, logger=None):
         """
         @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
         @param poku: Type of 'ConfigDispach'
         @return: True if dest exists after the process.
         """
-        self._logger.debug("poku.path_dest: {}".format(poku.path_dest))
+        if not logger:
+            logger = OsUtil._gen_logger()        
+        logger.debug("poku.path_dest: {}".format(poku.path_dest))
         if pathlib.Path(poku.path_dest).exists():
             raise FileExistsError("'{}' already exists.".format(poku.path_dest))        
         if not os.path.exists(poku.path_source):
             raise FileNotFoundError("Source file '{}' not found.".format(poku.path_source))
 
         path_dir_dest = pathlib.Path(poku.path_dest).parent
-        self._logger.info("If the directory of the target for {} doesn't exist (i.e. {}), create it".format(poku.path_dest, path_dir_dest))
+        logger.info("If the directory of the target for {} doesn't exist (i.e. {}), create it".format(poku.path_dest, path_dir_dest))
         if not os.path.exists(path_dir_dest):
             os.mkdir(path_dir_dest)
 
         if poku.is_symlink:
             os.symlink(poku.path_source, poku.path_dest)
-            self._logger.info("Created symlink at {}".format(poku.path_dest))
+            logger.info("Created symlink at {}".format(poku.path_dest))
             return pathlib.Path(poku.path_dest).exists()  # Testing
         else:
             shutil.copyfile(poku.path_source, poku.path_dest)
-            self._logger.info("Moved a file at {}".format(poku.path_dest))
+            logger.info("Moved a file at {}".format(poku.path_dest))
             return pathlib.Path(poku.path_dest).exists()  # Testing
 
     @staticmethod
@@ -253,15 +256,15 @@ class OsUtil:
         """
         @type value_to_scan: str
         @return: String after tilde-to-absolute path expansion.
+        @todo Entire input string is scanned and expanded, which may meet some usecases but other usecases may need something else.
         """
+        val_result = value_to_scan
         if not logger:
             logger = OsUtil._gen_logger()
         if (value_to_scan) and (value_to_scan.find("~") != -1):  # When v is not none and contains tilde
-            v_expanded = pathlib.Path(value_to_scan).expanduser()
-            logger.info(f"Expanding a path that contains tilde with user ID. BEFORE: '{value_to_scan}', AFTER: {v_expanded}")
-            return v_expanded
-        else:
-            raise ValueError(f"Input val '{value_to_scan}' does not contain tilde.")
+            val_result = pathlib.Path(value_to_scan).expanduser()
+            logger.info(f"Expanding a path that contains tilde with user ID. BEFORE: '{value_to_scan}', AFTER: {val_result}")
+        return val_result
 
     @staticmethod
     def get_repo_basename_from_url(url: str) -> str:
@@ -327,6 +330,15 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     def __init__(self, os_name):
         super().__init__(os_name)
+
+    def setup_file(self, file_dispatch):
+        """
+        @param file_dispatch: 'ConfigDispatch' obj.
+        """
+        try:
+            OsUtil.setup_config_location(file_dispatch)
+        except FileExistsError as e:
+            self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
 
     def setup_git_config(self, path_local_perm_conf):
         path_user_home = pathlib.Path.home()
@@ -493,7 +505,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
     def setup_rosdep_and_run(self, path_ws, init_rosdep=False):
         if init_rosdep:
-            self._os_util.setup_rosdep()
+            OsUtil.setup_rosdep()
         os.chdir(path_ws)
         self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
         OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
@@ -611,8 +623,9 @@ class DebianSetup(ShellCapableOsSetup):
         self._import_git()
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
-        self._logger.info(f"_repo_short: {_repo_basename}")
-        self.clone(conf_repo_remote, os.path.join(conf_base_path, _repo_basename))
+        _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
+        self._logger.info(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
+        self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
 
         try:
             self.update_hostname(self._hostname)
@@ -771,20 +784,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         log_handler = logging.StreamHandler()
         self._logger.setLevel(logging.DEBUG)  # Needs changed
         self._logger.addHandler(log_handler)
-        
-        self._os_util = OsUtil(logger=self._logger)
 
         self._apt_updated = False
 
-    def setup_file(self, file_dispatch):
-        """
-        @param file_dispatch: 'ConfigDispatch' obj.
-        """
-        try:
-            self._os_util.setup_config_location(file_dispatch)
-        except FileExistsError as e:
-            self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
-        
     def _cli_args(self):
         parser = argparse.ArgumentParser(description=self._MSG_CONSOLE_TOOL_INTRO)
         # Optional but close to required args
@@ -795,7 +797,7 @@ treats the user ID tha is used to execute this tool as the main user."""
                             help=self._MSG_PATH_PERMANENT_CONFIG,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default="")
+        parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
