@@ -16,7 +16,7 @@
   <exec_depend>freecad</exec_depend>
   <exec_depend>gimp</exec_depend>
   <exec_depend>git</exec_depend>
-  <exec_depend>gitk</exec_depend>
+  <!-- <exec_depend>gitk</exec_depend> Issue to be resolved https://github.com/kinu-garage/hut_10sqft/pull/1081#issuecomment-2334335301 -->
   <exec_depend>gnuplot</exec_depend>
   <exec_depend>gnuplot-x11</exec_depend>
   <exec_depend>iftop</exec_depend>

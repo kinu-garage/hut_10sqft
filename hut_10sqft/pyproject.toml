@@ -17,6 +17,7 @@ classifiers = [
 keywords = ["OS setup for personal usecases"]
 dependencies = [
     # "openpyxl>=3.0.6",  # TODO Consider https://github.com/kinu-garage/nton_matching/issues/19
+    "rosdep"
 ]
 requires-python = ">=3.10"
 
