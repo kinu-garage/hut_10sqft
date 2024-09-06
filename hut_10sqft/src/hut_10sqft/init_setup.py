@@ -6,8 +6,11 @@
 import argparse
 try:
     import apt
-    import git
     import pkg_resources
+except ModuleNotFoundError as e:
+    print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
+try:
+    import git
 except ModuleNotFoundError as e:
     print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
 import importlib
@@ -126,7 +129,7 @@ class OsUtil:
         deb_pkg_names_str = " ".join(deb_pkg_name)
 
         OsUtil.subproc_bash("apt update", does_sudo=True)
-        OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True)
+        OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
@@ -419,19 +422,25 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             globals()["git"] = importlib.import_module("git")
             self.add_runtime_issue(e)
 
+    def _git_clone_py(self, repo_to_clone, dir_cloned_at):
+        git.Repo.clone_from(repo_to_clone, dir_cloned_at)
+
+    def _git_clone_bash(self, repo_to_clone, dir_cloned_at):
+        OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+
     def clone(self, repo_to_clone, dir_cloned_at):
         """
         @raise ValueError when some input is null
         """
         if not dir_cloned_at:
             raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
+        #self._import_git()
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
             self._logger.info(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
-        self._import_git()
-        git.Repo.clone_from(repo_to_clone, dir_cloned_at)
+        self._git_clone_bash(repo_to_clone, dir_cloned_at)
 
         # Check if perm conf repo is already available on the host.
         if not os.path.exists(dir_cloned_at):
@@ -675,8 +684,10 @@ class DebianSetup(ShellCapableOsSetup):
         # Git clone
         # This section relies on Python implementation of git, which might not be available at this point,
         # so installing manually here.
+
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
-        self._import_git()
+        #self._import_git()
+
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)

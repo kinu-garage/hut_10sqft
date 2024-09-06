@@ -29,8 +29,7 @@ Usage
 ## Usecase: Run a "Developer Test"
 
 "Developer Test" here refers to the tests that the developers run to verify the functionality of the package `hut_10sqft`.
-
-In the future the test steps may change but for now do the following in order to conduct dev test.
+In the future the test steps may change (e.g. as of now test relies on the entire package being packaged by `pip`) but for now do the following in order to conduct dev test.
 
 1. Open a Docker container.
    ```
@@ -44,7 +43,7 @@ In the future the test steps may change but for now do the following in order to
    ```
 1. In the container, prepare for local installation using `pip`.
    ```
-   apt update && apt install -y python3-pip && echo "Upgrading pip seems necessary in order to allow building in editable mode."; python3 -m pip install --upgrade pip
+   apt update && apt install -y git python3-pip && echo "Upgrading pip seems necessary in order to allow building in editable mode."; python3 -m pip install --upgrade pip
    cd /cws/src/hut_10sqft/hut_10sqft && echo "This is not duplicated, go to hut_10sqft/hut_10sqft."
    ```
 1. Install the `hut_10sqft` pkg locally.
