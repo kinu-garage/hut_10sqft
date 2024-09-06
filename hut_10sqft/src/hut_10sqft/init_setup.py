@@ -810,7 +810,7 @@ class ChromeOsSetup(DebianSetup):
                 path_source=os.path.join("link", "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
-            ],
+            ]
         self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
         return pairs_symlinks
 
