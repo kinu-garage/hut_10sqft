@@ -686,7 +686,6 @@ class DebianSetup(ShellCapableOsSetup):
         # so installing manually here.
 
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
-        #self._import_git()
 
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
@@ -725,7 +724,9 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.setup_docker(userid_ubuntu=self._os_user_id)
 
-        self.create_data_dir([self._DIR_DROXBOX_CONTAINER, args.path_symlinks_dir])
+        self.create_data_dir(
+            [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
+             os.path.join(self._user_home_dir, args.path_symlinks_dir)])
         _pairs_symlinks = self.generate_symlinks(
             rootpath_symlinks=os.path.join(self._user_home_dir, args.path_symlinks_dir),
             path_user_home=self._user_home_dir)
@@ -806,19 +807,19 @@ class ChromeOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("link", "GoogleDrive", "30y-130s"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("link", "GoogleDrive", "Current"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Current"),
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("link", "GoogleDrive", "Career", "academicDoc"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "academicDoc"),
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("link", "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
             ]
