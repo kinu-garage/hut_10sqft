@@ -26,4 +26,34 @@ Usage
 1. At the end of the execution of the above command you should see the list of runtime issues that are captured during the run. Address those if possible.
 1. Should be ready to start using the OS.
 
+## Usecase: Run a "Developer Test"
+
+"Developer Test" here refers to the tests that the developers run to verify the functionality of the package `hut_10sqft`.
+
+In the future the test steps may change but for now do the following in order to conduct dev test.
+
+1. Open a Docker container.
+   ```
+   # export DOCKERIMG=python:3.12.5-slim-bullseye  # Docker images from `python` org doesn't seem to refer to the Python pkgs installed from `apt`, which is not great in my usecase so swtiched to Ubuntu image.
+   export DOCKERIMG=ubuntu:jammy-20240808
+   export PATH_LOCAL_WS=/home/n130s/workspace      # workspace is where the `hut_10sqft` repo is placed at.
+   docker run -it --network host  \
+     --volume $PATH_LOCAL_WS:/cws/src  \
+     --volume /dev:/dev  \
+     $DOCKERIMG bash
+   ```
+1. In the container, prepare for local installation using `pip`.
+   ```
+   cd /cws/src/hut_10sqft/hut_10sqft
+   apt update && apt install -y python3-pip && echo "Upgrading pip seems necessary in order to allow building in editable mode."; python3 -m pip install --upgrade pip
+   ```
+1. Install the `hut_10sqft` pkg locally.
+   ```
+   pip install -e . hut_10sqft[dev]
+   ```
+1. Execute dev test for SUCO.
+   ```
+   pytest-3 -v test/test_suco.py
+   ```
+   
 EoF
