@@ -156,7 +156,7 @@ class OsUtil:
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
-            logger.info("No pip pkgs requested to be installed, so skpping.")
+            logger.warn("No pip pkgs requested to be installed, so skpping.")
             return
         installed = {pkg.key for pkg in pkg_resources.working_set}
         logger.info("List of installed pip pkgs: {}\nList of pip pkgs TO BE installed: {}".format(installed, pip_pkgs))
@@ -255,7 +255,7 @@ class OsUtil:
         logger.debug("poku.path_dest: {}".format(path_dest))
         # Screening
         if pathlib.Path(path_dest).exists():
-            raise FileExistsError("'{}' already exists.".format(path_dest))        
+            raise FileExistsError("'{}' already exists.".format(path_dest))
         if not os.path.exists(path_source):
             raise FileNotFoundError("Source file '{}' not found.".format(path_source))
 
@@ -456,10 +456,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         if not dir_cloned_at:
             raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
-        #self._import_git()
+        
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
-            self._logger.info(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            self._logger.warn(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
         self._git_clone_bash(repo_to_clone, dir_cloned_at)
@@ -474,7 +474,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self._is_docker_setup()
             return
         except RuntimeWarning as e:
-            self._logger.info("{} Continuing docker setup.".format(str(e)))
+            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
@@ -547,8 +547,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             ]
         return pairs_symlinks
 
-    #def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
-    def common_symlinks(self, pairs_symlinks):
+    def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
         for pair in pairs_symlinks:
             self._logger.info(f"ConfigDispach: {pair}, pairs_symlinks: {pairs_symlinks}")
             try:
@@ -622,8 +621,6 @@ class DebianSetup(ShellCapableOsSetup):
 
         @param pip_pkgs: Set format. 
         """
-        #for deb_pkg in deb_pkgs:
-        #    OsUtil.apt_install(deb_pkg, self._logger)
         if not deb_pkgs:
             deb_pkgs = [
                 "aptitude",
@@ -687,7 +684,7 @@ class DebianSetup(ShellCapableOsSetup):
 
     def apt_update(self):
         if self.apt_updated:
-            self._logger.info("'apt update' was already done before. Skipping")
+            self._logger.warn("'apt update' was already done before. Skipping")
             return
         OsUtil.subproc_bash("apt update", does_sudo=True)
         self.apt_updated = True
@@ -703,16 +700,12 @@ class DebianSetup(ShellCapableOsSetup):
         self._hostname = args.hostname
         self._logger.info("Update the host name as '{}'".format(self._hostname))
 
-        # Git clone
-        # This section relies on Python implementation of git, which might not be available at this point,
-        # so installing manually here.
-
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
 
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
-        self._logger.info(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
+        self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
 
         try:
@@ -734,7 +727,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.setup_rosdep()
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
-        self._logger.info(f"Abs_path_confdir: '{_abs_path_confdir}")
+        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
         # Skip Google Chrome specific setting as it might come bundled already
@@ -857,7 +850,7 @@ class UbuntuOsSetup(DebianSetup):
 
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
-        self._logger.info("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
+        self._logger.warn("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
         for dir in dirs_tobe_removed:
             try:
                 shutil.rmtree(dir)

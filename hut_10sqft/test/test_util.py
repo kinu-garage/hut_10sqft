@@ -78,7 +78,7 @@ class TestUtil(unittest.TestCase):
                 raise e
             tgz_file.close()
         os.chdir(TestUtil._TEST_DIR)
-        with tarfile.open(tgz_filename, "r:gz") as tgz_file_dest:
+        with tarfile.open(tgz_filename, "r:gz") as tgz_filepath_dst:
             def is_within_directory(directory, target):
                 
                 abs_directory = os.path.abspath(directory)
@@ -98,8 +98,8 @@ class TestUtil(unittest.TestCase):
                 tar.extractall(path, members, numeric_owner=numeric_owner) 
                 
             
-            safe_extract(tgz_file_dest, path=TestUtil._TEST_DIR)
-            tgz_file_dest.close()
+            safe_extract(tgz_filepath_dst, path=TestUtil._TEST_DIR)
+            tgz_filepath_dst.close()
         # Remove the temporary tarball
         os.remove(tgz_filename)
         
