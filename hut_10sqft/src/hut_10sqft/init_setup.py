@@ -234,32 +234,50 @@ class OsUtil:
         return output, error, bash_return_code
 
     @staticmethod
-    def setup_config_location(poku: ConfigDispach, logger=None):
-        """
-        @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
-        @return: True if dest exists after the process.
-        """
+    def create_parent_dir(path_dest: str, logger=None):
         if not logger:
-            logger = OsUtil._gen_logger()        
-        logger.debug("poku.path_dest: {}".format(poku.path_dest))
-        if pathlib.Path(poku.path_dest).exists():
-            raise FileExistsError("'{}' already exists.".format(poku.path_dest))        
-        if not os.path.exists(poku.path_source):
-            raise FileNotFoundError("Source file '{}' not found.".format(poku.path_source))
-
-        path_dir_dest = pathlib.Path(poku.path_dest).parent
-        logger.info("If the directory of the target for {} doesn't exist (i.e. {}), create it".format(poku.path_dest, path_dir_dest))
+            logger = OsUtil._gen_logger()         
+        path_dir_dest = pathlib.Path(path_dest).parent
+        logger.info(f"If the directory of the target for {path_dest} doesn't exist (i.e. {path_dir_dest}), create it.")
         if not os.path.exists(path_dir_dest):
             os.mkdir(path_dir_dest)
 
-        if poku.is_symlink:
-            os.symlink(poku.path_source, poku.path_dest)
-            logger.info("Created symlink at {}".format(poku.path_dest))
-            return pathlib.Path(poku.path_dest).exists()  # Testing
+    @staticmethod
+    def copy_a_file(path_source, path_dest, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
+        """
+        @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
+        @param backup_suffix: Only used when 'overwrite' is True, NOTE if no string is passed, the original dest file will be DELETED.
+        @return: True if dest exists after the process.
+        @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()        
+        logger.debug("poku.path_dest: {}".format(path_dest))
+        # Screening
+        if pathlib.Path(path_dest).exists():
+            raise FileExistsError("'{}' already exists.".format(path_dest))        
+        if not os.path.exists(path_source):
+            raise FileNotFoundError("Source file '{}' not found.".format(path_source))
+
+        # If one direct parent folder for the destination doesn't exist, create one.
+        OsUtil.create_parent_dir(path_dest)
+
+        if overwrite and backup_suffix:
+            _backup_file_path = os.path.join(path_dest + backup_suffix)
+            shutil.copyfile(path_dest, _backup_file_path)
+            logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
+        elif overwrite and (not backup_suffix):
+            os.remove(path_dest)
+            logger.info(f"File '{path_dest} was deleted without backup per instruction.")
+
+        if is_symlink:
+            os.symlink(path_source, path_dest)
+            logger.info("Created symlink at {}".format(path_dest))
+            return pathlib.Path(path_dest).exists()  # Testing
         else:
-            shutil.copyfile(poku.path_source, poku.path_dest)
-            logger.info("Moved a file at {}".format(poku.path_dest))
-            return pathlib.Path(poku.path_dest).exists()  # Testing
+            shutil.copyfile(path_source, path_dest)
+            logger.info("Moved a file at {}".format(path_dest))
+            return pathlib.Path(path_dest).exists()  # Testing
 
     @staticmethod
     def tilde_to_expand(value_to_scan, logger=None):
@@ -364,12 +382,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     def __init__(self, os_name):
         super().__init__(os_name)
 
-    def setup_file(self, file_dispatch):
+    def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
         """
-        @param file_dispatch: 'ConfigDispatch' obj.
+        @description: Swap 'dest_file' with 'src_file', which can be a symlink. Backup of 'dest_file' will be made alongside the swapped file.
+        @param src_file: Absolute path of the source file.
+        @param dest_file: Absolute path of the destination file.
         """
+
+    def setup_file(self, file_dispatch: ConfigDispach, overwrite=False):
         try:
-            OsUtil.setup_config_location(file_dispatch)
+            OsUtil.copy_a_file(file_dispatch, overwrite)
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
@@ -544,7 +566,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             path_user_home_dir,
             path_section_conf_dir):
         """
-        @deprecated: Use 'OsUtil.setup_config_location' instead.
+        @deprecated: Use 'OsUtil.copy_a_file' instead.
         @summary: Setup configuration files under a Linux user's home directory. This method
             should be capable of handling:
             - Copying a file from dir 'a' to 'b'.
