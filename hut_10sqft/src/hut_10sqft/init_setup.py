@@ -963,9 +963,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         if _args.hostname == "130s-p16s":
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == "130s-brya":
-            _host_cfg = HostConf(_args.hostname, "bashrc_130s-brya", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
-        elif _args.hostname == "130s-C14-Morph":
-            _host_cfg = HostConf(_args.hostname, "bashrc_130s-brya", "emacs_130s-brya.el", "id_rsa_130s-c14-morph", "id_rsa_130s-c14-morph.pub")
+            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+        elif _args.hostname == "130s-C13-Morph":
+            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             raise UserWarning(f"user_id: '{_args.hostname}' not matching any host. This needs to be set.")
 
