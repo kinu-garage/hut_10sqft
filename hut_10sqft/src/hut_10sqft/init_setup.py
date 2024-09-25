@@ -130,6 +130,8 @@ class OsUtil:
 
         OsUtil.subproc_bash("apt update", does_sudo=True)
         OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
+        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
+        OsUtil.subproc_bash(f"apt-cache policy {deb_pkg_names_str}")
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
@@ -228,8 +230,9 @@ class OsUtil:
                 output = output.decode("utf-8").rstrip('\n')
                 error = error.decode("utf-8").rstrip('\n')
             except UnicodeDecodeError:
-                output = None
-                error = None
+                _ERR_MSG = "Potentially 'UnicodeDecodeError'"
+                output = _ERR_MSG
+                error = _ERR_MSG
         logger.info(f"output: {output}, error: {error}, bash_return_code: {bash_return_code}")
         return output, error, bash_return_code
 
@@ -319,9 +322,22 @@ class AbstCompSetupFactory():
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
+        # Create a conf folder under ~/.
+        self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
+        if not os.path.exists(self._path_base_conf):
+            os.makedirs(self._path_base_conf)
+
     @property
     def list_runtime_issues(self):
         return self._list_runtime_issues
+
+    @property
+    def path_base_conf(self):
+        return self._path_base_conf
+
+    @path_base_conf.setter
+    def path_base_conf(self, value):
+        self._path_base_conf = value
 
     def add_runtime_issue(self, value):
         """
@@ -391,7 +407,8 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
     def setup_file(self, file_dispatch: ConfigDispach, overwrite=False):
         try:
-            OsUtil.copy_a_file(file_dispatch, overwrite)
+            OsUtil.copy_a_file(
+                file_dispatch.path_source, file_dispatch.path_dest, is_symlink=file_dispatch.is_symlink, overwrite=overwrite)
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
@@ -595,7 +612,6 @@ class DebianSetup(ShellCapableOsSetup):
 
     def __init__(self, os_name=_OS_TYPE):
         super().__init__(os_name)
-        self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         self._apt_updated = False
 
     @property
@@ -605,14 +621,6 @@ class DebianSetup(ShellCapableOsSetup):
     @apt_updated.setter
     def apt_updated(self, value):
         self._apt_updated = value
-
-    @property
-    def path_base_conf(self):
-        return self._path_base_conf
-
-    @path_base_conf.setter
-    def path_base_conf(self, value):
-        self._path_base_conf = value
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
         """
@@ -689,7 +697,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash("apt update", does_sudo=True)
         self.apt_updated = True
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path=path_base_conf):
+    def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
         @type host_cfg: HostConf
