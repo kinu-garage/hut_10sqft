@@ -21,6 +21,9 @@ import pytest
 
 from hut_10sqft.init_setup import OsUtil
 
+
+TEST_FILE_CONTENT_TEXT = "Test content-a"
+
 @pytest.fixture
 def timestamp(scope="session"):
     return datetime.today().strftime("%Y%m%d-%H%M%S")
@@ -37,6 +40,9 @@ def _file_creation(timestamp, filename: str, testdir_parent: str="/tmp/test"):
 def filepath_src(timestamp):
     _filename_src = "file-a-before-copied.txt"
     file_path = _file_creation(timestamp, _filename_src)
+    if not os.path.exists(file_path):
+        with open(file_path, "w") as file:
+            file.write(TEST_FILE_CONTENT_TEXT)
     return file_path
 
 @pytest.fixture
@@ -52,32 +58,44 @@ def test_copy_a_file_basic(filepath_src, filepath_dst):
         then
         output: /tmp/test/test-yyyymmddhhmmss/file-a-after-copied.txt
     """
-    TEST_FILE_CONTENT_TEXT = "Test content-a"
-    with open(filepath_src, "w") as file:
-        file.write(TEST_FILE_CONTENT_TEXT)
     OsUtil.copy_a_file(filepath_src, filepath_dst)
     assert os.path.exists(filepath_dst)
     # Read the dest file and verify content is the same as source.
     with open(filepath_dst, "r") as file_dst:
         assert file_dst.read() == TEST_FILE_CONTENT_TEXT
 
-def test_copy_a_file_symlink(filepath_src):
+def _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=False):
     """
     @description: Success if we can confirm:
         input: /tmp/test/test-yyyymmddhhmmss/file-a-before-copied.txt
         then
         output w/symlink: /tmp/test/test-yyyymmddhhmmss/symlinked-file-a-after-copied.txt
     """
-    TEST_FILE_CONTENT_TEXT = "Test content-a"
-    with open(filepath_src, "w") as file:
-        file.write(TEST_FILE_CONTENT_TEXT)
-
     _filename_dest_symlinked = "symlinked-file-a-after-copied.txt"
     filepath_dst = _file_creation(timestamp, _filename_dest_symlinked)
 
-    OsUtil.copy_a_file(filepath_src, filepath_dst, is_symlink=True)
+    OsUtil.copy_a_file(filepath_src, filepath_dst, is_symlink=True, overwrite=overwrite)
     assert os.path.exists(filepath_dst)
     assert Path(filepath_dst).is_symlink()
     # Read the dest file and verify content is the same as source.
     with open(filepath_dst, "r") as file_dst:
         assert file_dst.read() == TEST_FILE_CONTENT_TEXT
+
+def test_copy_a_file_symlink(timestamp, filepath_src):
+    _test_copy_a_file_symlink(timestamp, filepath_src)
+
+def test_copy_a_file_backup(filepath_src, filepath_dst):
+    """
+    @description: Success if we can confirm:
+        input: /tmp/test/test-yyyymmddhhmmss/file-a-before-copied.txt
+        then
+        output: /tmp/test/test-yyyymmddhhmmss/symlinked-file-a-after-copied.txt
+                and
+                /tmp/test/test-yyyymmddhhmmss/file-a-before-copied.txt.org
+    """
+    _SUFFIX_FILE_ORG = ".origi"
+    OsUtil.copy_a_file(filepath_src, filepath_dst, overwrite=True, backup_suffix=_SUFFIX_FILE_ORG)
+    assert os.path.exists(filepath_dst + _SUFFIX_FILE_ORG)
+
+def test_copy_a_file_symlink_overwrite(timestamp, filepath_src):
+    _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=True)

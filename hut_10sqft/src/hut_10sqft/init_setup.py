@@ -254,10 +254,10 @@ class OsUtil:
         @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
         """
         if not logger:
-            logger = OsUtil._gen_logger()        
+            logger = OsUtil._gen_logger()
         logger.debug("poku.path_dest: {}".format(path_dest))
         # Screening
-        if pathlib.Path(path_dest).exists():
+        if (not overwrite) and pathlib.Path(path_dest).exists():
             raise FileExistsError("'{}' already exists.".format(path_dest))
         if not os.path.exists(path_source):
             raise FileNotFoundError("Source file '{}' not found.".format(path_source))
@@ -265,11 +265,11 @@ class OsUtil:
         # If one direct parent folder for the destination doesn't exist, create one.
         OsUtil.create_parent_dir(path_dest)
 
-        if overwrite and backup_suffix:
-            _backup_file_path = os.path.join(path_dest + backup_suffix)
-            shutil.copyfile(path_dest, _backup_file_path)
-            logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
-        elif overwrite and (not backup_suffix):
+        if overwrite:
+            if backup_suffix:
+                _backup_file_path = os.path.join(path_dest + backup_suffix)
+                shutil.copyfile(path_dest, _backup_file_path)
+                logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
             os.remove(path_dest)
             logger.info(f"File '{path_dest} was deleted without backup per instruction.")
 
@@ -404,6 +404,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         @param src_file: Absolute path of the source file.
         @param dest_file: Absolute path of the destination file.
         """
+        raise NotImplementedError()
 
     def setup_file(self, file_dispatch: ConfigDispach, overwrite=False):
         try:
@@ -775,7 +776,7 @@ class DebianSetup(ShellCapableOsSetup):
                 is_symlink=True),
             ]
         for c in pairs_conf_bash:
-            self.setup_file(c)
+            self.setup_file(c, overwrite=True)
 
         pairs_conf_tools = [
             ConfigDispach(
