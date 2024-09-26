@@ -130,6 +130,8 @@ class OsUtil:
 
         OsUtil.subproc_bash("apt update", does_sudo=True)
         OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
+        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
+        OsUtil.subproc_bash(f"apt-cache policy {deb_pkg_names_str}")
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
@@ -156,7 +158,7 @@ class OsUtil:
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
-            logger.info("No pip pkgs requested to be installed, so skpping.")
+            logger.warn("No pip pkgs requested to be installed, so skpping.")
             return
         installed = {pkg.key for pkg in pkg_resources.working_set}
         logger.info("List of installed pip pkgs: {}\nList of pip pkgs TO BE installed: {}".format(installed, pip_pkgs))
@@ -228,38 +230,57 @@ class OsUtil:
                 output = output.decode("utf-8").rstrip('\n')
                 error = error.decode("utf-8").rstrip('\n')
             except UnicodeDecodeError:
-                output = None
-                error = None
+                _ERR_MSG = "Potentially 'UnicodeDecodeError'"
+                output = _ERR_MSG
+                error = _ERR_MSG
         logger.info(f"output: {output}, error: {error}, bash_return_code: {bash_return_code}")
         return output, error, bash_return_code
 
     @staticmethod
-    def setup_config_location(poku: ConfigDispach, logger=None):
-        """
-        @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
-        @return: True if dest exists after the process.
-        """
+    def create_parent_dir(path_dest: str, logger=None):
         if not logger:
-            logger = OsUtil._gen_logger()        
-        logger.debug("poku.path_dest: {}".format(poku.path_dest))
-        if pathlib.Path(poku.path_dest).exists():
-            raise FileExistsError("'{}' already exists.".format(poku.path_dest))        
-        if not os.path.exists(poku.path_source):
-            raise FileNotFoundError("Source file '{}' not found.".format(poku.path_source))
-
-        path_dir_dest = pathlib.Path(poku.path_dest).parent
-        logger.info("If the directory of the target for {} doesn't exist (i.e. {}), create it".format(poku.path_dest, path_dir_dest))
+            logger = OsUtil._gen_logger()         
+        path_dir_dest = pathlib.Path(path_dest).parent
+        logger.info(f"If the directory of the target for {path_dest} doesn't exist (i.e. {path_dir_dest}), create it.")
         if not os.path.exists(path_dir_dest):
             os.mkdir(path_dir_dest)
 
-        if poku.is_symlink:
-            os.symlink(poku.path_source, poku.path_dest)
-            logger.info("Created symlink at {}".format(poku.path_dest))
-            return pathlib.Path(poku.path_dest).exists()  # Testing
+    @staticmethod
+    def copy_a_file(path_source, path_dest, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
+        """
+        @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
+        @param backup_suffix: Only used when 'overwrite' is True, NOTE if no string is passed, the original dest file will be DELETED.
+        @return: True if dest exists after the process.
+        @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()
+        logger.debug("poku.path_dest: {}".format(path_dest))
+        # Screening
+        if (not overwrite) and pathlib.Path(path_dest).exists():
+            raise FileExistsError("'{}' already exists.".format(path_dest))
+        if not os.path.exists(path_source):
+            raise FileNotFoundError("Source file '{}' not found.".format(path_source))
+
+        # If one direct parent folder for the destination doesn't exist, create one.
+        OsUtil.create_parent_dir(path_dest)
+
+        if overwrite:
+            if backup_suffix:
+                _backup_file_path = os.path.join(path_dest + backup_suffix)
+                shutil.copyfile(path_dest, _backup_file_path)
+                logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
+            os.remove(path_dest)
+            logger.info(f"File '{path_dest} was deleted without backup per instruction.")
+
+        if is_symlink:
+            os.symlink(path_source, path_dest)
+            logger.info("Created symlink at {}".format(path_dest))
+            return pathlib.Path(path_dest).exists()  # Testing
         else:
-            shutil.copyfile(poku.path_source, poku.path_dest)
-            logger.info("Moved a file at {}".format(poku.path_dest))
-            return pathlib.Path(poku.path_dest).exists()  # Testing
+            shutil.copyfile(path_source, path_dest)
+            logger.info("Moved a file at {}".format(path_dest))
+            return pathlib.Path(path_dest).exists()  # Testing
 
     @staticmethod
     def tilde_to_expand(value_to_scan, logger=None):
@@ -301,9 +322,22 @@ class AbstCompSetupFactory():
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
+        # Create a conf folder under ~/.
+        self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
+        if not os.path.exists(self._path_base_conf):
+            os.makedirs(self._path_base_conf)
+
     @property
     def list_runtime_issues(self):
         return self._list_runtime_issues
+
+    @property
+    def path_base_conf(self):
+        return self._path_base_conf
+
+    @path_base_conf.setter
+    def path_base_conf(self, value):
+        self._path_base_conf = value
 
     def add_runtime_issue(self, value):
         """
@@ -364,12 +398,18 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     def __init__(self, os_name):
         super().__init__(os_name)
 
-    def setup_file(self, file_dispatch):
+    def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
         """
-        @param file_dispatch: 'ConfigDispatch' obj.
+        @description: Swap 'dest_file' with 'src_file', which can be a symlink. Backup of 'dest_file' will be made alongside the swapped file.
+        @param src_file: Absolute path of the source file.
+        @param dest_file: Absolute path of the destination file.
         """
+        raise NotImplementedError()
+
+    def setup_file(self, file_dispatch: ConfigDispach, overwrite=False):
         try:
-            OsUtil.setup_config_location(file_dispatch)
+            OsUtil.copy_a_file(
+                file_dispatch.path_source, file_dispatch.path_dest, is_symlink=file_dispatch.is_symlink, overwrite=overwrite)
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
@@ -434,10 +474,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         if not dir_cloned_at:
             raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
-        #self._import_git()
+        
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
-            self._logger.info(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            self._logger.warn(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
         self._git_clone_bash(repo_to_clone, dir_cloned_at)
@@ -452,7 +492,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self._is_docker_setup()
             return
         except RuntimeWarning as e:
-            self._logger.info("{} Continuing docker setup.".format(str(e)))
+            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
@@ -525,8 +565,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             ]
         return pairs_symlinks
 
-    #def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
-    def common_symlinks(self, pairs_symlinks):
+    def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
         for pair in pairs_symlinks:
             self._logger.info(f"ConfigDispach: {pair}, pairs_symlinks: {pairs_symlinks}")
             try:
@@ -544,7 +583,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             path_user_home_dir,
             path_section_conf_dir):
         """
-        @deprecated: Use 'OsUtil.setup_config_location' instead.
+        @deprecated: Use 'OsUtil.copy_a_file' instead.
         @summary: Setup configuration files under a Linux user's home directory. This method
             should be capable of handling:
             - Copying a file from dir 'a' to 'b'.
@@ -574,7 +613,6 @@ class DebianSetup(ShellCapableOsSetup):
 
     def __init__(self, os_name=_OS_TYPE):
         super().__init__(os_name)
-        self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         self._apt_updated = False
 
     @property
@@ -585,14 +623,6 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
-    @property
-    def path_base_conf(self):
-        return self._path_base_conf
-
-    @path_base_conf.setter
-    def path_base_conf(self, value):
-        self._path_base_conf = value
-
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
         """
         @summary: Install the packages that cannot be installed by batch using
@@ -600,8 +630,6 @@ class DebianSetup(ShellCapableOsSetup):
 
         @param pip_pkgs: Set format. 
         """
-        #for deb_pkg in deb_pkgs:
-        #    OsUtil.apt_install(deb_pkg, self._logger)
         if not deb_pkgs:
             deb_pkgs = [
                 "aptitude",
@@ -665,12 +693,12 @@ class DebianSetup(ShellCapableOsSetup):
 
     def apt_update(self):
         if self.apt_updated:
-            self._logger.info("'apt update' was already done before. Skipping")
+            self._logger.warn("'apt update' was already done before. Skipping")
             return
         OsUtil.subproc_bash("apt update", does_sudo=True)
         self.apt_updated = True
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path=path_base_conf):
+    def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
         @type host_cfg: HostConf
@@ -681,16 +709,12 @@ class DebianSetup(ShellCapableOsSetup):
         self._hostname = args.hostname
         self._logger.info("Update the host name as '{}'".format(self._hostname))
 
-        # Git clone
-        # This section relies on Python implementation of git, which might not be available at this point,
-        # so installing manually here.
-
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
 
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
-        self._logger.info(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
+        self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
 
         try:
@@ -712,7 +736,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.setup_rosdep()
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
-        self._logger.info(f"Abs_path_confdir: '{_abs_path_confdir}")
+        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
         # Skip Google Chrome specific setting as it might come bundled already
@@ -752,7 +776,7 @@ class DebianSetup(ShellCapableOsSetup):
                 is_symlink=True),
             ]
         for c in pairs_conf_bash:
-            self.setup_file(c)
+            self.setup_file(c, overwrite=True)
 
         pairs_conf_tools = [
             ConfigDispach(
@@ -835,7 +859,7 @@ class UbuntuOsSetup(DebianSetup):
 
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
-        self._logger.info("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
+        self._logger.warn("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
         for dir in dirs_tobe_removed:
             try:
                 shutil.rmtree(dir)
@@ -939,9 +963,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         if _args.hostname == "130s-p16s":
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == "130s-brya":
-            _host_cfg = HostConf(_args.hostname, "bashrc_130s-brya", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
-        elif _args.hostname == "130s-C14-Morph":
-            _host_cfg = HostConf(_args.hostname, "bashrc_130s-brya", "emacs_130s-brya.el", "id_rsa_130s-c14-morph", "id_rsa_130s-c14-morph.pub")
+            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+        elif _args.hostname == "130s-C13-Morph":
+            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             raise UserWarning(f"user_id: '{_args.hostname}' not matching any host. This needs to be set.")
 

@@ -10,14 +10,14 @@ Usage
 1. Execute the following command. Note: Above command set assumes `bash` and `apt`. TBD for other platform and package managers.
    ```
    $ export INITOS=/tmp/hut_10sqft_os-setup.py &&  \
-     export VERSION=develop  \
-     export HOST_NAME=130s-C14-Morph  \
-     export OSTYPE=ChromeOS  \
-     export USERID=n130s  \
-     sudo apt install -y curl python3  \
+     export VERSION=develop &&  \
+     export HOST_NAME=130s-C14-Morph &&  \
+     export OSTYPE=ChromeOS &&  \
+     export USERID=n130s &&  \
+     sudo apt update && sudo apt install -y curl python3 &&  \
      curl --output $INITOS https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/src/hut_10sqft/init_setup.py && \
-       chmod 755 $INITOS \
-       $INITOS --hostname $HOST_NAME --os $OSTYPE --user_id $USERID
+     chmod 755 $INITOS && \
+     $INITOS --hostname $HOST_NAME --os $OSTYPE --user_id $USERID
    ```
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
