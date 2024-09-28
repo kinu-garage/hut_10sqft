@@ -108,9 +108,10 @@ class OsUtil:
 
     @staticmethod
     def setup_rosdep():
-        OsUtil.subproc_bash("rosdep init", does_sudo=True)
-        OsUtil.subproc_bash("rosdep update")
-        OsUtil.subproc_bash("apt update", does_sudo=True)
+        _path_rosdep = shutil.which("rosdep")
+        OsUtil.subproc_bash(f"{_path_rosdep} init", does_sudo=True)
+        OsUtil.subproc_bash(f"{_path_rosdep} update")
+        OsUtil.subproc_bash(f"{shutil.which("apt")} update", does_sudo=True)
 
     @staticmethod
     def apt_install(deb_pkg_name, logger=None):
@@ -124,14 +125,16 @@ class OsUtil:
         """
         @type deb_pkg_name: [str]
         """
+        _path_apt = shutil.which("apt")
+
         # 'deb_pkg_name' is a list while subprocess takes it literally with square brackets and woudl return an error,
         # so need to expand as a non-list, single string.
         deb_pkg_names_str = " ".join(deb_pkg_name)
 
-        OsUtil.subproc_bash("apt update", does_sudo=True)
-        OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
+        OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
+        OsUtil.subproc_bash(f"{_path_apt} install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
-        OsUtil.subproc_bash(f"apt-cache policy {deb_pkg_names_str}")
+        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
@@ -398,6 +401,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     def __init__(self, os_name):
         super().__init__(os_name)
 
+        # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
+        # for those executables that are (hopefully) available on any shell independent from the type of OS.
+        self._which_docker = shutil.which("docker")
+        self._which_git = shutil.which("git")
+
     def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
         """
         @description: Swap 'dest_file' with 'src_file', which can be a symlink. Backup of 'dest_file' will be made alongside the swapped file.
@@ -443,7 +451,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
 
     def _is_docker_setup(self):
-        output, error, bash_return_code = OsUtil.subproc_bash("docker images")
+        output, error, bash_return_code = OsUtil.subproc_bash(f"{self._which_docker} images")
         if bash_return_code == 0:
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
@@ -466,7 +474,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         git.Repo.clone_from(repo_to_clone, dir_cloned_at)
 
     def _git_clone_bash(self, repo_to_clone, dir_cloned_at):
-        OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
 
     def clone(self, repo_to_clone, dir_cloned_at):
         """
@@ -487,30 +495,8 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             raise FileNotFoundError(
                 f"At '{dir_cloned_at}', a local repo '{repo_to_clone}' is expected to be present in order to continue.")
 
-    def setup_docker(self, userid_ubuntu):
-        try:
-            self._is_docker_setup()
-            return
-        except RuntimeWarning as e:
-            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
-            self.add_runtime_issue(e)
-
-        OsUtil.subproc_bash("groupadd docker", does_sudo=True)
-        OsUtil.subproc_bash("usermod -aG docker {}".format(userid_ubuntu), does_sudo=True)
-
-        # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
-        OsUtil.subproc_bash("apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
-        OsUtil.subproc_bash('echo "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
-        self.apt_update()
-        OsUtil.subproc_bash("apt purge lxc-docker", does_sudo=True)
-        OsUtil.subproc_bash("apt-cache policy docker-engine")
-        OsUtil.subproc_bash("apt install linux-image-extra-$(uname -r)", does_sudo=True)
-        # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
-        OsUtil.subproc_bash('DEBIAN_FRONTEND=noninteractive apt-get -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine', does_sudo=True)
-        OsUtil.subproc_bash("service docker start", does_sudo=True)
-        OsUtil.subproc_bash("unset $DEBIAN_FRONTEND")
-        OsUtil.subproc_bash('docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
-
+    def setup_docker(self, userid_os):
+        raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
         pairs_symlinks = [
@@ -615,6 +601,15 @@ class DebianSetup(ShellCapableOsSetup):
         super().__init__(os_name)
         self._apt_updated = False
 
+        # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
+        # for those executables that are likely only available on Debian variants.
+        self._which_apt = shutil.which("apt")
+        self._which_aptcache = shutil.which("apt-cache")
+        self._which_aptkey = shutil.which("apt-key")
+        self._which_echo = shutil.which("echo")
+        self._which_service = shutil.which("service")
+        self._which_unset = shutil.which("unset")
+
     @property
     def apt_updated(self):
         return self._apt_updated
@@ -664,9 +659,9 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs)
 
     def setup_rosdep(self):
-        cmd_set_apt_source_rosdep = 'echo "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
-        cmd_obtain_apt_key_rosdep = "wget http://packages.ros.org/ros.key"
-        cmd_set_apt_key_rosdep = "apt-key add ros.key"
+        cmd_set_apt_source_rosdep = f'{self._which_echo} "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
+        cmd_obtain_apt_key_rosdep = f"{shutil.which("wget")} http://packages.ros.org/ros.key"
+        cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
         OsUtil.subproc_bash(cmd_set_apt_source_rosdep, does_sudo=True)
         OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
         OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
@@ -695,9 +690,33 @@ class DebianSetup(ShellCapableOsSetup):
         if self.apt_updated:
             self._logger.warn("'apt update' was already done before. Skipping")
             return
-        OsUtil.subproc_bash("apt update", does_sudo=True)
+        OsUtil.subproc_bash(f"{self._which_apt} update", does_sudo=True)
         self.apt_updated = True
 
+    def setup_docker(self, userid_os):
+        try:
+            self._is_docker_setup()
+            return
+        except RuntimeWarning as e:
+            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
+            self.add_runtime_issue(e)
+
+        OsUtil.subproc_bash("groupadd docker", does_sudo=True)
+        OsUtil.subproc_bash("usermod -aG docker {}".format(userid_os), does_sudo=True)
+
+        # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
+        OsUtil.subproc_bash(f"{self._which_aptkey} adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
+        OsUtil.subproc_bash(f'{self._which_echo} "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
+        self.apt_update()
+        OsUtil.subproc_bash(f"{self._which_apt} purge lxc-docker", does_sudo=True)
+        OsUtil.subproc_bash(f"{self._which_aptcache} policy docker-engine")
+        OsUtil.subproc_bash(f"{self._which_apt} install linux-image-extra-$(uname -r)", does_sudo=True)
+        # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
+        OsUtil.subproc_bash(f'DEBIAN_FRONTEND=noninteractive {self._which_apt} -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine', does_sudo=True)
+        OsUtil.subproc_bash(f"{self._which_service} docker start", does_sudo=True)
+        OsUtil.subproc_bash(f"{self._which_unset} $DEBIAN_FRONTEND")
+        OsUtil.subproc_bash(f'{self._which_docker} run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
+    
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
@@ -746,7 +765,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.setup_dropbox()
 
-        self.setup_docker(userid_ubuntu=self._os_user_id)
+        self.setup_docker(userid_os=self._os_user_id)
 
         self.create_data_dir(
             [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
