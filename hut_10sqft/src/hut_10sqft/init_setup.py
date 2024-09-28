@@ -132,7 +132,7 @@ class OsUtil:
         deb_pkg_names_str = " ".join(deb_pkg_name)
 
         OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
-        OsUtil.subproc_bash(f"{_path_apt} install -y {deb_pkg_names_str}", does_sudo=True, bash_extra="DEBIAN_FRONTEND=noninteractive")
+        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
         OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")
 
@@ -157,11 +157,11 @@ class OsUtil:
             logger.error(sys.stderr, "Sorry, package installation failed [{err}]".format(err=str(e)))
 
     @staticmethod
-    def install_pip_adhoc(self, pip_pkgs={}, logger=None):
+    def install_pip_adhoc(self, pip_pkgs=[], logger=None):
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
-            logger.warn("No pip pkgs requested to be installed, so skpping.")
+            logger.warning("No pip pkgs requested to be installed, so skpping.")
             return
         installed = {pkg.key for pkg in pkg_resources.working_set}
         logger.info("List of installed pip pkgs: {}\nList of pip pkgs TO BE installed: {}".format(installed, pip_pkgs))
@@ -195,9 +195,9 @@ class OsUtil:
     def subproc_bash(
             cmd,
             does_sudo=False,
-            bash_extra="",
             print_stdout_err=False,
-            logger=None):
+            logger=None,
+            non_interactive=False):
         if not logger:
             logger = OsUtil._gen_logger()  
         
@@ -207,9 +207,8 @@ class OsUtil:
         if does_sudo == True:
             bash_full_cmd.insert(0, 'sudo')
 
-        if bash_extra:
-            bash_full_cmd.append(bash_extra)
-
+        if non_interactive:
+            cmd.insert(0, "DEBIAN_FRONTEND=noninteractive ")
         if cmd:
             bash_full_cmd.append(cmd)
 
@@ -420,9 +419,12 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
         self._setup_git()
-        self._which_git = OsUtil.which("git")
 
     def _setup_git(self):
+        """
+        @description:
+            Upon implementation, 'self._which_git' must be filled in with the concrete path of the executable of 'git'.
+        """
         raise NotImplementedError()
 
     def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
@@ -571,7 +573,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             OsUtil.setup_rosdep()
         os.chdir(path_ws)
         self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
-        OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        if bash_return_code != 0:
+            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
@@ -601,7 +605,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=[], pip_pkgs=[])
+        self.install_deps_adhoc(deb_pkgs=[], pip_pkgs=["rosdep"])
 
         # Setting up rosdep
         OsUtil.setup_rosdep()
@@ -688,7 +692,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "psensor",
                 "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
                 "python3-pip",
-                "python3-rosdep", 
+                #"python3-rosdep",  # python3-rosdep2 is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
                 "ptex-bin",
                 "sysinfo",
@@ -759,7 +763,8 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f"{self._which_aptcache} policy docker-engine")
         OsUtil.subproc_bash(f"{self._which_apt} install linux-image-extra-$(uname -r)", does_sudo=True)
         # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
-        OsUtil.subproc_bash(f'DEBIAN_FRONTEND=noninteractive {self._which_apt} -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine', does_sudo=True)
+        OsUtil.subproc_bash(f'{self._which_apt} -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
+                            does_sudo=True, non_interactive=True)
         OsUtil.subproc_bash(f"{self._which_service} docker start", does_sudo=True)
         OsUtil.subproc_bash(f"{self._which_unset} $DEBIAN_FRONTEND")
         OsUtil.subproc_bash(f'{self._which_docker} run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
