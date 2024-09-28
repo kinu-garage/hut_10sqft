@@ -827,8 +827,6 @@ class DebianSetup(ShellCapableOsSetup):
 
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
-        for c in pairs_conf_tools:
-            self.setup_file(c)
 
         self.setup_oracle_java()
         self.listup_runtime_issues()
