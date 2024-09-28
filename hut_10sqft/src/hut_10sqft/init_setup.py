@@ -313,6 +313,13 @@ class OsUtil:
             raise Exception("Badly formatted url {}".format(url))
         return url[last_slash_index + 1:last_suffix_index]
 
+    @staticmethod
+    def which(executable_name: str):
+        path = shutil.which(executable_name)
+        if not path:
+            raise ReferenceError(f"The executable '{executable_name}' not found.")
+        return path
+
 
 class AbstCompSetupFactory():
     """
@@ -320,7 +327,7 @@ class AbstCompSetupFactory():
     """
     _DIR_DROXBOX_CONTAINER = "data"  # This is beyond programming, something that sticks with 130s' computer usage for decades.
 
-    def __init__(self, os_name=""):
+    def __init__(self, os_name="", args_in: argparse.Namespace=None):
         self._os = os_name
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
@@ -398,13 +405,25 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     @summary: Operating system that is capable of bash, zsh or any *sh shell that meets this tool's requirement.
     """
-    def __init__(self, os_name):
-        super().__init__(os_name)
+    def __init__(self, os_name="", args_in: argparse.Namespace=None):
+        super().__init__(os_name, args_in)
+
+        self._args_in = args_in
+        self._hostname = args_in.hostname
+        self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
-        self._which_docker = shutil.which("docker")
-        self._which_git = shutil.which("git")
+
+        if not args_in.skip_setup_docker:
+            # Only when 'skip_setup_docker' is False.
+            self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
+            self._which_docker = OsUtil.which("docker")
+        self._setup_git()
+        self._which_git = OsUtil.which("git")
+
+    def _setup_git(self):
+        raise NotImplementedError()
 
     def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
         """
@@ -450,8 +469,32 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
 
+    def clone(self, repo_to_clone, dir_cloned_at):
+        """
+        @raise ValueError when some input is null
+        """
+        if not dir_cloned_at:
+            raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
+        
+        _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
+        if os.path.exists(_abs_path_local):
+            self._logger.warn(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+
+        self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
+        self.git_clone_impl(repo_to_clone, dir_cloned_at)
+
+        # Check if perm conf repo is already available on the host.
+        if not os.path.exists(dir_cloned_at):
+            raise FileNotFoundError(
+                f"At '{dir_cloned_at}', a local repo '{repo_to_clone}' is expected to be present in order to continue.")
+
     def _is_docker_setup(self):
-        output, error, bash_return_code = OsUtil.subproc_bash(f"{self._which_docker} images")
+        bash_return_code = -1
+        _MSG_ERR = "Docker setup is not done yet"
+        try:
+            output, error, bash_return_code = OsUtil.subproc_bash(f"{self._which_docker} images")
+        except AttributeError as e:
+            raise RuntimeWarning(_MSG_ERR)
         if bash_return_code == 0:
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
@@ -473,83 +516,20 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     def _git_clone_py(self, repo_to_clone, dir_cloned_at):
         git.Repo.clone_from(repo_to_clone, dir_cloned_at)
 
-    def _git_clone_bash(self, repo_to_clone, dir_cloned_at):
-        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+    def git_clone_impl(self, repo_to_clone, dir_cloned_at):
+        raise NotImplementedError()
 
-    def clone(self, repo_to_clone, dir_cloned_at):
+    def setup_docker(self, userid_os, skip=False):
         """
-        @raise ValueError when some input is null
+        @param skip: Set 'True' when docker is not necessary e.g. running already inside a docker container.
         """
-        if not dir_cloned_at:
-            raise ValueError(f"Var 'dir_cloned_at' cannot be null.")
-        
-        _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
-        if os.path.exists(_abs_path_local):
-            self._logger.warn(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+        raise NotImplementedError()
 
-        self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
-        self._git_clone_bash(repo_to_clone, dir_cloned_at)
-
-        # Check if perm conf repo is already available on the host.
-        if not os.path.exists(dir_cloned_at):
-            raise FileNotFoundError(
-                f"At '{dir_cloned_at}', a local repo '{repo_to_clone}' is expected to be present in order to continue.")
-
-    def setup_docker(self, userid_os):
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
-        pairs_symlinks = [
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
-                path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"),
-                is_symlink=True),
-            ConfigDispach(  # Some others depend on this symlink.
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "30y-130s"),
-                path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
-                path_dest=os.path.join(rootpath_symlinks, "git_repos"),
-                is_symlink=True),
-            ConfigDispach(  # Only backward compatibility
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
-                path_dest=os.path.join(rootpath_symlinks, "github_repos"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "JobSuchen"),
-                path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "periodic", "2024"),
-                path_dest=os.path.join(rootpath_symlinks, "Current"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "Engineering", "ARIAC"),
-                path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "MOOC"),
-                path_dest=os.path.join(rootpath_symlinks, "MOOC"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "academicDoc"),
-                path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_base"),
-                path_dest=os.path.join(rootpath_symlinks, "ROS"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "30y-130s", "schools_children", "GJLS"),
-                path_dest=os.path.join(rootpath_symlinks, "GJLS"),
-                is_symlink=True),
-            ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_utakata"),
-                path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
-                is_symlink=True),
-            ]
-        return pairs_symlinks
+        raise NotImplementedError()
 
     def common_symlinks(self, pairs_symlinks: list[ConfigDispach]):
         for pair in pairs_symlinks:
@@ -593,12 +573,75 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
         OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
 
+    def run(self, args, host_config, conf_repo_remote, conf_base_path):
+        """
+        @type args: (argparse' output)
+        @type host_cfg: HostConf
+        @param conf_repo: Absolute path URL of the repo to clone that contains host config.
+        @param conf_base_path: Path to a local location conf_repo to be cloned to.
+          Default is defined in each OS type class by "_PATH_BASE_CONF" variable.
+        """
+        self._logger.info("Update the host name as '{}'".format(self._hostname))
+
+        # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
+        _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
+        _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
+        self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
+        self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
+
+        try:
+            self.update_hostname(self._hostname)
+        except NotImplementedError as e:
+            self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
+            self.add_runtime_issue(e)
+
+        self._logger.info("""Set home dir of the user that will be the main user account on this computer.
+            For now the user account that is used to execute this process will be the main account.""")
+        self._user_home_dir = pwd.getpwuid(os.getuid()).pw_dir
+
+        # Install deb dependencies that cannot be installed in the batch
+        # installation step that is planned later in this sequence.
+        self.install_deps_adhoc(deb_pkgs=[], pip_pkgs=[])
+
+        # Setting up rosdep
+        OsUtil.setup_rosdep()
+
+        _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
+        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
+        self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
+
+        # Skip Google Chrome specific setting as it might come bundled already
+        # on Ubuntu.
+
+        # Skip synergy setting.
+
+        self.setup_dropbox()
+
+        self.create_data_dir(
+            [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
+             os.path.join(self._user_home_dir, args.path_symlinks_dir)])
+        _pairs_symlinks = self.generate_symlinks(
+            rootpath_symlinks=os.path.join(self._user_home_dir, args.path_symlinks_dir),
+            path_user_home=self._user_home_dir)
+        self.common_symlinks(_pairs_symlinks)
+
+        self.setup_configs(host_config, abs_path_confdir=_abs_path_confdir)
+
+        # Installation by batch based on the list defined in package.xml.
+        self.setup_rosdep_and_run(args.path_local_conf_repo)
+
+        _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
+        self._logger.info(_msg_endroll)
+
+        self.setup_oracle_java()
+        self.listup_runtime_issues()
+
 
 class DebianSetup(ShellCapableOsSetup):
     _OS_TYPE = "Debian"
 
-    def __init__(self, os_name=_OS_TYPE):
-        super().__init__(os_name)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
+        super().__init__(os_name, args_in)
         self._apt_updated = False
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
@@ -675,6 +718,9 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
                 self.add_runtime_issue(e)
 
+    def git_clone_impl(self, repo_to_clone, dir_cloned_at):
+        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
 
@@ -693,10 +739,11 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f"{self._which_apt} update", does_sudo=True)
         self.apt_updated = True
 
-    def setup_docker(self, userid_os):
+    def setup_docker(self, userid_os, skip=False):
         try:
-            self._is_docker_setup()
-            return
+            if skip or self._is_docker_setup():
+                self._logger.info(f"Looks like Docker setup is already completed.")
+                return
         except RuntimeWarning as e:
             self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
@@ -717,71 +764,20 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f"{self._which_unset} $DEBIAN_FRONTEND")
         OsUtil.subproc_bash(f'{self._which_docker} run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
     
-    def run(self, args, host_config, conf_repo_remote, conf_base_path):
-        """
-        @type args: (argparse' output)
-        @type host_cfg: HostConf
-        @param conf_repo: Absolute path URL of the repo to clone that contains host config.
-        @param conf_base_path: Path to a local location conf_repo to be cloned to.
-          Default is defined in each OS type class by "_PATH_BASE_CONF" variable.
-        """
-        self._hostname = args.hostname
-        self._logger.info("Update the host name as '{}'".format(self._hostname))
-
+    def _setup_git(self):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
+        # If git had not been installed yet prior to the one line above,
+        # then its executable hadn't been available either.
+        self._which_git = shutil.which("git")
 
-        # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
-        _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
-        _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
-        self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
-        self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
-
-        try:
-            self.update_hostname(self._hostname)
-        except NotImplementedError as e:
-            self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
-            self.add_runtime_issue(e)
-
-        self._logger.info("""Set home dir of the user that will be the main user account on this computer.
-            For now the user account that is used to execute this process will be the main account.""")
-        self._user_home_dir = pwd.getpwuid(os.getuid()).pw_dir
-        self._os_user_id = args.user_id
-
-        # Install deb dependencies that cannot be installed in the batch
-        # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=[], pip_pkgs=[])
-
-        # Setting up rosdep
-        OsUtil.setup_rosdep()
-
-        _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
-        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
-        self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
-
-        # Skip Google Chrome specific setting as it might come bundled already
-        # on Ubuntu.
-
-        # Skip synergy setting.
-
-        self.setup_dropbox()
-
-        self.setup_docker(userid_os=self._os_user_id)
-
-        self.create_data_dir(
-            [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
-             os.path.join(self._user_home_dir, args.path_symlinks_dir)])
-        _pairs_symlinks = self.generate_symlinks(
-            rootpath_symlinks=os.path.join(self._user_home_dir, args.path_symlinks_dir),
-            path_user_home=self._user_home_dir)
-        self.common_symlinks(_pairs_symlinks)
-
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         pairs_conf_autostart = [
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "gnome-system-monitor.desktop"),
+                path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
                 path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "indicator-multiload.desktop"),
+                path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
                 path_dest=os.path.join(self._user_home_dir, ".config", "autostart"),
                 is_symlink=True),
             ]
@@ -790,7 +786,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         pairs_conf_bash = [
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "bash", host_config.bash_cfg),
+                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
                 path_dest=os.path.join(self._user_home_dir, ".bashrc"),
                 is_symlink=True),
             ]
@@ -799,43 +795,34 @@ class DebianSetup(ShellCapableOsSetup):
 
         pairs_conf_tools = [
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "gnome-system-monitor.desktop"),
+                path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
                 path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "indicator-multiload.desktop"),
+                path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
                 path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "tmux_default.conf"),
+                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
                 path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "emacs", host_config.emacs_cfg),
+                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
                 path_dest=os.path.join(self._user_home_dir, ".emacs"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(_abs_path_confdir, "dot_xbindkeysrc"),
+                path_source=os.path.join(abs_path_confdir, "dot_xbindkeysrc"),
                 path_dest=os.path.join(self._user_home_dir, ".xbindkeysrc"),
                 is_symlink=True),
             ]
         for c in pairs_conf_tools:
             self.setup_file(c)
 
-        # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(args.path_local_conf_repo)
-
-        _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
-        self._logger.info(_msg_endroll)
-
-        self.setup_oracle_java()
-        self.listup_runtime_issues()
-
 
 class ChromeOsSetup(DebianSetup):
     _OS_TYPE = "ChromeOS"
-    def __init__(self, os_name=_OS_TYPE):
-        super().__init__(os_name)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
+        super().__init__(os_name, args_in)
 
     def setup_dropbox(self):
         self._logger.warn(
@@ -883,6 +870,59 @@ class UbuntuOsSetup(DebianSetup):
             except FileNotFoundError as e:
                 self._logger.warning("File/Dir '{}' does not exist. Moving on without deleting it.".format(dir))
                 self.add_runtime_issue(e)
+
+    def generate_symlinks(self, rootpath_symlinks, path_user_home):
+        pairs_symlinks = [
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
+                path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"),
+                is_symlink=True),
+            ConfigDispach(  # Some others depend on this symlink.
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "30y-130s"),
+                path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
+                path_dest=os.path.join(rootpath_symlinks, "git_repos"),
+                is_symlink=True),
+            ConfigDispach(  # Only backward compatibility
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
+                path_dest=os.path.join(rootpath_symlinks, "github_repos"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "JobSuchen"),
+                path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "periodic", "2024"),
+                path_dest=os.path.join(rootpath_symlinks, "Current"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "Engineering", "ARIAC"),
+                path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "MOOC"),
+                path_dest=os.path.join(rootpath_symlinks, "MOOC"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "academicDoc"),
+                path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_base"),
+                path_dest=os.path.join(rootpath_symlinks, "ROS"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "30y-130s", "schools_children", "GJLS"),
+                path_dest=os.path.join(rootpath_symlinks, "GJLS"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_utakata"),
+                path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
+                is_symlink=True),
+            ]
+        return pairs_symlinks
 
 
 class MacOsSetup(AbstCompSetupFactory):
@@ -932,6 +972,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         self._logger.addHandler(log_handler)
 
     def _cli_args(self):
+        """
+        @rtype: argparse.Namespace
+        """
         parser = argparse.ArgumentParser(description=self._MSG_CONSOLE_TOOL_INTRO)
         # Optional but close to required args
         parser.add_argument("--hostname", required=True, help="Specify in case you need to modify the host name.")
@@ -946,6 +989,7 @@ treats the user ID tha is used to execute this tool as the main user."""
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip docker", action="store_true")
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
@@ -965,11 +1009,11 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Builder pattern
         _os_builder = None
         if _args.os == ChromeOsSetup._OS_TYPE:
-            _os_builder = ChromeOsSetup()
+            _os_builder = ChromeOsSetup(args_in=_args)
         elif _args.os == DebianSetup._OS_TYPE:
-            _os_builder = DebianSetup()
+            _os_builder = DebianSetup(args_in=_args)
         elif _args.os == UbuntuOsSetup._OS_TYPE:
-            _os_builder == UbuntuOsSetup
+            _os_builder == UbuntuOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
