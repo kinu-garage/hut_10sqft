@@ -200,6 +200,8 @@ class OsUtil:
             non_interactive=False):
         if not logger:
             logger = OsUtil._gen_logger()  
+        if not cmd:
+            raise ValueError("Command to execute not passed.")
         
         bash_type = '/bin/sh'
         bash_arg = '-c'
@@ -209,8 +211,7 @@ class OsUtil:
 
         if non_interactive:
             cmd.insert(0, "DEBIAN_FRONTEND=noninteractive ")
-        if cmd:
-            bash_full_cmd.append(cmd)
+        bash_full_cmd.append(cmd)
 
         logger.info(f"subprocess: About to execute the cmd: {cmd}")
         _subproc = None
