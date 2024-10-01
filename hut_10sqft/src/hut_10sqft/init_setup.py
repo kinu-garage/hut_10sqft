@@ -157,18 +157,14 @@ class OsUtil:
             logger.error(sys.stderr, "Sorry, package installation failed [{err}]".format(err=str(e)))
 
     @staticmethod
-    def install_pip_adhoc(self, pip_pkgs=[], logger=None):
+    def install_pip_adhoc(pip_pkgs=[], logger=None):
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
-            logger.warning("No pip pkgs requested to be installed, so skpping.")
+            logger.warning(f"No pip pkgs requested to be installed, so skpping. Passed: {pip_pkgs}")
             return
-        installed = {pkg.key for pkg in pkg_resources.working_set}
-        logger.info("List of installed pip pkgs: {}\nList of pip pkgs TO BE installed: {}".format(installed, pip_pkgs))
-        missing   = pip_pkgs - installed
-        if missing:
-            # implement pip as a subprocess:
-            subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing])
+        logger.info(f"List of pip pkgs TO BE installed: {pip_pkgs}")
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', *pip_pkgs])
 
     @staticmethod
     def copy_prop_file(path_src, path_dest):
@@ -210,7 +206,7 @@ class OsUtil:
             bash_full_cmd.insert(0, 'sudo')
 
         if non_interactive:
-            cmd.insert(0, "DEBIAN_FRONTEND=noninteractive ")
+            cmd = "DEBIAN_FRONTEND=noninteractive " + cmd
         bash_full_cmd.append(cmd)
 
         logger.info(f"subprocess: About to execute the cmd: {cmd}")
@@ -368,9 +364,6 @@ class AbstCompSetupFactory():
         self._logger.setLevel(logger_level)
         self._logger.addHandler(log_handler)
 
-    def install_deps_adhoc(self, deb_pkgs=[]):
-        raise NotImplementedError()
-
     def setup_rosdep(self):
         raise NotImplementedError()
 
@@ -415,11 +408,14 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
-        if not args_in.skip_setup_docker:
-            # Only when 'skip_setup_docker' is False.
-            self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
-            self._which_docker = OsUtil.which("docker")
+        self.get_paths_execs()
         self._setup_git()
+
+    def get_paths_execs(self):
+        if not self._args_in.skip_setup_docker:
+            # Only when 'skip_setup_docker' is False.
+            # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
+            self._which_docker = OsUtil.which("docker")
 
     def _setup_git(self):
         """
@@ -578,6 +574,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         if bash_return_code != 0:
             self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[]):
+        raise NotImplementedError()
+
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
@@ -593,6 +592,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
+
+        if not self._args_in.skip_setup_docker:
+            self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
 
         try:
             self.update_hostname(self._hostname)
@@ -651,12 +653,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are likely only available on Debian variants.
-        self._which_apt = shutil.which("apt")
-        self._which_aptcache = shutil.which("apt-cache")
-        self._which_aptkey = shutil.which("apt-key")
-        self._which_echo = shutil.which("echo")
-        self._which_service = shutil.which("service")
-        self._which_unset = shutil.which("unset")
+        self.get_paths_execs()
 
     @property
     def apt_updated(self):
@@ -666,14 +663,22 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs={}):
+    def get_paths_execs(self):
+        self._which_apt = shutil.which("apt")
+        self._which_aptcache = shutil.which("apt-cache")
+        self._which_aptkey = shutil.which("apt-key")
+        self._which_echo = shutil.which("echo")
+        self._which_service = shutil.which("service")
+        self._which_unset = shutil.which("unset")
+        
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
-
         @param pip_pkgs: Set format. 
         """
         if not deb_pkgs:
+            # TODO This list must be reviewed, delegate to rosdep if a rosdep key of it is available.
             deb_pkgs = [
                 "aptitude",
                 "colorized-logs",
@@ -693,7 +698,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "psensor",
                 "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
                 "python3-pip",
-                #"python3-rosdep",  # python3-rosdep2 is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
+                #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
                 "ptex-bin",
                 "sysinfo",
@@ -704,6 +709,7 @@ class DebianSetup(ShellCapableOsSetup):
                 ]
 
         OsUtil.apt_install(deb_pkgs, self._logger)
+        self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs)
 
     def setup_rosdep(self):
