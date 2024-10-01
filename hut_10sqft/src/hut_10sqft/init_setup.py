@@ -111,7 +111,7 @@ class OsUtil:
         _path_rosdep = shutil.which("rosdep")
         OsUtil.subproc_bash(f"{_path_rosdep} init", does_sudo=True)
         OsUtil.subproc_bash(f"{_path_rosdep} update")
-        OsUtil.subproc_bash(f"{shutil.which("apt")} update", does_sudo=True)
+        OsUtil.subproc_bash(f"{shutil.which('apt')} update", does_sudo=True)
 
     @staticmethod
     def apt_install(deb_pkg_name, logger=None):
@@ -715,7 +715,7 @@ class DebianSetup(ShellCapableOsSetup):
 
     def setup_rosdep(self):
         cmd_set_apt_source_rosdep = f'{self._which_echo} "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
-        cmd_obtain_apt_key_rosdep = f"{shutil.which("wget")} http://packages.ros.org/ros.key"
+        cmd_obtain_apt_key_rosdep = f"{shutil.which('wget')} http://packages.ros.org/ros.key"
         cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
         OsUtil.subproc_bash(cmd_set_apt_source_rosdep, does_sudo=True)
         OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
