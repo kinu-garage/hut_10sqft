@@ -352,6 +352,10 @@ class AbstCompSetupFactory():
         self._list_runtime_issues.append(value)
 
     def listup_runtime_issues(self):
+        if not self.list_runtime_issues:
+            self._logger.info("No runtime issues recorded:")
+            return
+
         self._logger.info("Runtime issues captured:")
         _issue_count = 1
         for issue in self.list_runtime_issues:
@@ -640,9 +644,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
 
-        self.setup_oracle_java()
-        self.listup_runtime_issues()
-
 
 class DebianSetup(ShellCapableOsSetup):
     _OS_TYPE = "Debian"
@@ -742,6 +743,10 @@ class DebianSetup(ShellCapableOsSetup):
     ## apt update && apt-get install -y oracle-java8-installer
     ## sudo apt install oracle-java8-set-default
 """)
+
+    def run(self, args, host_config, conf_repo_remote, conf_base_path=""):
+        super().run(args, host_config, conf_repo_remote, conf_base_path)
+        self.setup_oracle_java()
 
     def apt_update(self):
         if self.apt_updated:
@@ -1052,6 +1057,7 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         _msg_endroll = _args.msg_endroll if _args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
+        _os_builder.listup_runtime_issues()
         
 
 if __name__ == '__main__':
