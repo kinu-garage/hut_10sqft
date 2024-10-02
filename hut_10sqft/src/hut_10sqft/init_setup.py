@@ -100,11 +100,12 @@ class OsUtil:
             self._logger = OsUtil._gen_logger()
 
     @staticmethod
-    def _gen_logger():
-        logger = logging.getLogger(OsUtil._LOGGER_NAME)
+    def _gen_logger(logger_name=_LOGGER_NAME, log_level=logging.DEBUG):
+        logger = logging.getLogger(logger_name)
         log_handler = logging.StreamHandler()        
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(log_handler)
+        logger.setLevel(log_level)
+        if not logger.hasHandlers():
+            logger.addHandler(log_handler)
         return logger
 
     @staticmethod
@@ -613,10 +614,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=[], pip_pkgs=["rosdep"])
-
-        # Setting up rosdep
+        self.install_deps_adhoc(deb_pkgs=["python3-pip"], pip_pkgs=["rosdep"])
         OsUtil.setup_rosdep()
+        # Installation by batch based on the list defined in package.xml.
+        self.setup_rosdep_and_run(args.path_local_conf_repo)
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
@@ -639,14 +640,37 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         self.setup_configs(host_config, abs_path_confdir=_abs_path_confdir)
 
-        # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(args.path_local_conf_repo)
-
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
 
 
 class DebianSetup(ShellCapableOsSetup):
+    _DEBIAN_DEB_DEPS = [
+                "aptitude",
+                "colorized-logs",
+                "dconf-editor",
+                "emacs-mozc", "emacs-mozc-bin",
+                "evince",
+                "flameshot"
+                "gnome-tweaks",
+                "googleearth-package",
+                "gtk-recordmydesktop",
+                "ibus", "ibus-el", "ibus-mozc", 
+                "indicator-multiload",
+                "libavahi-compat-libdnssd1",
+                "mozc-server",
+                "pdftk",
+                "pidgin",
+                "psensor",
+                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
+                #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
+                "ptex-base",
+                "ptex-bin",
+                "sysinfo",
+                "synaptic",
+                "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
+                "whois",
+                ]
     _OS_TYPE = "Debian"
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
@@ -680,35 +704,7 @@ class DebianSetup(ShellCapableOsSetup):
         @param pip_pkgs: Set format. 
         """
         if not deb_pkgs:
-            # TODO This list must be reviewed, delegate to rosdep if a rosdep key of it is available.
-            deb_pkgs = [
-                "aptitude",
-                "colorized-logs",
-                "dconf-editor",
-                "emacs-mozc", "emacs-mozc-bin",
-                "evince",
-                "flameshot"
-                "gnome-tweaks",
-                "googleearth-package",
-                "gtk-recordmydesktop",
-                "ibus", "ibus-el", "ibus-mozc", 
-                "indicator-multiload",
-                "libavahi-compat-libdnssd1",
-                "mozc-server",
-                "pdftk",
-                "pidgin",
-                "psensor",
-                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
-                "python3-pip",
-                #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
-                "ptex-base",
-                "ptex-bin",
-                "sysinfo",
-                "synaptic",
-                "xdotool",  # https://github.com/kinu-garage/hut_10sqft/issues/1077
-                "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
-                "whois",
-                ]
+            deb_pkgs = self._DEBIAN_DEB_DEPS
 
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
