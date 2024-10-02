@@ -166,7 +166,8 @@ class OsUtil:
             logger.warning(f"No pip pkgs requested to be installed, so skpping. Passed: {pip_pkgs}")
             return
         logger.info(f"List of pip pkgs TO BE installed: {pip_pkgs}")
-        subprocess.check_call([sys.executable, '-m', 'pip', 'install', *pip_pkgs])
+        #subprocess.check_call([sys.executable, '-m', OsUtil.which('pip'), 'install', *pip_pkgs])
+        subprocess.check_call([OsUtil.which('pip'), 'install', *pip_pkgs])
 
     @staticmethod
     def copy_prop_file(path_src, path_dest):
