@@ -22,6 +22,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 
 
 class HostConf():
@@ -266,7 +267,7 @@ class OsUtil:
 
         if overwrite:
             if backup_suffix:
-                _backup_file_path = os.path.join(path_dest + backup_suffix)
+                _backup_file_path = os.path.join(path_dest + backup_suffix + "_" + datetime.today().strftime("%Y%m%d-%H%M%S"))
                 shutil.copyfile(path_dest, _backup_file_path)
                 logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
             os.remove(path_dest)
