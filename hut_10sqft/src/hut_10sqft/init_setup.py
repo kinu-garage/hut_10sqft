@@ -598,7 +598,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
 
-        if not self._args_in.skip_setup_docker:
+        if self._args_in.skip_setup_docker:
             self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
 
         try:
