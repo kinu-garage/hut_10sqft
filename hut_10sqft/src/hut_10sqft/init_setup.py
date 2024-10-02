@@ -159,15 +159,35 @@ class OsUtil:
             logger.error(sys.stderr, "Sorry, package installation failed [{err}]".format(err=str(e)))
 
     @staticmethod
-    def install_pip_adhoc(pip_pkgs=[], logger=None):
+    def install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
             logger.warning(f"No pip pkgs requested to be installed, so skpping. Passed: {pip_pkgs}")
             return
-        logger.info(f"List of pip pkgs TO BE installed: {pip_pkgs}")
-        #subprocess.check_call([sys.executable, '-m', OsUtil.which('pip'), 'install', *pip_pkgs])
-        subprocess.check_call([OsUtil.which('pip'), 'install', *pip_pkgs])
+        _PIP_OPTION_BREAK = "--break-system-packages"
+        cmd_list = [OsUtil.which('pip'), 'install', *pip_pkgs]
+        
+        if allow_break:
+            cmd_list.append(_PIP_OPTION_BREAK)
+            _msg = f"Cmd: {cmd_list}."            
+            _msg = _msg + " See https://stackoverflow.com/questions/75602063 for the risk of passing '--break-system-packages' option."
+        else:
+            _msg = f"Cmd: {cmd_list}."
+        logger.info(_msg)
+        _attempts = 0
+        _ret_code = -1
+        while (not _ret_code) and (_attempts < 3):
+            try:
+                _ret_code = subprocess.check_call(cmd_list)
+            except subprocess.CalledProcessError as e:
+                _err_msg = f"{_attempts}-th 'pip install' attempt failed. Often network issue. Re-trying. Error: {str(e)}"
+                if allow_break:
+                    _err_msg += f"\n\tAnother possible reason is 'pip' is too old so that an option {_PIP_OPTION_BREAK} is not available (see https://stackoverflow.com/a/78600962/577001). Re-trying without that."
+                    cmd_list.pop()  # Popping the last element is not super robust way to get rid of '_PIP_OPTION_BREAK'...
+                logger.error(_err_msg)
+
+            _attempts += 1        
 
     @staticmethod
     def copy_prop_file(path_src, path_dest):
@@ -581,7 +601,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         if bash_return_code != 0:
             self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[]):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+        """
+        @param allow_pip_break: If True, pip runs with '--break-system-packages' option.
+        """
         raise NotImplementedError()
 
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
@@ -615,7 +638,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=["python3-pip"], pip_pkgs=["rosdep"])
+        self.install_deps_adhoc(deb_pkgs=["python3-pip"], pip_pkgs=["rosdep"], allow_pip_break=True)
         OsUtil.setup_rosdep()
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo)
@@ -698,7 +721,7 @@ class DebianSetup(ShellCapableOsSetup):
         self._which_service = shutil.which("service")
         self._which_unset = shutil.which("unset")
         
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[]):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
@@ -709,7 +732,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
-        OsUtil.install_pip_adhoc(pip_pkgs)
+        OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
 
     def setup_rosdep(self):
         cmd_set_apt_source_rosdep = f'{self._which_echo} "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
