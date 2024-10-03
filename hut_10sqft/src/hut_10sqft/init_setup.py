@@ -888,6 +888,10 @@ class ChromeOsSetup(DebianSetup):
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "MyFiles", "Downloads"),
+                path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"),
+                is_symlink=True),
             ]
         self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
         return pairs_symlinks
