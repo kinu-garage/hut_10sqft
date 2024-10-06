@@ -391,7 +391,7 @@ class AbstCompSetupFactory():
         self._logger.setLevel(logger_level)
         self._logger.addHandler(log_handler)
 
-    def setup_rosdep(self):
+    def setup_ros_installer_src(self):
         raise NotImplementedError()
 
     def setup_git_config(self, path_local_perm_conf):
@@ -592,14 +592,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             path_file = os.path.join(path_local_conf_repo, conf_file)
             shutil.copyfile(path_file, os.path.join(path_config_dir, conf_file))
 
-    def setup_rosdep_and_run(self, path_ws, init_rosdep=False):
-        if init_rosdep:
-            OsUtil.setup_rosdep()
-        os.chdir(path_ws)
-        self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
-        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
-        if bash_return_code != 0:
-            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+    def setup_ros_installer_src(self):
+        raise NotImplementedError()
+
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
+        raise NotImplementedError()
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
@@ -636,19 +633,14 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             For now the user account that is used to execute this process will be the main account.""")
         self._user_home_dir = pwd.getpwuid(os.getuid()).pw_dir
 
-        # Install deb dependencies that cannot be installed in the batch
-        # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=["python3-pip"], pip_pkgs=["rosdep"], allow_pip_break=True)
-        OsUtil.setup_rosdep()
         # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(args.path_local_conf_repo)
+        self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
-        # Skip Google Chrome specific setting as it might come bundled already
-        # on Ubuntu.
+        # Skip Google Chrome specific setting as it might come bundled already on Ubuntu.
 
         # Skip synergy setting.
 
@@ -696,6 +688,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "whois",
                 ]
     _OS_TYPE = "Debian"
+    _APTPKG_ROSDEP2 = "python3-rosdep2"
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
@@ -720,7 +713,30 @@ class DebianSetup(ShellCapableOsSetup):
         self._which_echo = shutil.which("echo")
         self._which_service = shutil.which("service")
         self._which_unset = shutil.which("unset")
-        
+
+    def setup_ros_installer_src(self):
+        self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
+
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
+        """
+        @note: For Debian OS, no official prebuilt rosdep installer via apt is available,
+          but a community version 'python3-rosdep2' maintained by a long-term community member (Jochen S.) is avaialble
+          so using it for now. But for Ubuntu 'python3-rosdep' (without 2 at the end) is the official and should be used.
+        """
+        self.setup_ros_installer_src()
+
+        # Install deb dependencies that cannot be installed in the batch
+        # installation step that is planned later in this sequence.
+        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
+
+        if init_rosdep:
+            OsUtil.setup_rosdep()
+        os.chdir(path_ws)
+        self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        if bash_return_code != 0:
+            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
         @summary: Install the packages that cannot be installed by batch using
@@ -733,14 +749,6 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
-
-    def setup_rosdep(self):
-        cmd_set_apt_source_rosdep = f'{self._which_echo} "deb http://packages.ros.org/ros/ubuntu `lsb_release -sc` main" > /etc/apt/sources.list.d/ros-latest.list'
-        cmd_obtain_apt_key_rosdep = f"{shutil.which('wget')} http://packages.ros.org/ros.key"
-        cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
-        OsUtil.subproc_bash(cmd_set_apt_source_rosdep, does_sudo=True)
-        OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
-        OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
@@ -773,7 +781,13 @@ class DebianSetup(ShellCapableOsSetup):
         if self.apt_updated:
             self._logger.warn("'apt update' was already done before. Skipping")
             return
-        OsUtil.subproc_bash(f"{self._which_apt} update", does_sudo=True)
+        cmd = f"{self._which_apt} update"
+        _out, _err, retcode = OsUtil.subproc_bash(cmd, does_sudo=True)
+        if retcode != 0:
+            raise subprocess.CalledProcessError(
+                returncode = retcode,
+                cmd = cmd,
+                stderr = _err)
         self.apt_updated = True
 
     def setup_docker(self, userid_os, skip=False):
@@ -965,6 +979,50 @@ class UbuntuOsSetup(DebianSetup):
                 is_symlink=True),
             ]
         return pairs_symlinks
+
+    def set_ros_apt_source(self, 
+                           path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
+                           path_os_release = "/etc/os-release",
+                           key_os_code = "VERSION_CODENAME="):
+        """
+        @summary Create
+        @param key_os_code: Likely must end with '=', at least so as of Ubuntu 22.04.
+        @exception IOError: When an error happens while writing to 'path_aptsrc_file'
+        """
+        _os_codename = ""
+        # Get OS codename        
+        with open(path_os_release, "r") as file_os_code:
+            str_file = file_os_code.readlines()
+            for line in str_file:
+                self._logger.info(f"line= {line}")
+                if line.startswith(key_os_code):
+                    # E.g. From a string 'VERSION_CODENAME=jammy', the following line extracts and put 'jammy' in '_os_codename'.
+                    _os_codename = line[line.index(key_os_code) + len(key_os_code):]
+                    # Cleaning e.g. remove line feed at the end.
+                    _os_codename = _os_codename.strip()
+                    break
+        if not _os_codename:
+            raise RuntimeError(f"OS code name not found in the file '{path_os_release}'")
+        res, err, retcode = OsUtil.subproc_bash("dpkg --print-architecture")
+        try:
+            with open(path_aptsrc_file, "w") as file_apt_src:
+                file_apt_src.write(
+                    f"deb [arch={res} signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu {_os_codename} main")
+        except IOError as e:
+            raise e
+
+    def setup_ros_installer_src(self):
+        self.set_ros_apt_source()
+        cmd_obtain_apt_key_rosdep = f"{shutil.which('wget')} http://packages.ros.org/ros.key"
+        cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
+        OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
+        OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
+        self.apt_update()
+
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
+        if pkg_resources == self._APTPKG_ROSDEP2:
+            self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
+        super.setup_rosdep_and_run(path_ws, pkg_rosdep, init_rosdep)
 
 
 class MacOsSetup(AbstCompSetupFactory):
