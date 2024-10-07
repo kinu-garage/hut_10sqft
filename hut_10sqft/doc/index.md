@@ -11,7 +11,7 @@ Usage
    ```
    $ export INITOS=/tmp/hut_10sqft_os-setup.py &&  \
      export VERSION=develop &&  \
-     export HOST_NAME=130s-C14-Morph &&  \
+     export HOST_NAME=130s-C13-Morph &&  \
      export OSTYPE=ChromeOS &&  \
      export USERID=n130s &&  \
      sudo apt update && sudo apt install -y curl python3 &&  \
