@@ -497,6 +497,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
     def clone(self, repo_to_clone, dir_cloned_at):
         """
+        @return: Absolute path of the successfully cloned local repo.
         @raise ValueError when some input is null
         """
         if not dir_cloned_at:
@@ -505,14 +506,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
             self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            return _abs_path_local
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
         self.git_clone_impl(repo_to_clone, dir_cloned_at)
 
-        # Check if perm conf repo is already available on the host.
+        # Verifying if perm conf repo is successfully cloned on the host, by checking to see if the path exists.
         if not os.path.exists(dir_cloned_at):
             raise FileNotFoundError(
                 f"At '{dir_cloned_at}', a local repo '{repo_to_clone}' is expected to be present in order to continue.")
+        return _abs_path_local
 
     def _is_docker_setup(self):
         bash_return_code = -1
