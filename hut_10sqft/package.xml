@@ -32,7 +32,7 @@
   <exec_depend>python3-git</exec_depend>
   <exec_depend>python3-pip</exec_depend>  
   <exec_depend>python3-rocker</exec_depend>
-  <exec_depend>python3-rosdep</exec_depend>
+  <!-- <exec_depend>python3-rosdep</exec_depend> Decision made to install rosdep in the code -->
   <exec_depend>python3-vcstool</exec_depend>
   <exec_depend>rpl</exec_depend>
   <exec_depend>ack</exec_depend>
