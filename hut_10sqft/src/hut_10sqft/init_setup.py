@@ -504,7 +504,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
-            self._logger.warn(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
         self.git_clone_impl(repo_to_clone, dir_cloned_at)
@@ -779,7 +779,7 @@ class DebianSetup(ShellCapableOsSetup):
 
     def apt_update(self):
         if self.apt_updated:
-            self._logger.warn("'apt update' was already done before. Skipping")
+            self._logger.warning("'apt update' was already done before. Skipping")
             return
         cmd = f"{self._which_apt} update"
         _out, _err, retcode = OsUtil.subproc_bash(cmd, does_sudo=True)
@@ -877,7 +877,7 @@ class ChromeOsSetup(DebianSetup):
         super().__init__(os_name, args_in)
 
     def setup_dropbox(self):
-        self._logger.warn(
+        self._logger.warning(
             f"Skipping Dropbox setup on {self._OS_TYPE}, as it runs on the Chrome OS host without allowing to mount the directory onto Linux mode.")
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
@@ -919,7 +919,7 @@ class UbuntuOsSetup(DebianSetup):
 
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
-        self._logger.warn("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
+        self._logger.warning("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
         for dir in dirs_tobe_removed:
             try:
                 shutil.rmtree(dir)
