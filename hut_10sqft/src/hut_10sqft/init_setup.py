@@ -739,6 +739,8 @@ class DebianSetup(ShellCapableOsSetup):
         output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
         if bash_return_code != 0:
             self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+        else:
+            self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
