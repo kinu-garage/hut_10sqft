@@ -638,6 +638,8 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
+        # Install dependency that is not available via rosdep
+        self.install_deps_adhoc()
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
@@ -754,6 +756,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
+        # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
