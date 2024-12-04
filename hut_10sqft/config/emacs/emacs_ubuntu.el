@@ -27,5 +27,5 @@
 (put 'upcase-region 'disabled nil)
 
 ;; Creating short cut
-(set-register ?d '(file . "~/data/Dropbox/periodic/2024/"))
+(set-register ?d '(file . "~/link/Current/"))  ; See https://github.com/kinu-garage/essay_in_idleness/issues/306
 (set-register ?s '(file . "~/data/Dropbox/app/Synergy/"))
