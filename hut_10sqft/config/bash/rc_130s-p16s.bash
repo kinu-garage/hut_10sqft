@@ -1,4 +1,8 @@
 DIR_THIS="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-source $DIR_THIS/rc_130s-serval.bash
+export CMAKE_ECLIPSE_VERSION=4.4 # Eclipse Luner
+export DISTRO_ROS_LINUX=kinetic  # Folder name of ROS work spaces at ~/link/ROS/
+
+source $DIR_THIS/ubuntu_common.bash
+
 
