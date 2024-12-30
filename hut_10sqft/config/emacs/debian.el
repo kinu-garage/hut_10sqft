@@ -19,3 +19,6 @@
 (global-set-key (kbd "\C-q") 'toggle-input-method)
 ; 20160609 Not sure how effective this is but I just leave it. https://wiki.archlinuxjp.org/index.php/Mozc#Emacs_.E3.81.A7_Mozc_.E3.82.92.E4.BD.BF.E3.81.86
 (setq mozc-candidate-style 'overlay)
+
+; 20241230 Following the decision https://github.com/kinu-garage/essay_in_idleness/issues/306#issuecomment-2514215071, "~/link/Current" should be available on all of my Debian (incl. ChromeOS' Linux mode) and Ubuntu hosts.
+(set-register ?d '(file . "~/link/Current/"))  ; See https://github.com/kinu-garage/essay_in_idleness/issues/306
