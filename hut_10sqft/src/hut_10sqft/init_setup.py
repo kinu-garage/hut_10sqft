@@ -921,6 +921,8 @@ class ChromeOsSetup(DebianSetup):
 
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
+    _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
+
     def __init__(self, os_name=_OS_TYPE):
         super().__init__(os_name)
         self.ubuntu_desktop_cleanup()
@@ -984,6 +986,10 @@ class UbuntuOsSetup(DebianSetup):
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_utakata"),
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join("media", path_user_home, self._EXTERNAL_STORAGE_KUDU1),
+                path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 is_symlink=True),
             ]
         return pairs_symlinks
