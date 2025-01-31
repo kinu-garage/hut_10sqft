@@ -6,6 +6,5 @@ export DISTRO_ROS_LINUX=kinetic  # Folder name of ROS work spaces at ~/link/ROS/
 source $DIR_THIS/ubuntu_common.bash
 
 # 20241220 Unreal Engine https://github.com/kinu-garage/hut_10sqft/issues/861 this path is only available on p16s as of now.
-#export PATH=~/pg/unreal-engine/UnrealEngine/Engine/Binaries/Linux/:$PATH
-# 20250120 Switched to prebuilt UE5.1 https://github.com/kinu-garage/hut_10sqft/issues/1147#issuecomment-2602321043
-export PATH=~/pg/unreal-engine/prebuilt_UE/unreal-engine-5.1.1_prebuilt/Engine/Binaries/Linux/:$PATH
+# 20250130 Unreal Engine 5.5.1
+export PATH=~/pg/unreal-engine/UnrealEngine/Engine/Binaries/Linux/:$PATH
