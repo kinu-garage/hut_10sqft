@@ -62,7 +62,7 @@ HISTFILESIZE=500000 #500KB
 #           /home/n130s/.gconf/apps/gnome-terminal/profiles/Default/%gconf.xml
 
 ## 20210305 https://askubuntu.com/questions/391082/how-to-see-time-stamps-in-bash-history
-HISTTIMEFORMAT="%d/%m/%y %T "
+HISTTIMEFORMAT="%F %T "
 
 # check the window size after each command and, if necessary,
 # update the values of LINES and COLUMNS.

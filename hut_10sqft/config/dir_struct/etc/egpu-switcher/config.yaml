@@ -1,0 +1,6 @@
+detection:
+    interval: 500
+    retries: 6
+egpu:
+    driver: nvidia
+    id: 1215452951649421595
