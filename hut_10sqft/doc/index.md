@@ -26,7 +26,19 @@ Usage
 1. At the end of the execution of the above command you should see the list of runtime issues that are captured during the run. Address those if possible.
 1. Should be ready to start using the OS.
 
-## Usecase: Run a "Developer Test"
+## Usecase: Run a "Developer's Test on the actual targeted environment"
+Sometimes a deveoper may want to keep coding while testing on the actual targeted env.
+1. Push the code change to the git remote server.
+1. On the execution command, swap `VERSION` with the name of your branch e.g.:
+   ```
+   export VERSION=%YOUR_DEV_BRANCHNAME% &&  \
+   ```
+1. Execute the OS setup command.
+
+Troubleshoot-1: Sometimes the downloaded execution .py file may not get updated even though you're sure you updated your branch on the remote.
+This may happen with Github sends cache/old state. Dumb solution is to update the branch name on the remote.
+
+## Usecase: Run a "Developer's Unit Test"
 
 "Developer Test" here refers to the tests that the developers run to verify the functionality of the package `hut_10sqft`.
 In the future the test steps may change (e.g. as of now test relies on the entire package being packaged by `pip`) but for now do the following in order to conduct dev test.
