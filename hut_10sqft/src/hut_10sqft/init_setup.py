@@ -34,8 +34,12 @@ class HostConf():
         self._sshkey_pub = sshkey_pub
 
     @property
-    def hostname(self):
+    def hostname(self) -> str:
         return self._hostname
+
+    @hostname.setter
+    def hostname(self, v: str):
+        self._hostname = v
 
     @property
     def bash_cfg(self):
@@ -1135,14 +1139,17 @@ treats the user ID tha is used to execute this tool as the main user."""
         _host_cfg = None
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
+        _host_cfg_brya = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")        
         if _args.hostname == "130s-p16s":
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == "130s-brya":
-            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+            _host_cfg = _host_cfg_brya            
         elif _args.hostname == "130s-C13-Morph":
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
-            raise UserWarning(f"user_id: '{_args.hostname}' not matching any host. This needs to be set.")
+            self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")
+            _host_cfg = _host_cfg_brya
+            _host_cfg.hostname = _args.hostname
 
         # Ref. "_MSG_ARG_BASE_CONF_PATH"
         _conf_base_path = OsUtil.tilde_to_expand(_args.path_base_conf) if _args.path_base_conf else ""
