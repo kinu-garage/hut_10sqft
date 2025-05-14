@@ -60,10 +60,16 @@ class HostConf():
 
 class ConfigDispach():
     """Need for the setter of each entry is questionable in the beginning though"""
-    def __init__(self, path_source, path_dest=None, is_symlink=False):
+    def __init__(self, path_source, path_dest=None, is_symlink=False, necessary=False, hint_enable=""):
+        """
+        @param necessary: If True, when the path in `path_source` not found then the accessor should raise an error.
+        @param hint_enable: Hint to enable the symlink creation, e.g. how to set up a mount on to Google Drive directory from Linux container on ChromeOS.
+        """
         self._path_source = path_source
         self._path_dest = path_dest
         self._is_symlink = is_symlink
+        self._necessary = necessary
+        self._hint_enable = hint_enable
 
     @property
     def path_source(self):
@@ -89,6 +95,18 @@ class ConfigDispach():
     def is_symlink(self, v):
         """Must be absolute path"""
         self._is_symlink = v
+
+    @property
+    def necessary(self) -> bool:
+        return self._necessary
+
+    @necessary.setter
+    def necessary(self, v: bool):
+        self._necessary = v
+
+    @property
+    def hint_enable(self) -> str:
+        return self._hint_enable
 
 
 class OsUtil:
@@ -470,8 +488,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
-            self.add_runtime_issue(e)
-            self._logger.error(f"Moving on for now despite the error: \n\t{str(e)}")
+            raise e
 
     def setup_git_config(self, path_local_perm_conf):
         path_user_home = pathlib.Path.home()
@@ -570,10 +587,13 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             try:
                 self.setup_file(pair)
             except FileNotFoundError as e:
-                self._logger.error(f"""Source of symlink '{pair.path_source}' it not (yet) found on the local file system. 
-                                   This is most notably ammendable by setting up local client executables of Dropbox and/or Google Drive. 
-                                   Hence skipping for now.""")
+                _error_msg = f"""Source of symlink '{pair.path_source}' it not (yet) found on the local file system. 
+This is most notably ammendable by setting up local client executables of Dropbox and/or Google Drive."""
+                if pair.hint_enable:
+                    _error_msg += f"\nHint: {pair.hint_enable}"
                 self.add_runtime_issue(e)
+                self._logger.error(_error_msg)
+                raise e
 
     def set_os_user_conf(
             self,
@@ -885,6 +905,11 @@ class DebianSetup(ShellCapableOsSetup):
 
 class ChromeOsSetup(DebianSetup):
     _OS_TYPE = "ChromeOS"
+    _HINT_ENABLE_MOUNT_GDRIVE = "Likely any of 'Google Drive' path is not yet mounted on the Linux container. To mount,\n" \
+        "1. Open 'File app' on the host ChromeOS.\n2. on the left pane (list of directories) expand 'Google Drive'. You should see your folders you have on your Google Drive on the cloud." \
+        "3. On any top-level folder you'd like to mount on to your Linux container, right-click then choose 'Manage Linux Sharing' then share.\n" \
+        "4. Verify on terminal on a Linux container that the directory is found by running 'ls -l /mnt/chromeos/GoogleDrive'.\n"
+
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
 
@@ -896,28 +921,22 @@ class ChromeOsSetup(DebianSetup):
         pairs_symlinks = [
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "GoogleDrive", "MyDrive"),
-                path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
-                path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "30y-130s"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Current"),
-                path_dest=os.path.join(rootpath_symlinks, "Current"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "Current"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "academicDoc"),
-                path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "academicDoc"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
-                path_dest=os.path.join(rootpath_symlinks, "MOOC"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "MOOC"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "MyFiles", "Downloads"),
-                path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"),
-                is_symlink=True),
+                path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ]
         self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
         return pairs_symlinks
