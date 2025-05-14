@@ -904,12 +904,17 @@ class DebianSetup(ShellCapableOsSetup):
 
 
 class ChromeOsSetup(DebianSetup):
-    _OS_TYPE = "ChromeOS"
     _DIRNAME_GDRIVE = "GoogleDrive"
-    _HINT_ENABLE_MOUNT_GDRIVE = "Likely any of 'Google Drive' path is not yet mounted on the Linux container. To mount,\n" \
-        "1. Open 'File app' on the host ChromeOS.\n2. on the left pane (list of directories) expand 'Google Drive'. You should see your folders you have on your Google Drive on the cloud." \
-        "3. On any top-level folder you'd like to mount on to your Linux container, right-click then choose 'Manage Linux Sharing' then share.\n" \
-        "4. Verify on terminal on a Linux container that the directory is found by running 'ls -l /mnt/chromeos/GoogleDrive'.\n"
+    _DIRNAME_LOCAL_DIR = "MyFiles"
+    _DIRNAME_LOCAL_DOWNLOADS = "Downloads"
+    _HINT_ENABLE_MOUNT_GENERIC = "Likely any of '{}' path is not yet mounted on the Linux container. To mount,\n" \
+        "1. Open 'File app' on the host ChromeOS.\n" \
+        "2. on the left pane (list of directories) expand {}." \
+        "3. On any top-level folder you'd like to mount on to your Linux container, right-click then choose 'Manage Linux Sharing' then the app should show a confirmation msg.\n" \
+        "4. Verify on terminal on a Linux container that the directory is found by running 'ls -l /mnt/chromeos/{}'.\n"
+    _HINT_ENABLE_MOUNT_GDRIVE = _HINT_ENABLE_MOUNT_GENERIC.format(_DIRNAME_GDRIVE, _DIRNAME_GDRIVE, _DIRNAME_GDRIVE)
+    _HINT_ENABLE_MOUNT_LOCAL_DOWNLOADS = _HINT_ENABLE_MOUNT_GENERIC.format(_DIRNAME_LOCAL_DOWNLOADS, _DIRNAME_LOCAL_DOWNLOADS, os.path.join(_DIRNAME_LOCAL_DIR, _DIRNAME_LOCAL_DOWNLOADS))
+    _OS_TYPE = "ChromeOS"
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
@@ -939,8 +944,8 @@ class ChromeOsSetup(DebianSetup):
                 path_source=os.path.join(rootpath_symlinks, self._DIRNAME_GDRIVE, "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "MyFiles", "Downloads"),
-                path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
+                path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", self._DIRNAME_LOCAL_DIR, self._DIRNAME_LOCAL_DOWNLOADS),
+                path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_LOCAL_DOWNLOADS),
             ]
         self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
         return pairs_symlinks
