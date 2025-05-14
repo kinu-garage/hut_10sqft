@@ -926,16 +926,16 @@ class ChromeOsSetup(DebianSetup):
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "GoogleDrive", "MyDrive"),
                 path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "GoogleDrive", "30y-130s"),
+                path_source=os.path.join(rootpath_symlinks, "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "GoogleDrive", "Current"),
+                path_source=os.path.join(rootpath_symlinks, "Current"),
                 path_dest=os.path.join(rootpath_symlinks, "Current"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "GoogleDrive", "Career", "academicDoc"),
+                path_source=os.path.join(rootpath_symlinks, "Career", "academicDoc"),
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(rootpath_symlinks, "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "MyFiles", "Downloads"),
