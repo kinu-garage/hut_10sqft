@@ -924,7 +924,7 @@ class ChromeOsSetup(DebianSetup):
         pairs_symlinks = [
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "GoogleDrive", "MyDrive"),
-                path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
+                path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "GoogleDrive", "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
