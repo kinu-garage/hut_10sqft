@@ -656,9 +656,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
             self.add_runtime_issue(e)
 
-        self._logger.info("""Set home dir of the user that will be the main user account on this computer.
-            For now the user account that is used to execute this process will be the main account.""")
         self._user_home_dir = pwd.getpwuid(os.getuid()).pw_dir
+        self._logger.info(f"""Set home dir of the user at {self._user_home_dir} that will be the main user account on this computer.
+            For now the user account that is used to execute this process will be the main account.""")
 
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
@@ -917,22 +917,25 @@ class ChromeOsSetup(DebianSetup):
         self._logger.warning(
             f"Skipping Dropbox setup on {self._OS_TYPE}, as it runs on the Chrome OS host without allowing to mount the directory onto Linux mode.")
 
-    def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
+    def generate_symlinks(self, rootpath_symlinks: str, path_user_home=""):
+        """
+        @param rootpath_symlinks: Path to the directory that is designed to host the list of symlinks e.g. '~/link'.
+        """
         pairs_symlinks = [
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "GoogleDrive", "MyDrive"),
                 path_dest=os.path.join(rootpath_symlinks, "link", "GoogleDrive"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
+                path_source=os.path.join(path_user_home, "GoogleDrive", "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Current"),
+                path_source=os.path.join(path_user_home, "GoogleDrive", "Current"),
                 path_dest=os.path.join(rootpath_symlinks, "Current"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "academicDoc"),
+                path_source=os.path.join(path_user_home, "GoogleDrive", "Career", "academicDoc"),
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(path_user_home, "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_GDRIVE),
             ConfigDispach(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", "MyFiles", "Downloads"),
