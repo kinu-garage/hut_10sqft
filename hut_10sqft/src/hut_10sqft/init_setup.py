@@ -1168,7 +1168,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
         _host_cfg_brya = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")        
-        if _args.hostname == "130s-p16s":
+        if _args.hostname == "130s-p16s-2":
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == "130s-brya":
             _host_cfg = _host_cfg_brya            
