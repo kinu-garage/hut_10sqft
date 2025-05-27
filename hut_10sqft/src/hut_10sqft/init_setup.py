@@ -955,8 +955,8 @@ class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
 
-    def __init__(self, os_name=_OS_TYPE):
-        super().__init__(os_name)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
+        super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
 
     def ubuntu_desktop_cleanup(self):
