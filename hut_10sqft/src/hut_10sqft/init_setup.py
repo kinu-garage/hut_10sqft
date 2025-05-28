@@ -1144,9 +1144,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         if not args.user_id:
             args.user_id = pwd.getpwuid(os.getuid())[0]
 
-        self._logger.info("If 'hostname' is not passed, get the host name from the OS.")
         if not args.hostname:
             args.hostname = os.uname()[1]
+            self._logger.warn(f"If 'hostname' is not passed, get the host name from the OS.: {args.hostname}")
 
         return args
 
@@ -1159,7 +1159,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         elif _args.os == DebianSetup._OS_TYPE:
             _os_builder = DebianSetup(args_in=_args)
         elif _args.os == UbuntuOsSetup._OS_TYPE:
-            _os_builder == UbuntuOsSetup(args_in=_args)
+            _os_builder = UbuntuOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
