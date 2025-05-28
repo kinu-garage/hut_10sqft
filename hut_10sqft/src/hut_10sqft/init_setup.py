@@ -516,7 +516,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
 
-    def clone(self, repo_to_clone, dir_cloned_at):
+    def clone(self, repo_to_clone, dir_cloned_at, branch=""):
         """
         @return: Absolute path of the successfully cloned local repo.
         @raise ValueError when some input is null
@@ -526,11 +526,13 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
-            self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists." \
+                                 f"NOTE: This can result in the code of '{repo_to_clone}' may not get updated since the first time it was cloned" \
+                                 f"      To avoid that, you may want to manually delete '{_abs_path_local}'")
             return _abs_path_local
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
-        self.git_clone_impl(repo_to_clone, dir_cloned_at)
+        self.git_clone_impl(repo_to_clone, dir_cloned_at, branch)
 
         # Verifying if perm conf repo is successfully cloned on the host, by checking to see if the path exists.
         if not os.path.exists(dir_cloned_at):
@@ -644,8 +646,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
+        _conf_repo_version = self._args_in.conf_repo_version
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
-        self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
+        self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
         if self._args_in.skip_setup_docker:
             self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
@@ -791,8 +794,11 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
                 self.add_runtime_issue(e)
 
-    def git_clone_impl(self, repo_to_clone, dir_cloned_at):
-        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+    def git_clone_impl(self, repo_to_clone, dir_cloned_at, branch=""):
+        _option = ""
+        if branch:
+            _option = "-b" + " " + branch
+        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
@@ -1130,6 +1136,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_local_conf_repo",
                             help=self._MSG_PATH_PERMCONF_REPO,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
+        parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir",
                             help=self._MSG_PATH_CONF_DIR,
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
