@@ -1068,7 +1068,7 @@ class UbuntuOsSetup(DebianSetup):
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         if pkg_resources == self._APTPKG_ROSDEP2:
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
-        super.setup_rosdep_and_run(path_ws, pkg_rosdep, init_rosdep)
+        self.setup_rosdep_and_run(path_ws, pkg_rosdep, init_rosdep)
 
 
 class MacOsSetup(AbstCompSetupFactory):
