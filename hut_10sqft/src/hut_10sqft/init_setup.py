@@ -1009,7 +1009,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "Engineering", "ARIAC"),
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "engineering", "ARIAC"),
                 path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
                 is_symlink=True),
             ConfigDispach(
