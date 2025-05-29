@@ -749,6 +749,21 @@ class DebianSetup(ShellCapableOsSetup):
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
 
+    def exec_rosdep_update(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
+        """
+        @summary: As of 202505 this method is only targetting Debian/Ubuntu OSes.
+        @param init_rosdep: If `True`, then `rosdep init` also executes.
+        """
+        if init_rosdep:
+            OsUtil.setup_rosdep()
+        os.chdir(path_ws)
+        self._logger.info(f"Changed directory to '{path_ws}' to run 'rosdep install' against the manifest that defines dependencies")
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        if bash_return_code != 0:
+            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+        else:
+            self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
+        
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
         """
         @note: For Debian OS, no official prebuilt rosdep installer via apt is available,
@@ -761,15 +776,7 @@ class DebianSetup(ShellCapableOsSetup):
         # installation step that is planned later in this sequence.
         self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
 
-        if init_rosdep:
-            OsUtil.setup_rosdep()
-        os.chdir(path_ws)
-        self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
-        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
-        if bash_return_code != 0:
-            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
-        else:
-            self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
+        self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
@@ -1074,7 +1081,8 @@ class UbuntuOsSetup(DebianSetup):
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         if pkg_resources == self._APTPKG_ROSDEP2:
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
-        self.setup_rosdep_and_run(path_ws, pkg_rosdep, init_rosdep)
+
+        self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
 
 class MacOsSetup(AbstCompSetupFactory):
