@@ -754,6 +754,8 @@ class DebianSetup(ShellCapableOsSetup):
         @summary: As of 202505 this method is only targetting Debian/Ubuntu OSes.
         @param init_rosdep: If `True`, then `rosdep init` also executes.
         """
+        self.setup_ros_installer_src()
+
         if init_rosdep:
             OsUtil.setup_rosdep()
         os.chdir(path_ws)
@@ -771,7 +773,6 @@ class DebianSetup(ShellCapableOsSetup):
           so using it for now. But for Ubuntu 'python3-rosdep' (without 2 at the end) is the official and should be used.
         """
         self.setup_ros_installer_src()
-
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
         self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
@@ -1081,7 +1082,6 @@ class UbuntuOsSetup(DebianSetup):
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         if pkg_resources == self._APTPKG_ROSDEP2:
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
-
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
 
