@@ -1033,7 +1033,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("media", path_user_home, self._EXTERNAL_STORAGE_KUDU1),
+                path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 is_symlink=True),
             ]
