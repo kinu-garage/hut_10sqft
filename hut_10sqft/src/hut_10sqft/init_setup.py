@@ -516,7 +516,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
 
-    def clone(self, repo_to_clone, dir_cloned_at):
+    def clone(self, repo_to_clone, dir_cloned_at, branch=""):
         """
         @return: Absolute path of the successfully cloned local repo.
         @raise ValueError when some input is null
@@ -526,11 +526,13 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         
         _abs_path_local = os.path.join(dir_cloned_at, OsUtil.get_repo_basename_from_url(repo_to_clone))
         if os.path.exists(_abs_path_local):
-            self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists.")
+            self._logger.warning(f"Skppig to git clone '{repo_to_clone}' as a local path '{_abs_path_local}' already exists." \
+                                 f"NOTE: This can result in the code of '{repo_to_clone}' may not get updated since the first time it was cloned" \
+                                 f"      To avoid that, you may want to manually delete '{_abs_path_local}'")
             return _abs_path_local
 
         self._logger.info(f"Cloning '{repo_to_clone}' into a local dir: '{dir_cloned_at}' so the abs local path will be '{_abs_path_local}.")
-        self.git_clone_impl(repo_to_clone, dir_cloned_at)
+        self.git_clone_impl(repo_to_clone, dir_cloned_at, branch)
 
         # Verifying if perm conf repo is successfully cloned on the host, by checking to see if the path exists.
         if not os.path.exists(dir_cloned_at):
@@ -644,8 +646,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
         _abs_path_repo_cloned_into = os.path.join(conf_base_path, _repo_basename)
+        _conf_repo_version = self._args_in.conf_repo_version
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
-        self.clone(conf_repo_remote, _abs_path_repo_cloned_into)
+        self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
         if self._args_in.skip_setup_docker:
             self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
@@ -746,6 +749,21 @@ class DebianSetup(ShellCapableOsSetup):
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
 
+    def exec_rosdep_update(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
+        """
+        @summary: As of 202505 this method is only targetting Debian/Ubuntu OSes.
+        @param init_rosdep: If `True`, then `rosdep init` also executes.
+        """
+        if init_rosdep:
+            OsUtil.setup_rosdep()
+        os.chdir(path_ws)
+        self._logger.info(f"Changed directory to '{path_ws}' to run 'rosdep install' against the manifest that defines dependencies")
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        if bash_return_code != 0:
+            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+        else:
+            self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
+        
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
         """
         @note: For Debian OS, no official prebuilt rosdep installer via apt is available,
@@ -758,15 +776,7 @@ class DebianSetup(ShellCapableOsSetup):
         # installation step that is planned later in this sequence.
         self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
 
-        if init_rosdep:
-            OsUtil.setup_rosdep()
-        os.chdir(path_ws)
-        self._logger.info("Changed directory to '{}' to run 'rosdep install' against the manifest that defines dependencies".format(path_ws))
-        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
-        if bash_return_code != 0:
-            self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
-        else:
-            self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
+        self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         """
@@ -791,8 +801,11 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
                 self.add_runtime_issue(e)
 
-    def git_clone_impl(self, repo_to_clone, dir_cloned_at):
-        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at}", does_sudo=False, print_stdout_err=True)
+    def git_clone_impl(self, repo_to_clone, dir_cloned_at, branch=""):
+        _option = ""
+        if branch:
+            _option = "-b" + " " + branch
+        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
@@ -955,8 +968,8 @@ class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
 
-    def __init__(self, os_name=_OS_TYPE):
-        super().__init__(os_name)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
+        super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
 
     def ubuntu_desktop_cleanup(self):
@@ -996,7 +1009,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "Engineering", "ARIAC"),
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "engineering", "ARIAC"),
                 path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
                 is_symlink=True),
             ConfigDispach(
@@ -1020,7 +1033,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join("media", path_user_home, self._EXTERNAL_STORAGE_KUDU1),
+                path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 is_symlink=True),
             ]
@@ -1068,7 +1081,8 @@ class UbuntuOsSetup(DebianSetup):
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         if pkg_resources == self._APTPKG_ROSDEP2:
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
-        super.setup_rosdep_and_run(path_ws, pkg_rosdep, init_rosdep)
+
+        self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
 
 class MacOsSetup(AbstCompSetupFactory):
@@ -1130,6 +1144,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_local_conf_repo",
                             help=self._MSG_PATH_PERMCONF_REPO,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
+        parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir",
                             help=self._MSG_PATH_CONF_DIR,
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
@@ -1144,9 +1159,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         if not args.user_id:
             args.user_id = pwd.getpwuid(os.getuid())[0]
 
-        self._logger.info("If 'hostname' is not passed, get the host name from the OS.")
         if not args.hostname:
             args.hostname = os.uname()[1]
+            self._logger.warn(f"If 'hostname' is not passed, get the host name from the OS.: {args.hostname}")
 
         return args
 
@@ -1159,7 +1174,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         elif _args.os == DebianSetup._OS_TYPE:
             _os_builder = DebianSetup(args_in=_args)
         elif _args.os == UbuntuOsSetup._OS_TYPE:
-            _os_builder == UbuntuOsSetup(args_in=_args)
+            _os_builder = UbuntuOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
