@@ -717,6 +717,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "ptex-bin",
                 "sysinfo",
                 "synaptic",
+                "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
                 ]
