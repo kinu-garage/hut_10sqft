@@ -3,7 +3,7 @@
 
 ; 6/30/2012/http://superuser.com/questions/165278/copying-text-from-emacs-into-other-programs
 (setq x-select-enable-clipboard t)      ;Make kill/yank work with the X clipboard
-(setq interprogram-paste-function 'x-cut-buffer-or-selection-value)
+(setq interprogram-paste-function 'x-get-selection-value)
 
 ; 2021/11/30 ; roslaunch highlighting http://wiki.ros.org/roslaunch/Tutorials/Using%20Roslaunch%20with%20Emacs
 (add-to-list 'auto-mode-alist '("\\.launch$" . xml-mode))

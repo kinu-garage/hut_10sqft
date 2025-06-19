@@ -699,7 +699,8 @@ class DebianSetup(ShellCapableOsSetup):
                 "dconf-editor",
                 "emacs-mozc", "emacs-mozc-bin",
                 "evince",
-                "flameshot"
+                "flameshot",
+                "gnome-screenshots",
                 "gnome-tweaks",
                 "googleearth-package",
                 "gtk-recordmydesktop",
@@ -716,6 +717,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "ptex-bin",
                 "sysinfo",
                 "synaptic",
+                "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
                 ]
@@ -754,6 +756,8 @@ class DebianSetup(ShellCapableOsSetup):
         @summary: As of 202505 this method is only targetting Debian/Ubuntu OSes.
         @param init_rosdep: If `True`, then `rosdep init` also executes.
         """
+        self.setup_ros_installer_src()
+
         if init_rosdep:
             OsUtil.setup_rosdep()
         os.chdir(path_ws)
@@ -771,7 +775,6 @@ class DebianSetup(ShellCapableOsSetup):
           so using it for now. But for Ubuntu 'python3-rosdep' (without 2 at the end) is the official and should be used.
         """
         self.setup_ros_installer_src()
-
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
         self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
@@ -1043,11 +1046,22 @@ class UbuntuOsSetup(DebianSetup):
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
                            path_os_release = "/etc/os-release",
                            key_os_code = "VERSION_CODENAME="):
+        _URL_ROS2_UBUNTU_INSTALL_DEP = "https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html"
+        self._logger.warning(f"At some point after ROS2 Foxy, the apt source setting for ROS2 on Ubuntu has changed. Follow manually the instruction at {_URL_ROS2_UBUNTU_INSTALL_DEP}. "
+                             f"If the ROS2 setup is not done, then the future steps that depend on ROS2 apt source setting might fail.")
+
+    def _set_ros_apt_source(self, 
+                           path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
+                           path_os_release = "/etc/os-release",
+                           key_os_code = "VERSION_CODENAME="):
         """
+        @deprecated: This method uses `ros2.list` in apt source, which seems to be outdated in ROS2 newer than Foxy.
         @summary Create
         @param key_os_code: Likely must end with '=', at least so as of Ubuntu 22.04.
         @exception IOError: When an error happens while writing to 'path_aptsrc_file'
         """
+        _URL_ROS2_UBUNTU_INSTALL_DEP = "https://docs.ros.org/en/foxy/Installation/Ubuntu-Install-Debians.html#install-ros-2-packages"
+        _CMD_ROS2_UBUNTU_INSTALL_DEP = 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null'
         _os_codename = ""
         # Get OS codename        
         with open(path_os_release, "r") as file_os_code:
@@ -1062,13 +1076,19 @@ class UbuntuOsSetup(DebianSetup):
                     break
         if not _os_codename:
             raise RuntimeError(f"OS code name not found in the file '{path_os_release}'")
-        res, err, retcode = OsUtil.subproc_bash("dpkg --print-architecture")
+        res_oscode, err, retcode = OsUtil.subproc_bash("dpkg --print-architecture")
+
         try:
             with open(path_aptsrc_file, "w") as file_apt_src:
                 file_apt_src.write(
-                    f"deb [arch={res} signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu {_os_codename} main")
+                    f"deb [arch={res_oscode} signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu {_os_codename} main")
         except IOError as e:
             raise e
+        except PermissionError as e:
+            raise RuntimeError(f"Permission error while writing to '{path_aptsrc_file}'. "
+                               f"If the file is NOT yet present there, make an empty file by `sudo touch {path_aptsrc_file}`, then"
+                               f"follow the instruction at {_URL_ROS2_UBUNTU_INSTALL_DEP} (the distro is Focal, which is EoL but after that ROS seems to have switched the apt setting on Ubuntu, "
+                               f"which needs to be reviewed first before adjusting to it). Error: {str(e)}")
 
     def setup_ros_installer_src(self):
         self.set_ros_apt_source()
@@ -1081,7 +1101,6 @@ class UbuntuOsSetup(DebianSetup):
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         if pkg_resources == self._APTPKG_ROSDEP2:
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
-
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
 
