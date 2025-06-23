@@ -422,6 +422,9 @@ class AbstCompSetupFactory():
     def setup_dropbox(self):
         raise NotImplementedError()
 
+    def swap_caps_ctrl(self):
+        raise NotImplementedError()
+
     def update_hostname(self, hostname):
         raise NotImplementedError("Updating hostname feature is not yet implemented.")
 
@@ -668,6 +671,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Install dependency that is not available via rosdep
         self.install_deps_adhoc()
 
+        # This must be implemented for all OSes as the end result is crucial to my computer usage,
+        # therefore do NOT catch `NotImplementedError`.
+        try:
+            self.swap_caps_ctrl()
+        except RuntimeError as e:
+            self.add_runtime_issue(e)            
+
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
@@ -693,6 +703,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
 
 class DebianSetup(ShellCapableOsSetup):
+    _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
@@ -701,7 +712,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "evince",
                 "flameshot",
                 "gnome-screenshots",
-                "gnome-tweaks",
+                _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
                 "googleearth-package",
                 "gtk-recordmydesktop",
                 "ibus", "ibus-el", "ibus-mozc", 
@@ -917,6 +928,25 @@ class DebianSetup(ShellCapableOsSetup):
             ]
         for c in pairs_conf_tools:
             self.setup_file(c)
+
+    def verify_deb_installed(self, deb_pkg_name: str):
+        """
+        @summary: Verifies if `deb_pkg_name` package is installed.
+        @exception RuntimeError: If `deb_pkg_name` package is not installed.
+        """
+        cmd = f"{self._which_aptcache} policy {deb_pkg_name}"
+        output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
+        if bash_return_code != 0:
+            raise RuntimeError(f"Package '{deb_pkg_name}' is not installed.")
+        self._logger.info(f"Package '{deb_pkg_name}' seems already installed. \n\tCMD executed: {cmd}\n\tOutput: {output}")
+
+    def swap_caps_ctrl(self):
+        """
+        @summary: Installs S/Ws that are needed to swap Caps Lock and Ctrl keys, BUT configuring it needs to be done manually.
+        """
+        self.verify_deb_installed(self._DEB_CAPS_CTRL_UTIL)
+        _URL_INSTRUCTION_CAPS_CTRL = "https://github.com/kinu-garage/hut_10sqft/issues/1230#issuecomment-2994825273"
+        self._logger.info(f"Following {_URL_INSTRUCTION_CAPS_CTRL}, setup manually the swap of Caps Lock and Ctrl keys.")
 
 
 class ChromeOsSetup(DebianSetup):
