@@ -792,12 +792,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
-        """
-        @summary: Install the packages that cannot be installed by batch using
-            'rosdep install'. Example is 'python3-rosdep' itself.
-        @param pip_pkgs: Set format. 
-        """
+    def install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         if not deb_pkgs:
             deb_pkgs = self._DEBIAN_DEB_DEPS
 
@@ -805,6 +800,14 @@ class DebianSetup(ShellCapableOsSetup):
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+        """
+        @summary: Install the packages that cannot be installed by batch using
+            'rosdep install'. Example is 'python3-rosdep' itself.
+        @param pip_pkgs: Set format. 
+        """
+        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
@@ -1000,10 +1003,24 @@ class ChromeOsSetup(DebianSetup):
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
+    _PKGS_SNAP = ["yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+
+        # Take care of `snap` packages
+        snap_pkgs_failed = []
+        for snap_pkg in self._PKGS_SNAP:
+            try:
+                self.setup_snap_pkgs(snap_pkg)
+            except RuntimeError as e:
+                snap_pkgs_failed.append(snap_pkg)
+        if snap_pkgs_failed:
+            self.add_runtime_issue(f"The following `snap` pkgs failed to install: {snap_pkgs_failed}.")
 
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
@@ -1133,6 +1150,15 @@ class UbuntuOsSetup(DebianSetup):
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
+    def setup_snap_pkgs(self, snap_pkg: str):
+        """
+        @summary: Install specific `snap` packages that are not available via apt and other package managers.
+        """
+        cmd = f"{shutil.which('snap')} install {snap_pkg}"
+        output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
+        if bash_return_code != 0:
+            raise RuntimeError(f"Failed to install snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
+        self._logger.info(f"Successfully installed snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
 
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = "MacOS"
