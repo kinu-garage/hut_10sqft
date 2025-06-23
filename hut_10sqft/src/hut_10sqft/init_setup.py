@@ -493,6 +493,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         except FileNotFoundError as e:
             raise e
 
+    def setup_terminal_configs(self, abspath_local_perm_conf: str):
+        raise NotImplementedError("Terminal config setup needs to be implemented in the derived class.")
+
     def setup_git_config(self, path_local_perm_conf):
         path_user_home = pathlib.Path.home()
 
@@ -680,6 +683,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
+
+        self.setup_terminal_configs(_abs_path_confdir)
+
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
         # Skip Google Chrome specific setting as it might come bundled already on Ubuntu.
@@ -758,6 +764,12 @@ class DebianSetup(ShellCapableOsSetup):
         self._which_echo = shutil.which("echo")
         self._which_service = shutil.which("service")
         self._which_unset = shutil.which("unset")
+
+    def setup_terminal_configs(self, abspath_local_perm_conf: str):
+        _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
+        _conf_abspath = os.path.join(abspath_local_perm_conf, _CONFFILE_NAME_SHORTCUT)
+        _cmd = f"dconf load /org/gnome/terminal/ < {_conf_abspath}"
+        OsUtil.subproc_bash(_cmd, does_sudo=False, print_stdout_err=True, logger=self._logger)
 
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
