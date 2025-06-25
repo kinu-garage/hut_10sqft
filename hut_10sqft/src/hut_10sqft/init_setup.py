@@ -767,9 +767,16 @@ class DebianSetup(ShellCapableOsSetup):
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
-        _conf_abspath = os.path.join(abspath_local_perm_conf, _CONFFILE_NAME_SHORTCUT)
+        _abspath_conf_dir = os.path.join(abspath_local_perm_conf, "dconf")
+        _conf_abspath = os.path.join(_abspath_conf_dir, _CONFFILE_NAME_SHORTCUT)
         _cmd = f"dconf load /org/gnome/terminal/ < {_conf_abspath}"
         OsUtil.subproc_bash(_cmd, does_sudo=False, print_stdout_err=True, logger=self._logger)
+
+        _MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE = (f"""Configs of the visual of the Terminal needs to be done manually """
+                                                   """ either using (recommended) Terminal's GUI on 'Preference' or using `dconf` and the premade config files,"""
+                                                   f""" which you can find in '{_abspath_conf_dir}'. See https://github.com/kinu-garage/hut_10sqft/issues/174#issuecomment-3003542573""")
+        self._logger.warning(_MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE)
+        self.add_runtime_issue(_MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE)
 
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
