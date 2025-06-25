@@ -725,7 +725,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "indicator-multiload",
                 "libavahi-compat-libdnssd1",
                 "mozc-server",
-                "pdftk",
+                "pdftk-java",
                 "pidgin",
                 "psensor",
                 "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
