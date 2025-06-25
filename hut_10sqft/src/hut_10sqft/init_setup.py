@@ -422,6 +422,9 @@ class AbstCompSetupFactory():
     def setup_dropbox(self):
         raise NotImplementedError()
 
+    def swap_caps_ctrl(self):
+        raise NotImplementedError()
+
     def update_hostname(self, hostname):
         raise NotImplementedError("Updating hostname feature is not yet implemented.")
 
@@ -489,6 +492,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
             raise e
+
+    def setup_terminal_configs(self, abspath_local_perm_conf: str):
+        raise NotImplementedError("Terminal config setup needs to be implemented in the derived class.")
 
     def setup_git_config(self, path_local_perm_conf):
         path_user_home = pathlib.Path.home()
@@ -668,8 +674,18 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Install dependency that is not available via rosdep
         self.install_deps_adhoc()
 
+        # This must be implemented for all OSes as the end result is crucial to my computer usage,
+        # therefore do NOT catch `NotImplementedError`.
+        try:
+            self.swap_caps_ctrl()
+        except RuntimeError as e:
+            self.add_runtime_issue(e)            
+
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
+
+        self.setup_terminal_configs(_abs_path_confdir)
+
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
         # Skip Google Chrome specific setting as it might come bundled already on Ubuntu.
@@ -693,6 +709,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
 
 class DebianSetup(ShellCapableOsSetup):
+    _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
@@ -701,14 +718,14 @@ class DebianSetup(ShellCapableOsSetup):
                 "evince",
                 "flameshot",
                 "gnome-screenshots",
-                "gnome-tweaks",
+                _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
                 "googleearth-package",
                 "gtk-recordmydesktop",
                 "ibus", "ibus-el", "ibus-mozc", 
                 "indicator-multiload",
                 "libavahi-compat-libdnssd1",
                 "mozc-server",
-                "pdftk",
+                "pdftk-java",
                 "pidgin",
                 "psensor",
                 "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
@@ -748,6 +765,19 @@ class DebianSetup(ShellCapableOsSetup):
         self._which_service = shutil.which("service")
         self._which_unset = shutil.which("unset")
 
+    def setup_terminal_configs(self, abspath_local_perm_conf: str):
+        _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
+        _abspath_conf_dir = os.path.join(abspath_local_perm_conf, "dconf")
+        _conf_abspath = os.path.join(_abspath_conf_dir, _CONFFILE_NAME_SHORTCUT)
+        _cmd = f"dconf load /org/gnome/terminal/ < {_conf_abspath}"
+        OsUtil.subproc_bash(_cmd, does_sudo=False, print_stdout_err=True, logger=self._logger)
+
+        _MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE = (f"""Configs of the visual of the Terminal needs to be done manually """
+                                                   """ either using (recommended) Terminal's GUI on 'Preference' or using `dconf` and the premade config files,"""
+                                                   f""" which you can find in '{_abspath_conf_dir}'. See https://github.com/kinu-garage/hut_10sqft/issues/174#issuecomment-3003542573""")
+        self._logger.warning(_MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE)
+        self.add_runtime_issue(_MSG_NOTE_TERMINAL_CONF_VISUAL_NOT_DONE)
+
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
 
@@ -781,12 +811,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
-        """
-        @summary: Install the packages that cannot be installed by batch using
-            'rosdep install'. Example is 'python3-rosdep' itself.
-        @param pip_pkgs: Set format. 
-        """
+    def install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         if not deb_pkgs:
             deb_pkgs = self._DEBIAN_DEB_DEPS
 
@@ -794,6 +819,14 @@ class DebianSetup(ShellCapableOsSetup):
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+        """
+        @summary: Install the packages that cannot be installed by batch using
+            'rosdep install'. Example is 'python3-rosdep' itself.
+        @param pip_pkgs: Set format. 
+        """
+        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
@@ -918,6 +951,25 @@ class DebianSetup(ShellCapableOsSetup):
         for c in pairs_conf_tools:
             self.setup_file(c)
 
+    def verify_deb_installed(self, deb_pkg_name: str):
+        """
+        @summary: Verifies if `deb_pkg_name` package is installed.
+        @exception RuntimeError: If `deb_pkg_name` package is not installed.
+        """
+        cmd = f"{self._which_aptcache} policy {deb_pkg_name}"
+        output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
+        if bash_return_code != 0:
+            raise RuntimeError(f"Package '{deb_pkg_name}' is not installed.")
+        self._logger.info(f"Package '{deb_pkg_name}' seems already installed. \n\tCMD executed: {cmd}\n\tOutput: {output}")
+
+    def swap_caps_ctrl(self):
+        """
+        @summary: Installs S/Ws that are needed to swap Caps Lock and Ctrl keys, BUT configuring it needs to be done manually.
+        """
+        self.verify_deb_installed(self._DEB_CAPS_CTRL_UTIL)
+        _URL_INSTRUCTION_CAPS_CTRL = "https://github.com/kinu-garage/hut_10sqft/issues/1230#issuecomment-2994825273"
+        self._logger.info(f"Following {_URL_INSTRUCTION_CAPS_CTRL}, setup manually the swap of Caps Lock and Ctrl keys.")
+
 
 class ChromeOsSetup(DebianSetup):
     _DIRNAME_GDRIVE = "GoogleDrive"
@@ -970,10 +1022,24 @@ class ChromeOsSetup(DebianSetup):
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
+    _PKGS_SNAP = ["yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+
+        # Take care of `snap` packages
+        snap_pkgs_failed = []
+        for snap_pkg in self._PKGS_SNAP:
+            try:
+                self.setup_snap_pkgs(snap_pkg)
+            except RuntimeError as e:
+                snap_pkgs_failed.append(snap_pkg)
+        if snap_pkgs_failed:
+            self.add_runtime_issue(f"The following `snap` pkgs failed to install: {snap_pkgs_failed}.")
 
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
@@ -1103,6 +1169,15 @@ class UbuntuOsSetup(DebianSetup):
             self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
+    def setup_snap_pkgs(self, snap_pkg: str):
+        """
+        @summary: Install specific `snap` packages that are not available via apt and other package managers.
+        """
+        cmd = f"{shutil.which('snap')} install {snap_pkg}"
+        output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
+        if bash_return_code != 0:
+            raise RuntimeError(f"Failed to install snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
+        self._logger.info(f"Successfully installed snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
 
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = "MacOS"
