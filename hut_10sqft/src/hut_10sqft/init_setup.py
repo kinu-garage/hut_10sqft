@@ -460,14 +460,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
-        self.get_paths_execs()
+        self.get_paths_execs(self._args_in)
         self._setup_git()
 
-    def get_paths_execs(self):
-        if not self._args_in.skip_setup_docker:
-            # Only when 'skip_setup_docker' is False.
+    def get_paths_execs(self, args_in: argparse.Namespace):
+        self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
+        if not args_in.skip_setup_docker:
+            # Only when 'skip_setup_docker' is True.
             # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
+            self._logger.info(f"Path to 'docker' executable: {self._which_docker}")
 
     def _setup_git(self):
         """
@@ -557,6 +559,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
             raise RuntimeWarning("Docker setup is not done yet")
+        return bash_return_code
 
     def _import_git(self):
         """
@@ -656,8 +659,11 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
-        if self._args_in.skip_setup_docker:
+        if not self._args_in.skip_setup_docker:
+            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._os_user_id}'.")
             self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+        else:
+            self._logger.info(f"Skipping Docker setup as 'skip_setup_docker' is set to True (verify -> {self._args_in.skip_setup_docker}).")
 
         try:
             self.update_hostname(self._hostname)
@@ -747,7 +753,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are likely only available on Debian variants.
-        self.get_paths_execs()
+        self.get_paths_execs(args_in)
 
     @property
     def apt_updated(self):
@@ -757,7 +763,7 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
-    def get_paths_execs(self):
+    def get_paths_execs(self, args_in: argparse.Namespace):
         self._which_apt = shutil.which("apt")
         self._which_aptcache = shutil.which("apt-cache")
         self._which_aptkey = shutil.which("apt-key")
@@ -1244,7 +1250,7 @@ treats the user ID tha is used to execute this tool as the main user."""
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--skip_setup_docker", required=False, help="Skip docker", action="store_true")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
