@@ -633,7 +633,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         raise NotImplementedError()
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @param allow_pip_break: If True, pip runs with '--break-system-packages' option.
         """
@@ -820,7 +820,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
@@ -1022,18 +1022,18 @@ class ChromeOsSetup(DebianSetup):
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
-    _PKGS_SNAP = ["yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
+    _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
         self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
         # Take care of `snap` packages
         snap_pkgs_failed = []
-        for snap_pkg in self._PKGS_SNAP:
+        for snap_pkg in snap_pkgs:
             try:
                 self.setup_snap_pkgs(snap_pkg)
             except RuntimeError as e:
