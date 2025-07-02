@@ -661,7 +661,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         if not self._args_in.skip_setup_docker:
             self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._os_user_id}'.")
-            self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+            try:
+                self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+            except AttributeError as e:
+                _MSG_E = f"'setup_docker' method is incomp;lete. Moving on despite the error: {str(e)}"
+                self.add_runtime_issue(_MSG_E)
+
         else:
             self._logger.info(f"Skipping Docker setup as 'skip_setup_docker' is set to True (verify -> {self._args_in.skip_setup_docker}).")
 
