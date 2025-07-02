@@ -277,7 +277,7 @@ class OsUtil:
                 _ERR_MSG = "Potentially 'UnicodeDecodeError'"
                 output = _ERR_MSG
                 error = _ERR_MSG
-        logger.info(f"bash_return_code: {bash_return_code}, output: {output}, error: {error}")
+        logger.info(f"{bash_return_code=}, {output=}, {error=}")
         return output, error, bash_return_code
 
     @staticmethod
@@ -883,7 +883,7 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.info(f"Looks like Docker setup is already completed.")
                 return
         except RuntimeWarning as e:
-            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
+            self._logger.info(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
