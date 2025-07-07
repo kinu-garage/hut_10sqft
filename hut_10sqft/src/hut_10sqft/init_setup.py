@@ -721,21 +721,21 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
 class DebianSetup(ShellCapableOsSetup):
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
+    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils", "mozc-server"]
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
                 "dconf-editor",
-                "emacs-mozc", "emacs-mozc-bin",
                 "evince",
                 "flameshot",
                 "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
+                _DEBS_MOZC,
                 "googleearth-package",
                 "gtk-recordmydesktop",
-                "ibus", "ibus-el", "ibus-mozc", 
+                "ibus", "ibus-el",
                 "indicator-multiload",
                 "libavahi-compat-libdnssd1",
-                "mozc-server",
                 "pdftk-java",
                 "pidgin",
                 "psensor",
