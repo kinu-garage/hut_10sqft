@@ -1292,7 +1292,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == "130s-brya":
             _host_cfg = _host_cfg_brya            
-        elif _args.hostname == "130s-C13-Morph":
+        elif _args.hostname == ("130s-C13-Morph" or "130s-zork16"):
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         elif _args.hostname == "opfyde-rpi5":
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
