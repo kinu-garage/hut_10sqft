@@ -182,6 +182,9 @@ class OsUtil:
 
     @staticmethod
     def install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
+        """
+        @param allow_break: If True, `pip` runs with '--break-system-packages' option.
+        """
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
@@ -277,7 +280,7 @@ class OsUtil:
                 _ERR_MSG = "Potentially 'UnicodeDecodeError'"
                 output = _ERR_MSG
                 error = _ERR_MSG
-        logger.info(f"bash_return_code: {bash_return_code}, output: {output}, error: {error}")
+        logger.info(f"{bash_return_code=}, {output=}, {error=}")
         return output, error, bash_return_code
 
     @staticmethod
@@ -460,14 +463,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
-        self.get_paths_execs()
+        self.get_paths_execs(self._args_in)
         self._setup_git()
 
-    def get_paths_execs(self):
-        if not self._args_in.skip_setup_docker:
-            # Only when 'skip_setup_docker' is False.
+    def get_paths_execs(self, args_in: argparse.Namespace):
+        self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
+        if not args_in.skip_setup_docker:
+            # Only when 'skip_setup_docker' is True.
             # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
+            self._logger.info(f"Path to 'docker' executable: {self._which_docker}")
 
     def _setup_git(self):
         """
@@ -491,7 +496,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
-            raise e
+            raise
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         raise NotImplementedError("Terminal config setup needs to be implemented in the derived class.")
@@ -557,6 +562,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
             raise RuntimeWarning("Docker setup is not done yet")
+        return bash_return_code
 
     def _import_git(self):
         """
@@ -633,7 +639,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         raise NotImplementedError()
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @param allow_pip_break: If True, pip runs with '--break-system-packages' option.
         """
@@ -656,8 +662,16 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self._logger.debug(f"_abs_path_repo_cloned_into: {_abs_path_repo_cloned_into}")
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
-        if self._args_in.skip_setup_docker:
-            self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+        if not self._args_in.skip_setup_docker:
+            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._os_user_id}'.")
+            try:
+                self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+            except AttributeError as e:
+                _MSG_E = f"'setup_docker' method is incomp;lete. Moving on despite the error: {str(e)}"
+                self.add_runtime_issue(_MSG_E)
+
+        else:
+            self._logger.info(f"Skipping Docker setup as 'skip_setup_docker' is set to True (verify -> {self._args_in.skip_setup_docker}).")
 
         try:
             self.update_hostname(self._hostname)
@@ -709,22 +723,23 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
 
 class DebianSetup(ShellCapableOsSetup):
+    _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
+    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils", "mozc-server"]
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
                 "dconf-editor",
-                "emacs-mozc", "emacs-mozc-bin",
                 "evince",
                 "flameshot",
                 "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
+                ", ".join(_DEBS_MOZC),
                 "googleearth-package",
                 "gtk-recordmydesktop",
-                "ibus", "ibus-el", "ibus-mozc", 
+                "ibus", "ibus-el",
                 "indicator-multiload",
                 "libavahi-compat-libdnssd1",
-                "mozc-server",
                 "pdftk-java",
                 "pidgin",
                 "psensor",
@@ -739,7 +754,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "whois",
                 ]
     _OS_TYPE = "Debian"
-    _APTPKG_ROSDEP2 = "python3-rosdep2"
+    _PIP_PKGS = ["pipx"]
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
@@ -747,7 +762,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are likely only available on Debian variants.
-        self.get_paths_execs()
+        self.get_paths_execs(args_in)
 
     @property
     def apt_updated(self):
@@ -757,7 +772,7 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
-    def get_paths_execs(self):
+    def get_paths_execs(self, args_in: argparse.Namespace):
         self._which_apt = shutil.which("apt")
         self._which_aptcache = shutil.which("apt-cache")
         self._which_aptkey = shutil.which("apt-key")
@@ -807,11 +822,11 @@ class DebianSetup(ShellCapableOsSetup):
         self.setup_ros_installer_src()
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
+        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep], pip_pkgs=self._PIP_PKGS)
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         if not deb_pkgs:
             deb_pkgs = self._DEBIAN_DEB_DEPS
 
@@ -820,13 +835,14 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
         @param pip_pkgs: Set format. 
+        @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
-        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+        self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
@@ -877,7 +893,7 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.info(f"Looks like Docker setup is already completed.")
                 return
         except RuntimeWarning as e:
-            self._logger.info(f"Issue found in setting up Docker but continuing docker setup. Source of the error: {str(e)}")
+            self._logger.info(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
@@ -1022,18 +1038,18 @@ class ChromeOsSetup(DebianSetup):
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
-    _PKGS_SNAP = ["yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
+    _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
         self.ubuntu_desktop_cleanup()
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
-        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
+        self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
         # Take care of `snap` packages
         snap_pkgs_failed = []
-        for snap_pkg in self._PKGS_SNAP:
+        for snap_pkg in snap_pkgs:
             try:
                 self.setup_snap_pkgs(snap_pkg)
             except RuntimeError as e:
@@ -1189,6 +1205,12 @@ class CompInitSetup():
     """
     @summary TBD
     """
+    HOSTNAME_BRYA = "130s-brya"
+    HOSTNAME_P16S = "130s-p16s-2"
+    HOSTNAME_C13_MORPH = "130s-C13-Morph"
+    HOSTNAME_ZORK16 = "130s-zork16"
+    HOSTNAME_OPFYDE_RPI5 = "opfyde-rpi5"
+
     _LOGGER_NAME = "CompInitSetup-logger"
     # Name of the local repo that stores the config and will have to be
     # available for the entire life time of the OS. 
@@ -1244,7 +1266,7 @@ treats the user ID tha is used to execute this tool as the main user."""
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--skip_setup_docker", required=False, help="Skip docker", action="store_true")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
@@ -1276,12 +1298,12 @@ treats the user ID tha is used to execute this tool as the main user."""
         _host_cfg = None
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
-        _host_cfg_brya = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")        
-        if _args.hostname == "130s-p16s-2":
+        _host_cfg_brya = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+        if _args.hostname == self.HOSTNAME_P16S:
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
-        elif _args.hostname == "130s-brya":
+        elif _args.hostname == self.HOSTNAME_BRYA:
             _host_cfg = _host_cfg_brya            
-        elif _args.hostname == "130s-C13-Morph":
+        elif _args.hostname == (self.HOSTNAME_C13_MORPH or self.HOSTNAME_ZORK16 or self.HOSTNAME_OPFYDE_RPI5):
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")
