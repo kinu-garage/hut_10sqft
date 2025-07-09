@@ -725,7 +725,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
-    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils", "mozc-server"]
+    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
@@ -734,7 +734,6 @@ class DebianSetup(ShellCapableOsSetup):
                 "flameshot",
                 "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
-                ", ".join(_DEBS_MOZC),
                 "googleearth-package",
                 "gtk-recordmydesktop",
                 "ibus", "ibus-el",
@@ -752,13 +751,16 @@ class DebianSetup(ShellCapableOsSetup):
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
-                ]
+                ] + _DEBS_MOZC
     _OS_TYPE = "Debian"
     _PIP_PKGS = ["pipx"]
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+        # This variable might be accessed in `super().__init__` so
+        # defined prior to the call. Might not be a good practice though.
         self._apt_updated = False
+
+        super().__init__(os_name, args_in)
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are likely only available on Debian variants.
@@ -842,6 +844,7 @@ class DebianSetup(ShellCapableOsSetup):
         @param pip_pkgs: Set format. 
         @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
+        self.apt_update()
         self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
