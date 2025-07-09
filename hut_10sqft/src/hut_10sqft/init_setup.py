@@ -1200,6 +1200,12 @@ class CompInitSetup():
     """
     @summary TBD
     """
+    HOSTNAME_BRYA = "130s-brya"
+    HOSTNAME_P16S = "130s-p16s-2"
+    HOSTNAME_C13_MORPH = "130s-C13-Morph"
+    HOSTNAME_ZORK16 = "130s-zork16"
+    HOSTNAME_OPFYDE_RPI5 = "opfyde-rpi5"
+
     _LOGGER_NAME = "CompInitSetup-logger"
     # Name of the local repo that stores the config and will have to be
     # available for the entire life time of the OS. 
@@ -1288,13 +1294,11 @@ treats the user ID tha is used to execute this tool as the main user."""
         BASH_CONFIG_NAME =  ""
         EMACS_CONFIG_NAME = ""
         _host_cfg_brya = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
-        if _args.hostname == "130s-p16s-2":
+        if _args.hostname == self.HOSTNAME_P16S:
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
-        elif _args.hostname == "130s-brya":
+        elif _args.hostname == self.HOSTNAME_BRYA:
             _host_cfg = _host_cfg_brya            
-        elif _args.hostname == ("130s-C13-Morph" or "130s-zork16"):
-            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
-        elif _args.hostname == "opfyde-rpi5":
+        elif _args.hostname == (self.HOSTNAME_C13_MORPH or self.HOSTNAME_ZORK16 or self.HOSTNAME_OPFYDE_RPI5):
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")
