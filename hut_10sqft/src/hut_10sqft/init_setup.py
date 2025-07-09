@@ -734,7 +734,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "flameshot",
                 "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
-                _DEBS_MOZC,
+                ", ".join(_DEBS_MOZC),
                 "googleearth-package",
                 "gtk-recordmydesktop",
                 "ibus", "ibus-el",
