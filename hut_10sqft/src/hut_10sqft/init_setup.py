@@ -115,6 +115,8 @@ class OsUtil:
     """
     SUFFIX_BACKUP = ".bk"
     _LOGGER_NAME = "OsUtil-logger"
+    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable. Is this Debian-based OS?"
+
     def __init__(self, logger=None):
         if logger:
             self._logger = logger
@@ -138,27 +140,56 @@ class OsUtil:
         OsUtil.subproc_bash(f"{shutil.which('apt')} update", does_sudo=True)
 
     @staticmethod
-    def apt_install(deb_pkg_name, logger=None):
+    def apt_install(deb_pkg_names: list[str], logger=None):
+        """
+        @exception LookupError: If 'apt' executable is not found on the OS.
+        """
         if not logger:
             logger = OsUtil._gen_logger()
-        logger.info("Installing by apt: {}".format(deb_pkg_name))
-        OsUtil._apt_install_bash(deb_pkg_name, logger)
+        logger.info("Installing by apt: {}".format(deb_pkg_names))
+        OsUtil._apt_install_bash(deb_pkg_names, logger)
 
     @staticmethod
-    def _apt_install_bash(deb_pkg_name, logger=None):
+    def apt_cache_policy(debpkg_names: list[str], logger=None):
         """
-        @type deb_pkg_name: [str]
+        @brief: Prints the apt-cache policy for the given deb package names.
+        @param debpkg_names: List of deb package names to check.
         """
-        _path_apt = shutil.which("apt")
+        if not logger:
+            logger = OsUtil._gen_logger()
+        if not debpkg_names:
+            raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
+        
+        _path_apt_cache = shutil.which("apt-cache")
+        if not _path_apt_cache:
+            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
 
-        # 'deb_pkg_name' is a list while subprocess takes it literally with square brackets and woudl return an error,
-        # so need to expand as a non-list, single string.
-        deb_pkg_names_str = " ".join(deb_pkg_name)
+        for pkg_name in debpkg_names:
+            output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {pkg_name}")
+            if ret_code != 0:
+                logger.error(f"Failed to get apt-cache policy for '{pkg_name}'. Error: {error}")
+            else:
+                logger.info(f"'apt-cache policy' result for '{pkg_name}':\n\t{output}")
+
+        # Original code below
+        # # TODO The output format is difficult to read e.g. https://github.com/kinu-garage/hut_10sqft/issues/797#issuecomment-3051464178
+        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")                
+
+    @staticmethod
+    def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
+        _path_apt = shutil.which("apt")
+        if not _path_apt:
+            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt"))
+
+        # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
+        # so if a list is spplied then it'd take square brackets and would return an error.
+        # Thus need to expand as a non-list, single string.
+        deb_pkg_names_str = " ".join(deb_pkgs_name)
 
         OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
         OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
-        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
-        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")
+        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
+        OsUtil.apt_cache_policy(deb_pkg_names_str)
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):

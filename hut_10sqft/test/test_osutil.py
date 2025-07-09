@@ -99,3 +99,16 @@ def test_copy_a_file_backup(filepath_src, filepath_dst):
 
 def test_copy_a_file_symlink_overwrite(timestamp, filepath_src):
     _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=True)
+
+def test_apt_install():
+    """
+    @description: Test apt install functionality.
+    """
+    # This test requires 'apt' to be available in the system.
+    # If not, it will raise LookupError.
+    try:
+        # Ideally want to use the packages that are surely available on any distros
+        # but NOT installed by default. Not sure if `curl`, `wget` are such packages.
+        OsUtil.apt_install(["curl", "wget"])
+    except LookupError as e:
+        pytest.skip(f"Skipping test due to missing 'apt': {e}")
