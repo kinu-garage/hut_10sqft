@@ -496,7 +496,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         except FileExistsError as e:
             self._logger.warning("Target already exists. Moving on. \n{}".format(str(e)))
         except FileNotFoundError as e:
-            raise e
+            raise
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         raise NotImplementedError("Terminal config setup needs to be implemented in the derived class.")
