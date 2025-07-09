@@ -182,6 +182,9 @@ class OsUtil:
 
     @staticmethod
     def install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
+        """
+        @param allow_break: If True, `pip` runs with '--break-system-packages' option.
+        """
         if not logger:
             logger = OsUtil._gen_logger()
         if not pip_pkgs:
@@ -720,6 +723,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
 
 class DebianSetup(ShellCapableOsSetup):
+    _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils", "mozc-server"]
     _DEBIAN_DEB_DEPS = [
@@ -750,7 +754,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "whois",
                 ]
     _OS_TYPE = "Debian"
-    _APTPKG_ROSDEP2 = "python3-rosdep2"
+    _PIP_PKGS = ["pipx"]
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
@@ -818,11 +822,11 @@ class DebianSetup(ShellCapableOsSetup):
         self.setup_ros_installer_src()
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep])
+        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep], pip_pkgs=self._PIP_PKGS)
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
+    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         if not deb_pkgs:
             deb_pkgs = self._DEBIAN_DEB_DEPS
 
@@ -836,8 +840,9 @@ class DebianSetup(ShellCapableOsSetup):
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
         @param pip_pkgs: Set format. 
+        @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
-        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+        self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
         self._logger.info("Making directories historically been in use: {}".format(dirs_tobe_made))
@@ -1040,7 +1045,7 @@ class UbuntuOsSetup(DebianSetup):
         self.ubuntu_desktop_cleanup()
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
-        self.install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
+        self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
         # Take care of `snap` packages
         snap_pkgs_failed = []
