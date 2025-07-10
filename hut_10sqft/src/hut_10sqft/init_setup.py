@@ -173,7 +173,7 @@ class OsUtil:
 
         # Original code below
         # # TODO The output format is difficult to read e.g. https://github.com/kinu-garage/hut_10sqft/issues/797#issuecomment-3051464178
-        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")                
+        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {debpkg_names}")
 
     @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
@@ -463,10 +463,10 @@ class AbstCompSetupFactory():
         raise NotImplementedError("Updating hostname feature is not yet implemented.")
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}(os_name={self._oos_name})"
+        return f"{self.__class__.__name__}(os_name={self._os_name})"
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(os_name={self._oos_name})"
+        return f"{type(self).__name__}(os_name={self._os_name})"
 
     def run(self, host_config, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
@@ -488,8 +488,22 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         super().__init__(os_name, args_in)
 
         self._args_in = args_in
-        self._hostname = args_in.hostname
-        self._os_user_id = args_in.user_id
+
+        if not args_in:  # Setting rather arbitrary values when argparse output is none.
+            # Host name
+            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
+            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
+            # User ID
+            try:
+                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
+            except KeyError as e:
+                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
+        else:
+            if args_in.hostname:
+                self._hostname = args_in.hostname
+
+            if args_in.user_id:
+                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
