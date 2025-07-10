@@ -324,11 +324,13 @@ class OsUtil:
             os.mkdir(path_dir_dest)
 
     @staticmethod
-    def copy_a_file(path_source, path_dest, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
+    def copy_a_file(path_source: str, path_dest: str, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
         """
         @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
         @param backup_suffix: Only used when 'overwrite' is True, NOTE if no string is passed, the original dest file will be DELETED.
-        @return: True if dest exists after the process.
+        @return: 
+        - True if dest exists after the process.
+        - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
         """
         if not logger:
@@ -343,22 +345,23 @@ class OsUtil:
         # If one direct parent folder for the destination doesn't exist, create one.
         OsUtil.create_parent_dir(path_dest)
 
+        _timestamp = datetime.today().strftime("%Y%m%d-%H%M%S")
         if overwrite:
             if backup_suffix:
-                _backup_file_path = os.path.join(path_dest + backup_suffix + "_" + datetime.today().strftime("%Y%m%d-%H%M%S"))
+                _backup_file_path = os.path.join(path_dest + "_" + _timestamp + backup_suffix)
                 shutil.copyfile(path_dest, _backup_file_path)
-                logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
+                logger.info(f"File '{path_dest}' is backed up at '{_backup_file_path}'")
             os.remove(path_dest)
             logger.info(f"File '{path_dest} was deleted without backup per instruction.")
 
         if is_symlink:
             os.symlink(path_source, path_dest)
             logger.info("Created symlink at {}".format(path_dest))
-            return pathlib.Path(path_dest).exists()  # Testing
         else:
             shutil.copyfile(path_source, path_dest)
             logger.info("Moved a file at {}".format(path_dest))
-            return pathlib.Path(path_dest).exists()  # Testing
+
+        return pathlib.Path(path_dest).exists(), _timestamp
 
     @staticmethod
     def tilde_to_expand(value_to_scan, logger=None):

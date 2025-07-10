@@ -94,8 +94,8 @@ def test_copy_a_file_backup(filepath_src, filepath_dst):
                 /tmp/test/test-yyyymmddhhmmss/file-a-before-copied.txt.org
     """
     _SUFFIX_FILE_ORG = ".origi"
-    OsUtil.copy_a_file(filepath_src, filepath_dst, overwrite=True, backup_suffix=_SUFFIX_FILE_ORG)
-    assert os.path.exists(filepath_dst + _SUFFIX_FILE_ORG)
+    _copied, _timestamp = OsUtil.copy_a_file(filepath_src, filepath_dst, overwrite=True, backup_suffix=_SUFFIX_FILE_ORG)
+    assert os.path.exists(filepath_dst + "_" + _timestamp + _SUFFIX_FILE_ORG)
 
 def test_copy_a_file_symlink_overwrite(timestamp, filepath_src):
     _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=True)
