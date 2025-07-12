@@ -17,10 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        # MacOS of interest, ver. 11 or Big Sur, seems not available on GHA
-	# so using the one close as possible.
-        os: [debian-12, ubuntu-24.04, macos-13-large]
-    continue-on-error: ${{ matrix.os == 'macos-13-large' }}
+        os: [debian-12, ubuntu-24.04]
 
     runs-on: ${{ matrix.os }}
 
