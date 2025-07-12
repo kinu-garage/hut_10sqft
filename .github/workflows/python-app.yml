@@ -15,7 +15,12 @@ permissions:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [debian-latest, ubuntu-24.04, macos-latest]
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v4
