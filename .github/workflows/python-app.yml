@@ -17,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        os: [debian-12, ubuntu-24.04]
+        os: [ubuntu-24.04, macos-11]
 
     runs-on: ${{ matrix.os }}
 
