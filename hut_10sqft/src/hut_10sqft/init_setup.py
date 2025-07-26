@@ -159,6 +159,8 @@ class OsUtil:
             logger = OsUtil._gen_logger()
         if not debpkg_names:
             raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
+        if " " in debpkg_names:
+            raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
         
         _path_apt_cache = shutil.which("apt-cache")
         if not _path_apt_cache:
@@ -189,7 +191,7 @@ class OsUtil:
         OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
         OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
-        OsUtil.apt_cache_policy(deb_pkg_names_str)
+        OsUtil.apt_cache_policy(deb_pkgs_name)
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
