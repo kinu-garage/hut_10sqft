@@ -1120,12 +1120,12 @@ class UbuntuOsSetup(DebianSetup):
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
         pairs_symlinks = [
-            ConfigDispach(
+            ConfigDispach(  # Many symlinks depend on this symlink.
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
                 path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"),
                 is_symlink=True),
             ConfigDispach(  # Some others depend on this symlink.
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "30y-130s"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
                 is_symlink=True),
             ConfigDispach(
@@ -1137,7 +1137,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "github_repos"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "JobSuchen"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "JobSuchen"),
                 path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
                 is_symlink=True),
             ConfigDispach(
@@ -1145,15 +1145,15 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "engineering", "ARIAC"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "engineering", "ARIAC"),
                 path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "academicDoc"),
+                path_source=os.path.join(path_user_home, "link", "Career", "academicDoc"),
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
                 is_symlink=True),
             ConfigDispach(
