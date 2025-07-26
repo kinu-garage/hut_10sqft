@@ -150,6 +150,14 @@ class OsUtil:
         OsUtil._apt_install_bash(deb_pkg_names, logger)
 
     @staticmethod
+    def _apt_cache_policy(debpkg_name: str, logger=None):
+        _path_apt_cache = shutil.which("apt-cache")
+        if not _path_apt_cache:
+            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
+        output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
+        return output, error, ret_code
+        
+    @staticmethod
     def apt_cache_policy(debpkg_names: list[str], logger=None):
         """
         @brief: Prints the apt-cache policy for the given deb package names.
@@ -162,12 +170,8 @@ class OsUtil:
         if " " in debpkg_names:
             raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
         
-        _path_apt_cache = shutil.which("apt-cache")
-        if not _path_apt_cache:
-            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
-
         for pkg_name in debpkg_names:
-            output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {pkg_name}")
+            output, error, ret_code = OsUtil._apt_cache_policy(pkg_name)
             if ret_code != 0:
                 logger.error(f"Failed to get apt-cache policy for '{pkg_name}'. Error: {error}")
             else:

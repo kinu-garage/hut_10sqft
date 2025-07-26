@@ -112,3 +112,8 @@ def test_apt_install():
         OsUtil.apt_install(["curl", "wget"])
     except LookupError as e:
         pytest.skip(f"Skipping test due to missing 'apt': {e}")
+
+def test_subproc_bash_error():
+    pkg_name = "apt-pkg-non-existent"
+    output, error, ret_code = OsUtil._apt_cache_policy(pkg_name)
+    assert not ret_code == 0
