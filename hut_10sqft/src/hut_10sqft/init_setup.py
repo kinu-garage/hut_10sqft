@@ -1169,7 +1169,7 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "My\ Mac\ \(tork-mac1\)"),
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "My Mac (tork-mac1)"),
                 path_dest=os.path.join(rootpath_symlinks, "dbox_mac1"),
                 is_symlink=True),
             ]
