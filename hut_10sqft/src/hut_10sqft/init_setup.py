@@ -1132,10 +1132,6 @@ class UbuntuOsSetup(DebianSetup):
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
                 path_dest=os.path.join(rootpath_symlinks, "git_repos"),
                 is_symlink=True),
-            ConfigDispach(  # Only backward compatibility
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
-                path_dest=os.path.join(rootpath_symlinks, "github_repos"),
-                is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "JobSuchen"),
                 path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
