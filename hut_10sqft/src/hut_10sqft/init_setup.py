@@ -782,21 +782,14 @@ class DebianSetup(ShellCapableOsSetup):
                 "dconf-editor",
                 "evince",
                 "flameshot",
-                "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
-                "googleearth-package",
-                "gtk-recordmydesktop",
-                "ibus", "ibus-el",
-                "indicator-multiload",
+                "ibus",
                 "libavahi-compat-libdnssd1",
                 "pdftk-java",
                 "pidgin",
                 "psensor",
-                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
                 #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
-                "ptex-bin",
-                "sysinfo",
                 "synaptic",
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
@@ -1090,6 +1083,16 @@ class ChromeOsSetup(DebianSetup):
 
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
+    _UBUNTU_DEB_DEPS = [
+        "gnome-screenshots",        
+        "googleearth-package",
+        "gtk-recordmydesktop",
+        "ibus-el",
+        "indicator-multiload",        
+        "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
+        "ptex-bin",
+        "sysinfo",        
+    ]    
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
     _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
@@ -1098,6 +1101,8 @@ class UbuntuOsSetup(DebianSetup):
         self.ubuntu_desktop_cleanup()
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
+        if not deb_pkgs:
+            deb_pkgs = self._DEBIAN_DEB_DEPS + self._UBUNTU_DEB_DEPS
         self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
         # Take care of `snap` packages
