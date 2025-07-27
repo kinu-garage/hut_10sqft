@@ -177,6 +177,7 @@ class OsUtil:
         """
         @brief: Prints the apt-cache policy for the given deb package names.
         @param debpkg_names: List of deb package names to check.
+        @exception RuntimeWarning: When one or more pkgs found not installed.
         """
         if not logger:
             logger = OsUtil._gen_logger()
@@ -184,17 +185,24 @@ class OsUtil:
             raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
         if " " in debpkg_names:
             raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
-        
+
+        errors = []
+        pkgs_success = []
         for pkg_name in debpkg_names:
             output, error, ret_code = OsUtil._apt_cache_policy(pkg_name)
             if ret_code != 0:
-                logger.error(f"Failed to get apt-cache policy for '{pkg_name}'. Error: {error}")
+                errors.append(f"Failed to get apt-cache policy for '{pkg_name}'. Error: {error}")
             else:
                 logger.info(f"'apt-cache policy' result for '{pkg_name}':\n\t{output}")
-
-        # Original code below
-        # # TODO The output format is difficult to read e.g. https://github.com/kinu-garage/hut_10sqft/issues/797#issuecomment-3051464178
-        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {debpkg_names}")
+        _msg_result_header = f"Report: Package installation status:\n"
+        _msg_result_header_success = f"- Packages found installed: {pkgs_success}"
+        _msg_all = f"{_msg_result_header}\n\t{_msg_result_header_success}"
+        if errors:
+            _str_errors = ""
+            for error in errors:
+                _str_errors += "\t" + error + "\n"
+            raise RuntimeWarning(f"{_msg_all}\n\t- The following pkgs didn't get installed: {_str_errors}")
+        return _msg_all
 
     @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
@@ -755,7 +763,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
         # Install dependency that is not available via rosdep
-        self.install_deps_adhoc()
+        try:
+            self.install_deps_adhoc()
+        except RuntimeWarning as e:
+            self.add_runtime_issue(e)            
+        except RuntimeError as e:
+            self.add_runtime_issue(e)            
 
         # This must be implemented for all OSes as the end result is crucial to my computer usage,
         # therefore do NOT catch `NotImplementedError`.
