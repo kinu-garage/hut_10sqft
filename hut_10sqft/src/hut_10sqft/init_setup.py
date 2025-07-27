@@ -117,6 +117,9 @@ class OsUtil:
     _LOGGER_NAME = "OsUtil-logger"
     _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable. Is this Debian-based OS?"
 
+    ERRORCOCDE_APTCACHE_NOCANDIDATE = -1001
+    ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED = -1002
+
     def __init__(self, logger=None):
         if logger:
             self._logger = logger
@@ -151,10 +154,22 @@ class OsUtil:
 
     @staticmethod
     def _apt_cache_policy(debpkg_name: str, logger=None):
+        """
+        @rtype: str, str, int
+        @return: This method returns 3 things and by default they are what Python's subprocess returns. However, when the following conditions are met, this method might overwrite 'error' and ret_code' before returning.
+          - When a candidate for 'debpkg_name' not found, ret_code = -1001
+          - When a candidate found but not found installed, ret_code = -1002
+        """
         _path_apt_cache = shutil.which("apt-cache")
         if not _path_apt_cache:
             raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
         output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
+        if not output:
+            ret_code = OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
+            error = f"'{debpkg_name}' is not found on this OS, even as an install candidate. Check if it is really available."
+        elif f"{debpkg_name}:\n  Installed: (none)" in output:
+            ret_code = OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED
+            error = f"The install candidate of the pkg '{debpkg_name}' found on this OS, but 'apt-cache policy' didn't find it installed."
         return output, error, ret_code
         
     @staticmethod
@@ -283,7 +298,7 @@ class OsUtil:
             logger = OsUtil._gen_logger()  
         if not cmd:
             raise ValueError("Command to execute not passed.")
-        
+
         bash_type = '/bin/sh'
         bash_arg = '-c'
         bash_full_cmd = [bash_type, bash_arg]

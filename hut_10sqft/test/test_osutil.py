@@ -113,7 +113,18 @@ def test_apt_install():
     except LookupError as e:
         pytest.skip(f"Skipping test due to missing 'apt': {e}")
 
-def test_subproc_bash_error():
-    pkg_name = "apt-pkg-non-existent"
-    output, error, ret_code = OsUtil._apt_cache_policy(pkg_name)
-    assert not ret_code == 0
+@pytest.fixture
+def pkgname_nonexistent():
+    return "apt-pkg-non-existent"
+
+@pytest.fixture
+def pkgname_existent_butnoinstalled_bydefault():
+    return "blender"
+
+def test_subproc_bash_error_nonexistent_pkg(pkgname_nonexistent):
+    output, error, ret_code = OsUtil._apt_cache_policy(pkgname_nonexistent)
+    assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
+
+def test_subproc_bash_error_nexistent_but_notinstalled(pkgname_existent_butnoinstalled_bydefault):
+    output, error, ret_code = OsUtil._apt_cache_policy(pkgname_existent_butnoinstalled_bydefault)
+    assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED
