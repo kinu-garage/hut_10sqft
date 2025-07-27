@@ -39,5 +39,5 @@ def test_generate_symlinks(cfgbuilder_chromeos, chromeos_input_params):
             path_user_home=chromeos_input_params[ATTR_HOME_DIR])
 #    assert type(pairs) == list[ConfigDispach]
     assert type(pairs) == list
-    assert len(pairs) == 5
+    assert len(pairs) == 6
     

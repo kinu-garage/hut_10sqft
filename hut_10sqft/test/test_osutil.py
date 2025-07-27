@@ -94,8 +94,37 @@ def test_copy_a_file_backup(filepath_src, filepath_dst):
                 /tmp/test/test-yyyymmddhhmmss/file-a-before-copied.txt.org
     """
     _SUFFIX_FILE_ORG = ".origi"
-    OsUtil.copy_a_file(filepath_src, filepath_dst, overwrite=True, backup_suffix=_SUFFIX_FILE_ORG)
-    assert os.path.exists(filepath_dst + _SUFFIX_FILE_ORG)
+    _copied, _timestamp = OsUtil.copy_a_file(filepath_src, filepath_dst, overwrite=True, backup_suffix=_SUFFIX_FILE_ORG)
+    assert os.path.exists(filepath_dst + "_" + _timestamp + _SUFFIX_FILE_ORG)
 
 def test_copy_a_file_symlink_overwrite(timestamp, filepath_src):
     _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=True)
+
+def test_apt_install():
+    """
+    @description: Test apt install functionality.
+    """
+    # This test requires 'apt' to be available in the system.
+    # If not, it will raise LookupError.
+    try:
+        # Ideally want to use the packages that are surely available on any distros
+        # but NOT installed by default. Not sure if `curl`, `wget` are such packages.
+        OsUtil.apt_install(["curl", "wget"])
+    except LookupError as e:
+        pytest.skip(f"Skipping test due to missing 'apt': {e}")
+
+@pytest.fixture
+def pkgname_nonexistent():
+    return "apt-pkg-non-existent"
+
+@pytest.fixture
+def pkgname_existent_butnoinstalled_bydefault():
+    return "blender"
+
+def test_subproc_bash_error_nonexistent_pkg(pkgname_nonexistent):
+    output, error, ret_code = OsUtil._apt_cache_policy(pkgname_nonexistent)
+    assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
+
+def test_subproc_bash_error_nexistent_but_notinstalled(pkgname_existent_butnoinstalled_bydefault):
+    output, error, ret_code = OsUtil._apt_cache_policy(pkgname_existent_butnoinstalled_bydefault)
+    assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED

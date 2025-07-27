@@ -115,6 +115,11 @@ class OsUtil:
     """
     SUFFIX_BACKUP = ".bk"
     _LOGGER_NAME = "OsUtil-logger"
+    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable. Is this Debian-based OS?"
+
+    ERRORCOCDE_APTCACHE_NOCANDIDATE = -1001
+    ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED = -1002
+
     def __init__(self, logger=None):
         if logger:
             self._logger = logger
@@ -138,27 +143,82 @@ class OsUtil:
         OsUtil.subproc_bash(f"{shutil.which('apt')} update", does_sudo=True)
 
     @staticmethod
-    def apt_install(deb_pkg_name, logger=None):
+    def apt_install(deb_pkg_names: list[str], logger=None):
+        """
+        @exception LookupError: If 'apt' executable is not found on the OS.
+        """
         if not logger:
             logger = OsUtil._gen_logger()
-        logger.info("Installing by apt: {}".format(deb_pkg_name))
-        OsUtil._apt_install_bash(deb_pkg_name, logger)
+        logger.info("Installing by apt: {}".format(deb_pkg_names))
+        OsUtil._apt_install_bash(deb_pkg_names, logger)
 
     @staticmethod
-    def _apt_install_bash(deb_pkg_name, logger=None):
+    def _apt_cache_policy(debpkg_name: str, logger=None):
         """
-        @type deb_pkg_name: [str]
+        @rtype: str, str, int
+        @return: This method returns 3 things and by default they are what Python's subprocess returns. However, when the following conditions are met, this method might overwrite 'error' and ret_code' before returning.
+          - When a candidate for 'debpkg_name' not found, ret_code = -1001
+          - When a candidate found but not found installed, ret_code = -1002
         """
-        _path_apt = shutil.which("apt")
+        _path_apt_cache = shutil.which("apt-cache")
+        if not _path_apt_cache:
+            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
+        output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
+        if not output:
+            ret_code = OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
+            error = f"'{debpkg_name}' is not found on this OS, even as an install candidate. Check if it is really available."
+        elif f"{debpkg_name}:\n  Installed: (none)" in output:
+            ret_code = OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED
+            error = f"The install candidate of the pkg '{debpkg_name}' found on this OS, but 'apt-cache policy' didn't find it installed."
+        return output, error, ret_code
+        
+    @staticmethod
+    def apt_cache_policy(debpkg_names: list[str], logger=None):
+        """
+        @brief: Prints the apt-cache policy for the given deb package names.
+        @param debpkg_names: List of deb package names to check.
+        @exception RuntimeWarning: When one or more pkgs found not installed.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()
+        if not debpkg_names:
+            raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
+        if " " in debpkg_names:
+            raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
 
-        # 'deb_pkg_name' is a list while subprocess takes it literally with square brackets and woudl return an error,
-        # so need to expand as a non-list, single string.
-        deb_pkg_names_str = " ".join(deb_pkg_name)
+        errors = []
+        pkgs_success = []
+        for pkg_name in debpkg_names:
+            output, error, ret_code = OsUtil._apt_cache_policy(pkg_name)
+            if ret_code != 0:
+                errors.append(f"Failed to get apt-cache policy for '{pkg_name}'. Error: {error}")
+            else:
+                logger.info(f"'apt-cache policy' result for '{pkg_name}':\n\t{output}")
+        _msg_result_header = f"Report: Package installation status:\n"
+        _msg_result_header_success = f"- Packages found installed: {pkgs_success}"
+        _msg_all = f"{_msg_result_header}\n\t{_msg_result_header_success}"
+        if errors:
+            _str_errors = ""
+            for error in errors:
+                _str_errors += "\t" + error + "\n"
+            raise RuntimeWarning(f"{_msg_all}\n\t- The following pkgs didn't get installed: {_str_errors}")
+        return _msg_all
+
+    @staticmethod
+    def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
+        _path_apt = shutil.which("apt")
+        if not _path_apt:
+            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt"))
+
+        # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
+        # so if a list is spplied then it'd take square brackets and would return an error.
+        # Thus need to expand as a non-list, single string.
+        deb_pkg_names_str = " ".join(deb_pkgs_name)
 
         OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
         OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
-        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'
-        OsUtil.subproc_bash(f"{shutil.which('apt-cache')} policy {deb_pkg_names_str}")
+        # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
+        OsUtil.apt_cache_policy(deb_pkgs_name)
 
     @staticmethod
     def _apt_install_py(deb_pkg_name, logger=None):
@@ -246,7 +306,7 @@ class OsUtil:
             logger = OsUtil._gen_logger()  
         if not cmd:
             raise ValueError("Command to execute not passed.")
-        
+
         bash_type = '/bin/sh'
         bash_arg = '-c'
         bash_full_cmd = [bash_type, bash_arg]
@@ -293,11 +353,13 @@ class OsUtil:
             os.mkdir(path_dir_dest)
 
     @staticmethod
-    def copy_a_file(path_source, path_dest, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
+    def copy_a_file(path_source: str, path_dest: str, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
         """
         @summary A tool to take the list of conf files, place them at the designated location so that each application can find them.
         @param backup_suffix: Only used when 'overwrite' is True, NOTE if no string is passed, the original dest file will be DELETED.
-        @return: True if dest exists after the process.
+        @return: 
+        - True if dest exists after the process.
+        - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
         """
         if not logger:
@@ -312,22 +374,23 @@ class OsUtil:
         # If one direct parent folder for the destination doesn't exist, create one.
         OsUtil.create_parent_dir(path_dest)
 
+        _timestamp = datetime.today().strftime("%Y%m%d-%H%M%S")
         if overwrite:
             if backup_suffix:
-                _backup_file_path = os.path.join(path_dest + backup_suffix + "_" + datetime.today().strftime("%Y%m%d-%H%M%S"))
+                _backup_file_path = os.path.join(path_dest + "_" + _timestamp + backup_suffix)
                 shutil.copyfile(path_dest, _backup_file_path)
-                logger.info(f"File '{path_dest} is backed up at '{_backup_file_path}")
+                logger.info(f"File '{path_dest}' is backed up at '{_backup_file_path}'")
             os.remove(path_dest)
             logger.info(f"File '{path_dest} was deleted without backup per instruction.")
 
         if is_symlink:
             os.symlink(path_source, path_dest)
             logger.info("Created symlink at {}".format(path_dest))
-            return pathlib.Path(path_dest).exists()  # Testing
         else:
             shutil.copyfile(path_source, path_dest)
             logger.info("Moved a file at {}".format(path_dest))
-            return pathlib.Path(path_dest).exists()  # Testing
+
+        return pathlib.Path(path_dest).exists(), _timestamp
 
     @staticmethod
     def tilde_to_expand(value_to_scan, logger=None):
@@ -432,10 +495,10 @@ class AbstCompSetupFactory():
         raise NotImplementedError("Updating hostname feature is not yet implemented.")
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__}(os_name={self._oos_name})"
+        return f"{self.__class__.__name__}(os_name={self._os_name})"
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(os_name={self._oos_name})"
+        return f"{type(self).__name__}(os_name={self._os_name})"
 
     def run(self, host_config, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
@@ -457,8 +520,22 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         super().__init__(os_name, args_in)
 
         self._args_in = args_in
-        self._hostname = args_in.hostname
-        self._os_user_id = args_in.user_id
+
+        if not args_in:  # Setting rather arbitrary values when argparse output is none.
+            # Host name
+            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
+            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
+            # User ID
+            try:
+                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
+            except KeyError as e:
+                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
+        else:
+            if args_in.hostname:
+                self._hostname = args_in.hostname
+
+            if args_in.user_id:
+                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
@@ -686,7 +763,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
         # Install dependency that is not available via rosdep
-        self.install_deps_adhoc()
+        try:
+            self.install_deps_adhoc()
+        except RuntimeWarning as e:
+            self.add_runtime_issue(e)            
+        except RuntimeError as e:
+            self.add_runtime_issue(e)            
 
         # This must be implemented for all OSes as the end result is crucial to my computer usage,
         # therefore do NOT catch `NotImplementedError`.
@@ -725,40 +807,35 @@ This is most notably ammendable by setting up local client executables of Dropbo
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
-    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils", "mozc-server"]
+    _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
                 "dconf-editor",
                 "evince",
                 "flameshot",
-                "gnome-screenshots",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
-                ", ".join(_DEBS_MOZC),
-                "googleearth-package",
-                "gtk-recordmydesktop",
-                "ibus", "ibus-el",
-                "indicator-multiload",
+                "ibus",
                 "libavahi-compat-libdnssd1",
                 "pdftk-java",
                 "pidgin",
                 "psensor",
-                "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
                 #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
-                "ptex-bin",
-                "sysinfo",
                 "synaptic",
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
-                ]
+                ] + _DEBS_MOZC
     _OS_TYPE = "Debian"
     _PIP_PKGS = ["pipx"]
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+        # This variable might be accessed in `super().__init__` so
+        # defined prior to the call. Might not be a good practice though.
         self._apt_updated = False
+
+        super().__init__(os_name, args_in)
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are likely only available on Debian variants.
@@ -842,6 +919,7 @@ class DebianSetup(ShellCapableOsSetup):
         @param pip_pkgs: Set format. 
         @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
+        self.apt_update()
         self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
     def create_data_dir(self, dirs_tobe_made):
@@ -1037,6 +1115,16 @@ class ChromeOsSetup(DebianSetup):
 
 class UbuntuOsSetup(DebianSetup):
     _OS_TYPE = "Ubuntu"
+    _UBUNTU_DEB_DEPS = [
+        "gnome-screenshots",        
+        "googleearth-package",
+        "gtk-recordmydesktop",
+        "ibus-el",
+        "indicator-multiload",        
+        "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
+        "ptex-bin",
+        "sysinfo",        
+    ]    
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
     _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
@@ -1045,6 +1133,8 @@ class UbuntuOsSetup(DebianSetup):
         self.ubuntu_desktop_cleanup()
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
+        if not deb_pkgs:
+            deb_pkgs = self._DEBIAN_DEB_DEPS + self._UBUNTU_DEB_DEPS
         self._install_deps_adhoc_debian(deb_pkgs, pip_pkgs, allow_pip_break)
 
         # Take care of `snap` packages
@@ -1069,24 +1159,20 @@ class UbuntuOsSetup(DebianSetup):
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
         pairs_symlinks = [
-            ConfigDispach(
+            ConfigDispach(  # Many symlinks depend on this symlink.
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
                 path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"),
                 is_symlink=True),
             ConfigDispach(  # Some others depend on this symlink.
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "30y-130s"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
                 path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
                 is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
                 path_dest=os.path.join(rootpath_symlinks, "git_repos"),
                 is_symlink=True),
-            ConfigDispach(  # Only backward compatibility
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "pg", "myDevelopment", "git_repo"),
-                path_dest=os.path.join(rootpath_symlinks, "github_repos"),
-                is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "JobSuchen"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "JobSuchen"),
                 path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
                 is_symlink=True),
             ConfigDispach(
@@ -1094,15 +1180,15 @@ class UbuntuOsSetup(DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "engineering", "ARIAC"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "engineering", "ARIAC"),
                 path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive", "Career", "academicDoc"),
+                path_source=os.path.join(path_user_home, "link", "Career", "academicDoc"),
                 path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
                 is_symlink=True),
             ConfigDispach(
@@ -1120,6 +1206,10 @@ class UbuntuOsSetup(DebianSetup):
             ConfigDispach(
                 path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "My Mac (tork-mac1)"),
+                path_dest=os.path.join(rootpath_symlinks, "dbox_mac1"),
                 is_symlink=True),
             ]
         return pairs_symlinks
