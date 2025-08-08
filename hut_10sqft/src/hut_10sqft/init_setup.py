@@ -1120,7 +1120,8 @@ class UbuntuOsSetup(DebianSetup):
         "googleearth-package",
         "gtk-recordmydesktop",
         "ibus-el",
-        "indicator-multiload",        
+        "indicator-multiload",
+        "peek",
         "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
         "ptex-bin",
         "sysinfo",        
