@@ -17,6 +17,7 @@ import importlib
 import logging
 import os
 import pathlib
+import platform
 import pwd
 import shlex
 import shutil
@@ -487,7 +488,7 @@ class AbstCompSetupFactory():
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
             os.makedirs(self._path_base_conf)
-
+ 
     @property
     def list_runtime_issues(self):
         return self._list_runtime_issues

@@ -122,9 +122,15 @@ def pkgname_existent_butnoinstalled_bydefault():
     return "blender"
 
 def test_subproc_bash_error_nonexistent_pkg(pkgname_nonexistent):
+    _os_type, _distro_type = OsUtil.get_os_type()
+    if not _os_type == OsUtil.TYPE_OS_LINUX:
+        pytest.skip("This test is for Linux only.")
     output, error, ret_code = OsUtil._apt_cache_policy(pkgname_nonexistent)
     assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
 
 def test_subproc_bash_error_nexistent_but_notinstalled(pkgname_existent_butnoinstalled_bydefault):
+    _os_type, _distro_type = OsUtil.get_os_type()
+    if not _os_type == OsUtil.TYPE_OS_LINUX:
+        pytest.skip("This test is for Linux only.")
     output, error, ret_code = OsUtil._apt_cache_policy(pkgname_existent_butnoinstalled_bydefault)
     assert ret_code == OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED

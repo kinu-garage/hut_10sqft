@@ -16,15 +16,25 @@
 
 import os
 import pytest
+import sys
 
-from hut_10sqft.init_setup import ChromeOsSetup, ConfigDispach
+from hut_10sqft.init_setup import ChromeOsSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
 
 ATTR_HOME_DIR = "user_home_dir"
 ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
 
 @pytest.fixture
-def cfgbuilder_chromeos():
-    return ChromeOsSetup()
+def cfgbuilder():
+    _os_type, _distro_type = OsUtil.get_os_type()
+    if _os_type == OsUtil.TYPE_OS_LINUX:
+        # Assuming Ubuntu is a common Linux distribution
+        return ChromeOsSetup()
+    elif _os_type == OsUtil.TYPE_OS_MACOS:
+        # You can add more specific checks for macOS versions if needed,
+        # e.g., using platform.mac_ver()
+        return MacOsSetup()
+    else:
+        raise RuntimeError(f"Unsupported OS platform: {_os_type}.")
 
 @pytest.fixture
 def chromeos_input_params():
@@ -33,8 +43,8 @@ def chromeos_input_params():
         ATTR_PATH_SYMLINKS_DIR: "/"
     }
 
-def test_generate_symlinks(cfgbuilder_chromeos, chromeos_input_params):
-    pairs = cfgbuilder_chromeos.generate_symlinks(
+def test_generate_symlinks(cfgbuilder, chromeos_input_params):
+    pairs = cfgbuilder.generate_symlinks(
             rootpath_symlinks=os.path.join(chromeos_input_params[ATTR_HOME_DIR], chromeos_input_params[ATTR_PATH_SYMLINKS_DIR]),
             path_user_home=chromeos_input_params[ATTR_HOME_DIR])
 #    assert type(pairs) == list[ConfigDispach]
