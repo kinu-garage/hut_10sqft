@@ -120,6 +120,13 @@ class OsUtil:
     ERRORCOCDE_APTCACHE_NOCANDIDATE = -1001
     ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED = -1002
 
+    TYPE_OS_CHROMEOS = "ChromeOS"
+    TYPE_OS_LINUX = "Linux"
+    TYPE_OS_MACOS = "MacOS"
+    TYPE_OS_MACOS_DARWIN = "Darwin"
+    TYPE_LINUX_DISTRO_DEBIAN = "Debian"
+    TYPE_LINUX_DISTRO_UBUNTU = "Ubuntu"
+
     def __init__(self, logger=None):
         if logger:
             self._logger = logger
@@ -427,6 +434,43 @@ class OsUtil:
             raise ReferenceError(f"The executable '{executable_name}' not found.")
         return path
 
+    @staticmethod
+    def get_os_type(logger=None) -> tuple[str, str]:
+        _FILEPATH_OS_RELEASE = "/etc/os-release"
+        _FILEPATH_LSB_RELEASE = "/etc/lsb-release"
+        _type_os = ""
+        _type_distro = "None"
+        if not logger:
+            logger = OsUtil._gen_logger()
+        if platform.system() == OsUtil.TYPE_OS_LINUX:
+            _type_os = OsUtil.TYPE_OS_LINUX
+            try:
+                with open(_FILEPATH_OS_RELEASE, "r") as f:
+                    content = f.read()
+                    if f"ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content:
+                        _type_distro = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
+                    elif f"ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content:
+                        _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
+                    else:
+                        raise RuntimeError(f"Running on another Linux distribution SUCO does not support. Content of {_FILEPATH_OS_RELEASE}: {content}")
+            except FileNotFoundError as e:
+                try:
+                    with open(_FILEPATH_LSB_RELEASE, "r") as f:
+                        content = f.read()
+                        if f"DISTRIB_ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN}" in content:
+                            _type_distro = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
+                        elif f"DISTRIB_ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU}" in content:
+                            _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
+                        else:
+                            raise RuntimeError(f"Running on another Linux distribution SUCO does not support. Content of {_FILEPATH_LSB_RELEASE}: {content}")
+                except FileNotFoundError:
+                    raise RuntimeError(f"Could not determine the Linux distribution type. Neither '{_FILEPATH_OS_RELEASE}' nor '{_FILEPATH_LSB_RELEASE}' found.")
+        elif (platform.system() == OsUtil.TYPE_OS_MACOS) or (platform.system() == OsUtil.TYPE_OS_MACOS_DARWIN):
+            _type_os = OsUtil.TYPE_OS_MACOS
+        if not _type_os:
+            raise RuntimeError(f"OS type undetected or unsupported type found: '{platform.system()}'")
+        return _type_os, _type_distro
+
 
 class AbstCompSetupFactory():
     """
@@ -722,6 +766,18 @@ This is most notably ammendable by setting up local client executables of Dropbo
         """
         raise NotImplementedError()
 
+    def setup_ssh(self, skip=True, path_local_conf_repo=""):
+        """
+        @param skip: If True, skip setting up SSH.
+        @param path_local_conf_repo: Path to the local configuration repo.
+        """
+        if skip:
+            self._logger.info("Skipping SSH setup as 'skip' is set to True.")
+            return
+
+        # Implement SSH setup logic here
+        raise NotImplementedError("SSH setup is not implemented yet.")
+
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
@@ -775,12 +831,19 @@ This is most notably ammendable by setting up local client executables of Dropbo
         try:
             self.swap_caps_ctrl()
         except RuntimeError as e:
-            self.add_runtime_issue(e)            
+            self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
 
         self.setup_terminal_configs(_abs_path_confdir)
+
+        try:
+            self.setup_ssh()
+        except RuntimeWarning as e:
+            self.add_runtime_issue(e)            
+        except Exception as e:
+            self.add_runtime_issue(e)
 
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
@@ -827,7 +890,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
                 ] + _DEBS_MOZC
-    _OS_TYPE = "Debian"
+    _OS_TYPE = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
     _PIP_PKGS = ["pipx"]
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
@@ -936,6 +999,9 @@ class DebianSetup(ShellCapableOsSetup):
         if branch:
             _option = "-b" + " " + branch
         OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
+
+    def setup_ssh(self, skip=False, path_local_conf_repo=""):
+        self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
 
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
@@ -1076,7 +1142,7 @@ class ChromeOsSetup(DebianSetup):
         "4. Verify on terminal on a Linux container that the directory is found by running 'ls -l /mnt/chromeos/{}'.\n"
     _HINT_ENABLE_MOUNT_GDRIVE = _HINT_ENABLE_MOUNT_GENERIC.format(_DIRNAME_GDRIVE, _DIRNAME_GDRIVE, _DIRNAME_GDRIVE)
     _HINT_ENABLE_MOUNT_LOCAL_DOWNLOADS = _HINT_ENABLE_MOUNT_GENERIC.format(_DIRNAME_LOCAL_DOWNLOADS, _DIRNAME_LOCAL_DOWNLOADS, os.path.join(_DIRNAME_LOCAL_DIR, _DIRNAME_LOCAL_DOWNLOADS))
-    _OS_TYPE = "ChromeOS"
+    _OS_TYPE = OsUtil.TYPE_OS_CHROMEOS
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
@@ -1113,8 +1179,8 @@ class ChromeOsSetup(DebianSetup):
         return pairs_symlinks
 
 
-class UbuntuOsSetup(DebianSetup):
-    _OS_TYPE = "Ubuntu"
+class UbuntuOsSetup (DebianSetup):
+    _OS_TYPE = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
     _UBUNTU_DEB_DEPS = [
         "gnome-screenshots",        
         "googleearth-package",
@@ -1287,9 +1353,52 @@ class UbuntuOsSetup(DebianSetup):
         self._logger.info(f"Successfully installed snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
 
 class MacOsSetup(AbstCompSetupFactory):
-    _OS_TYPE = "MacOS"
+    _OS_TYPE = OsUtil.TYPE_OS_MACOS
     def __init__(self, os_name=_OS_TYPE):
         super().__init__(os_name)
+
+    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
+        raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")
+
+    def generate_symlinks(self, rootpath_symlinks: str, path_user_home=""):
+        pairs_symlinks = [
+            ConfigDispach(  # Many symlinks depend on this symlink.
+                path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "GoogleDrive"),
+                path_dest=os.path.join(rootpath_symlinks, "GoogleDrive"),
+                is_symlink=True),
+            ConfigDispach(  # Some others depend on this symlink.
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "30y-130s"),
+                path_dest=os.path.join(rootpath_symlinks, "30y-130s"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Current"),
+                path_dest=os.path.join(rootpath_symlinks, "Current"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
+                path_dest=os.path.join(rootpath_symlinks, "MOOC"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "Career", "academicDoc"),
+                path_dest=os.path.join(rootpath_symlinks, "academicDoc"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(path_user_home, "link", "30y-130s", "schools_children", "GJLS"),
+                path_dest=os.path.join(rootpath_symlinks, "GJLS"),
+                is_symlink=True),
+            ]
+        return pairs_symlinks
+
+    def setup_ssh(self, skip=False, path_local_conf_repo=""):
+        _MSG_INSTRUCTION_ENABLE_SSH_SERVER = "On terminal run 'sudo systemsetup -setremotelogin on'. \
+            If you get an error that looks like:\n \
+            'Turning Remote Login on or off requires Full Disk Access privileges'\n\n \
+           then go to Settings > Security & Privacy > Privacy > Full Disk Access; \
+           then select Applications > Utilities > Terminal from the file picker². Then execute the command again, \
+           it should be in the history so you might just need to press arrow upwards."
+
+        raise RuntimeWarning(f"Enabling SSH server on MacOS might have to be done manually. See https://superuser.com/a/1764825/106974, \
+                             or the text copied from there below:\n{_MSG_INSTRUCTION_ENABLE_SSH_SERVER}")
 
 
 class CompInitSetup():
@@ -1297,10 +1406,11 @@ class CompInitSetup():
     @summary TBD
     """
     HOSTNAME_BRYA = "130s-brya"
-    HOSTNAME_P16S = "130s-p16s-2"
     HOSTNAME_C13_MORPH = "130s-C13-Morph"
-    HOSTNAME_ZORK16 = "130s-zork16"
+    HOSTNAME_MAC1 = "130s-mac1"
     HOSTNAME_OPFYDE_RPI5 = "opfyde-rpi5"
+    HOSTNAME_P16S = "130s-p16s-2"
+    HOSTNAME_ZORK16 = "130s-zork16"
 
     _LOGGER_NAME = "CompInitSetup-logger"
     # Name of the local repo that stores the config and will have to be
@@ -1346,7 +1456,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Optional but close to required args
         parser.add_argument("--hostname", required=True, help="Specify in case you need to modify the host name.")
         parser.add_argument("--msg_endroll", help="Specify the message string that will be printed at the end in case of need.")
-        parser.add_argument("--os", required=True, help=f"Type of OS. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
+        parser.add_argument("--os", required=True, help=f"Type of OS. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {MacOsSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
         parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
         parser.add_argument("--path_local_conf_repo",
                             help=self._MSG_PATH_PERMCONF_REPO,
@@ -1382,6 +1492,8 @@ treats the user ID tha is used to execute this tool as the main user."""
             _os_builder = DebianSetup(args_in=_args)
         elif _args.os == UbuntuOsSetup._OS_TYPE:
             _os_builder = UbuntuOsSetup(args_in=_args)
+        elif _args.os == MacOsSetup._OS_TYPE:
+            _os_builder = MacOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
