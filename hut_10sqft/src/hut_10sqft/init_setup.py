@@ -376,6 +376,8 @@ class OsUtil:
         - True if dest exists after the process.
         - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
+        @raise FileExistsError: When 'overwrite' is False and the destination file already exists.
+        @raise FileNotFoundError: When a file at 'path_source' does not exist.
         """
         if not logger:
             logger = OsUtil._gen_logger()
@@ -602,6 +604,9 @@ class AbstCompSetupFactory():
     def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
         raise NotImplementedError()
 
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str, abs_path_private_confdir: str):
+        raise NotImplementedError()
+
 
 class WindowsSetup(AbstCompSetupFactory):
     def __init__(self, os_name):
@@ -680,8 +685,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf)
         self.setup_file(conf_gitignore)
 
-    def setup_dropbox(self):
+    def _is_dropbox_setup(self):
         output, error, bash_return_code = OsUtil.subproc_bash("dropbox")
+        return output, error, bash_return_code 
+
+    def setup_dropbox(self):
+        """
+        @raise RuntimeWarning: When Dropbox setup needs to be done manually.
+        @raise RuntimeError: When Dropbox installation seems to have failed.
+        """
+        o, e, bash_return_code = self._is_dropbox_setup()
         if bash_return_code == 0:
             self._logger.info("Skipping Dropbox setup as it's already set up.")
 
@@ -691,6 +704,12 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         OsUtil.subproc_bash("wget {}".format(url_deb))
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code != 0:
+            raise RuntimeError(f"Dropbox installation seems to have failed. Error: {e}")
+        
+        raise RuntimeWarning("Dropbox: Installation is done. Its setup needs to be done manually.")
 
     def clone(self, repo_to_clone, dir_cloned_at, branch=""):
         """
@@ -752,9 +771,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         @param skip: Set 'True' when docker is not necessary e.g. running already inside a docker container.
         """
-        raise NotImplementedError()
-
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
@@ -877,7 +893,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             # so this call here might be redundant with no good reason. This needs to be re-think-ed.
             self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
-            self.add_runtime_issue(e)            
+            self.add_runtime_issue(e)
         except RuntimeError as e:
             self.add_runtime_issue(e)            
 
@@ -889,6 +905,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
+        _abs_path_private_confdir = os.path.join(args.path_local_conf_repo, args.path_private_conf_dir)
+        
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
 
         self.setup_terminal_configs(_abs_path_confdir)
@@ -916,7 +934,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             path_user_home=self._user_home_dir)
         self.common_symlinks(_pairs_symlinks)
 
-        self.setup_configs(self.host_config, abs_path_confdir=_abs_path_confdir)
+        self.setup_configs(self.host_config, abs_path_confdir=_abs_path_confdir, abs_path_private_confdir=_abs_path_private_confdir)
 
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
@@ -1130,7 +1148,7 @@ class DebianSetup(ShellCapableOsSetup):
         # then its executable hadn't been available either.
         self._which_git = OsUtil.which("git")
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str="~/.config/hut_10sqft", abs_path_private_confdir: str=):
         pairs_conf_autostart = [
             ConfigDispach(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
@@ -1461,6 +1479,31 @@ class MacOsSetup(AbstCompSetupFactory):
             ]
         return pairs_symlinks
 
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+        pairs_conf_bash = [
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".bashrc"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_bash:
+            self.setup_file(c, overwrite=True)
+
+        # TODO ssh config, path of which needs to be private.
+
+        pairs_conf_tools = [
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
+                path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".emacs"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_tools:
+            self.setup_file(c)
+
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
         _MSG_INSTRUCTION_ENABLE_SSH_SERVER = "On terminal run 'sudo systemsetup -setremotelogin on'. \
             If you get an error that looks like:\n \
@@ -1518,6 +1561,7 @@ class CompInitSetup():
     _PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(_PATH_FOLDER_CONF, _REPO_PERMANENT_CONFIG)
     # Un-expanded version of this looks like 'hut_10sqft/config'
     _PATH_DEFAULT_CONFIG_CONFDIR = os.path.join(_REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
+    _PATH_DEFAULT_PRIVATE_CONFDIR = os.path.join(pathlib.Path.home(), "data", "Dropbox", "app")  # This has been used on all shell-enabled OSes so far but it'll be nice if user can designate.
     _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     # Messages for stdout
     _MSG_CONSOLE_TOOL_INTRO = """This tool is for setting up a Linux-based personal computer.
@@ -1529,6 +1573,8 @@ class CompInitSetup():
 which is for {DebianSetup._OS_TYPE}."""
     _MSG_PATH_CONF_DIR = f"""Path to the the config folder within the '{_REPO_PERMANENT_CONFIG}' repo.
  If not passed then the path will be the default {_PATH_DEFAULT_CONFIG_CONFDIR}."""
+    _MSG_PATH_PRIVATE_CONF_DIR = f"Path to the the folder of private configs within the Dropbox dir. \
+        If not passed then the path will be the default {_PATH_DEFAULT_PRIVATE_CONFDIR}."
     _MSG_ARG_PATH_COMMON_SYMLINKS = f"""Path to the folder that contains symlinks.
  If not passed then the path will be the default {_PATH_SYMLINKS_DIR}."""    
     _MSG_ARG_USERID = """User ID on the OS that will be mainly used. While this
@@ -1563,6 +1609,9 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_conf_dir",
                             help=self._MSG_PATH_CONF_DIR,
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
+        parser.add_argument("--path_conf_private_dir",
+                            help=self._MSG_PATH_PRIVATE_CONF_DIR,
+                            default=self._PATH_DEFAULT_PRIVATE_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true", default=True)
@@ -1596,6 +1645,9 @@ treats the user ID tha is used to execute this tool as the main user."""
             if _args.hostname == self.HOSTNAME_P16S:
                 _os_builder = P16S2(args_in=_args, hostname=_args.hostname)
             _os_builder = UbuntuOsSetup(args_in=_args, hostname=_args.hostname)
+        # TODO The condition in this 'if' clause are not met --
+        # i.e.  some ask about 'os_distro' while some does for a different value.
+        # This can be a source of future issues.
         elif _args.os_type == MacOsSetup._OS_TYPE:
             if _args.hostname == self.HOSTNAME_MAC1:
                 _os_builder = Mac1(os_name=_args.os, args_in=_args)
