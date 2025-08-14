@@ -1508,7 +1508,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         elif _args.hostname == self.HOSTNAME_BRYA:
             _host_cfg = _host_cfg_brya            
         elif _args.hostname == (self.HOSTNAME_C13_MORPH or self.HOSTNAME_ZORK16 or self.HOSTNAME_OPFYDE_RPI5):
-            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
+            _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")
             _host_cfg = _host_cfg_brya
