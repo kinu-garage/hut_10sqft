@@ -1403,6 +1403,10 @@ class MacOsSetup(AbstCompSetupFactory):
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name)
 
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
+        raise RuntimeWarning("Sounds like rosdep seems supported on MacOS but it is not realized on 130s-mac1 host \
+                             (related https://github.com/ros2/ros2_documentation/issues/5818), so skipping the setup for now.")
+
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")
 
