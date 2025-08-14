@@ -490,15 +490,55 @@ class AbstCompSetupFactory():
     """
     _DIR_DROXBOX_CONTAINER = "data"  # This is beyond programming, something that sticks with 130s' computer usage for decades.
 
-    def __init__(self, os_name="", args_in: argparse.Namespace=None):
+    def __init__(self, os_name="", args_in: argparse.Namespace=None, hostname=""):
+        """
+        @param hostname: If non-empty, this value will be set instead of the one in `args_in.hostname`.
+        """
         self._os = os_name
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
+        if (not hostname) and args_in.hostname:
+            self._hostname = args_in.hostname
+        else:
+            self._hostname = hostname
+
         # Create a conf folder under ~/.
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
-            os.makedirs(self._path_base_conf)
+            os.makedirs(self._path_base_conf) 
+
+        if not args_in:
+            # Host name
+            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
+            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
+            # User ID. Setting system-provided value when a user didn't pass a value.
+            try:
+                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
+            except KeyError as e:
+                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
+        else:
+            self._args_in = args_in
+
+            if args_in.user_id:
+                self._os_user_id = args_in.user_id
+
+        self._host_cfg = self.gen_hostconf(self._args_in.hostname)
+
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        """
+        @param hostname: Hostname to be set in the HostConf object.
+        @return: HostConf object with the given hostname and default values for other attributes. 
+        """
+        raise NotImplementedError()
+
+    @property
+    def host_cfg(self):
+        return self._host_cfg
+
+    @host_cfg.setter
+    def host_cfg(self, v):
+        self._host_cfg = v
 
     @property
     def list_runtime_issues(self):
@@ -556,7 +596,7 @@ class AbstCompSetupFactory():
     def __repr__(self) -> str:
         return f"{type(self).__name__}(os_name={self._os_name})"
 
-    def run(self, host_config, conf_repo_remote, conf_base_path=""):
+    def run(self, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
@@ -574,24 +614,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     def __init__(self, os_name="", args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
-
-        self._args_in = args_in
-
-        if not args_in:  # Setting rather arbitrary values when argparse output is none.
-            # Host name
-            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
-            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
-            # User ID
-            try:
-                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
-            except KeyError as e:
-                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
-        else:
-            if args_in.hostname:
-                self._hostname = args_in.hostname
-
-            if args_in.user_id:
-                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
@@ -894,7 +916,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             path_user_home=self._user_home_dir)
         self.common_symlinks(_pairs_symlinks)
 
-        self.setup_configs(host_config, abs_path_confdir=_abs_path_confdir)
+        self.setup_configs(self.host_config, abs_path_confdir=_abs_path_confdir)
 
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
@@ -1056,8 +1078,8 @@ class DebianSetup(ShellCapableOsSetup):
     ## sudo apt install oracle-java8-set-default
 """)
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path=""):
-        super().run(args, host_config, conf_repo_remote, conf_base_path)
+    def run(self, args, conf_repo_remote, conf_base_path=""):
+        super().run(args, self.host_config, conf_repo_remote, conf_base_path)
         self.setup_oracle_java()
 
     def apt_update(self):
@@ -1454,6 +1476,27 @@ class MacOsSetup(AbstCompSetupFactory):
         raise RuntimeWarning("Skipping as no plan to use this host for the development.")
 
 
+class Brya(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+
+class C13Morph(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
+
+class Mac1(MacOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-mac1.bash", "130s-mac1.el", prvkey, pubkey)
+
+class P16S2(UbuntuOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+
+class Zork16(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
+
+
 class CompInitSetup():
     """
     @summary TBD
@@ -1543,13 +1586,19 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Builder pattern
         _os_builder = None
         if _args.os_distro == ChromeOsSetup._OS_TYPE:
-            _os_builder = ChromeOsSetup(args_in=_args)
+            if _args.hostname == self.HOSTNAME_BRYA:            
+                _os_builder = Brya(args_in=_args, hostname=_args.hostname)
+            elif _args.hostname == (self.HOSTNAME_C13_MORPH or self.HOSTNAME_ZORK16 or self.HOSTNAME_OPFYDE_RPI5):
+                _os_builder == C13Morph(args_in=_args, hostname=_args.hostname)
         elif _args.os_distro == DebianSetup._OS_TYPE:
-            _os_builder = DebianSetup(args_in=_args)
+            _os_builder = DebianSetup(args_in=_args, hostname=_args.hostname)
         elif _args.os_distro == UbuntuOsSetup._OS_TYPE:
-            _os_builder = UbuntuOsSetup(args_in=_args)
-        elif _args.os_distro == MacOsSetup._OS_TYPE:
-            _os_builder = MacOsSetup(args_in=_args)
+            if _args.hostname == self.HOSTNAME_P16S:
+                _os_builder = P16S2(args_in=_args, hostname=_args.hostname)
+            _os_builder = UbuntuOsSetup(args_in=_args, hostname=_args.hostname)
+        elif _args.os_type == MacOsSetup._OS_TYPE:
+            if _args.hostname == self.HOSTNAME_MAC1:
+                _os_builder = Mac1(os_name=_args.os, args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
