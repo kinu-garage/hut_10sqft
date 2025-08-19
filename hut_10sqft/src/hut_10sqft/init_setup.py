@@ -961,6 +961,7 @@ class DebianSetup(ShellCapableOsSetup):
                 #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
                 "synaptic",
+                "system-config-printer"
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
@@ -1602,8 +1603,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--os_distro", required=True, help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
         parser.add_argument("--os_type", required=False, help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}")
         parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
-        parser.add_argument("--path_local_conf_repo",
-                            help=self._MSG_PATH_PERMCONF_REPO,
+        parser.add_argument("--path_local_conf_repo",                            help=self._MSG_PATH_PERMCONF_REPO,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir",
