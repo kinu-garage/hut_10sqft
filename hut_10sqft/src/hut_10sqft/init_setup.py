@@ -116,7 +116,7 @@ class OsUtil:
     """
     SUFFIX_BACKUP = ".bk"
     _LOGGER_NAME = "OsUtil-logger"
-    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable. Is this Debian-based OS?"
+    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable."
 
     ERRORCOCDE_APTCACHE_NOCANDIDATE = -1001
     ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED = -1002
@@ -145,10 +145,10 @@ class OsUtil:
 
     @staticmethod
     def setup_rosdep():
-        _path_rosdep = shutil.which("rosdep")
+        _path_rosdep = OsUtil.which("rosdep")
         OsUtil.subproc_bash(f"{_path_rosdep} init", does_sudo=True)
         OsUtil.subproc_bash(f"{_path_rosdep} update")
-        OsUtil.subproc_bash(f"{shutil.which('apt')} update", does_sudo=True)
+        OsUtil.subproc_bash(f"{OsUtil.which('apt')} update", does_sudo=True)
 
     @staticmethod
     def apt_install(deb_pkg_names: list[str], logger=None):
@@ -168,7 +168,7 @@ class OsUtil:
           - When a candidate for 'debpkg_name' not found, ret_code = -1001
           - When a candidate found but not found installed, ret_code = -1002
         """
-        _path_apt_cache = shutil.which("apt-cache")
+        _path_apt_cache = OsUtil.which("apt-cache")
         if not _path_apt_cache:
             raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
         output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
@@ -214,9 +214,7 @@ class OsUtil:
 
     @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
-        _path_apt = shutil.which("apt")
-        if not _path_apt:
-            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt"))
+        _path_apt = OsUtil.which("apt")
 
         # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
         # so if a list is spplied then it'd take square brackets and would return an error.
@@ -430,6 +428,9 @@ class OsUtil:
 
     @staticmethod
     def which(executable_name: str):
+        """
+        @raise ReferenceError: When `executable_name` not available.
+        """
         path = shutil.which(executable_name)
         if not path:
             raise ReferenceError(f"The executable '{executable_name}' not found.")
@@ -488,7 +489,7 @@ class AbstCompSetupFactory():
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
             os.makedirs(self._path_base_conf)
- 
+
     @property
     def list_runtime_issues(self):
         return self._list_runtime_issues
@@ -601,6 +602,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         @description:
             Upon implementation, 'self._which_git' must be filled in with the concrete path of the executable of 'git'.
         """
+        raise NotImplementedError()
+
+    def setup_vscode(self, path_installer: str):
         raise NotImplementedError()
 
     def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
@@ -867,6 +871,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
 
+        self.setup_vscode(path_installer=args.path_vscode_installer)
+
 
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
@@ -913,13 +919,32 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
+    def setup_vscode(self, path_installer: str) -> str:
+        """
+        @return: Path to the 'code' executable, None if installation was unsuccessful.
+        @see https://code.visualstudio.com/blogs/2020/12/03/chromebook-get-started
+        @raise ReferenceError: if setting up failed.
+        """
+        if not path_installer:
+            raise ValueError(f"'path_installer' is empty.")
+
+        self.install_deps_adhoc("gnome-keyring")
+        cmd_install = f"dpkg -i {path_installer}"
+        OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        # Returning the verification result
+        return OsUtil.which("code")
+
     def get_paths_execs(self, args_in: argparse.Namespace):
-        self._which_apt = shutil.which("apt")
-        self._which_aptcache = shutil.which("apt-cache")
-        self._which_aptkey = shutil.which("apt-key")
-        self._which_echo = shutil.which("echo")
-        self._which_service = shutil.which("service")
-        self._which_unset = shutil.which("unset")
+        """
+        @raise ReferenceError: When one of the `OsUtil.which` calls unable to find the corresponding path.
+        """
+        self._which_apt = OsUtil.which("apt")
+        self._which_aptcache = OsUtil.which("apt-cache")
+        self._which_aptkey = OsUtil.which("apt-key")
+        self._which_echo = OsUtil.which("echo")
+        self._which_service = OsUtil.which("service")
+        self._which_unset = OsUtil.which("unset")
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
@@ -1062,7 +1087,7 @@ class DebianSetup(ShellCapableOsSetup):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
         # If git had not been installed yet prior to the one line above,
         # then its executable hadn't been available either.
-        self._which_git = shutil.which("git")
+        self._which_git = OsUtil.which("git")
 
     def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         pairs_conf_autostart = [
@@ -1332,7 +1357,7 @@ class UbuntuOsSetup (DebianSetup):
 
     def setup_ros_installer_src(self):
         self.set_ros_apt_source()
-        cmd_obtain_apt_key_rosdep = f"{shutil.which('wget')} http://packages.ros.org/ros.key"
+        cmd_obtain_apt_key_rosdep = f"{OsUtil.which('wget')} http://packages.ros.org/ros.key"
         cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
         OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
         OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
@@ -1347,7 +1372,7 @@ class UbuntuOsSetup (DebianSetup):
         """
         @summary: Install specific `snap` packages that are not available via apt and other package managers.
         """
-        cmd = f"{shutil.which('snap')} install {snap_pkg}"
+        cmd = f"{OsUtil.which('snap')} install {snap_pkg}"
         output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
         if bash_return_code != 0:
             raise RuntimeError(f"Failed to install snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
@@ -1401,6 +1426,9 @@ class MacOsSetup(AbstCompSetupFactory):
         raise RuntimeWarning(f"Enabling SSH server on MacOS might have to be done manually. See https://superuser.com/a/1764825/106974, \
                              or the text copied from there below:\n{_MSG_INSTRUCTION_ENABLE_SSH_SERVER}")
 
+    def setup_vscode(self, path_installer: str):
+        raise RuntimeWarning("Skipping as no plan to use this host for the development.")
+
 
 class CompInitSetup():
     """
@@ -1442,6 +1470,7 @@ treats the user ID tha is used to execute this tool as the main user."""
     _MSG_ARG_BASE_CONF_PATH = """Path where the conf repo will be cloned into.
  Modifying it is an advanced/bold move, and behavior with the modified path is not planned to be tested as of 2024/08."""
     _URL_CONFREPO = f"https://github.com/kinu-garage/{_REPO_PERMANENT_CONFIG}.git"
+    _PATH_VSCODE_INSTALLER = "~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb"
 
     def __init__(self):
         self._logger = logging.getLogger(self._LOGGER_NAME)
@@ -1469,6 +1498,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
+        parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
