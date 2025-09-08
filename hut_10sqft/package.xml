@@ -20,6 +20,7 @@
   <exec_depend>gnuplot</exec_depend>
   <exec_depend>gnuplot-x11</exec_depend>
   <exec_depend>iftop</exec_depend>
+  <exec_depend>imagemagick</exec_depend>
   <exec_depend>ipython3</exec_depend>
   <exec_depend>libwebp-tools</exec_depend>  
   <exec_depend>meld</exec_depend>
