@@ -427,12 +427,13 @@ class OsUtil:
         return url[last_slash_index + 1:last_suffix_index]
 
     @staticmethod
-    def which(executable_name: str):
+    def which(executable_name: str, throw_exception=False):
         """
-        @raise ReferenceError: When `executable_name` not available.
+        @return: None when `throw_exception` is False AND the path to `executable_name` is not found.
+        @raise ReferenceError: When `executable_name` not available, only when `throw_exception` is True.
         """
         path = shutil.which(executable_name)
-        if not path:
+        if (not path) and throw_exception:
             raise ReferenceError(f"The executable '{executable_name}' not found.")
         return path
 
@@ -586,7 +587,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
-        self.get_paths_execs(self._args_in)
+        # TODO This member var, purpose of which particularly, is fairly undefined.
+        # Better way to manage un/found execs is wanted.
+        self._execs_found = self.get_paths_execs(self._args_in)
         self._setup_git()
 
     def get_paths_execs(self, args_in: argparse.Namespace):
@@ -935,16 +938,29 @@ class DebianSetup(ShellCapableOsSetup):
         # Returning the verification result
         return OsUtil.which("code")
 
-    def get_paths_execs(self, args_in: argparse.Namespace):
+    def get_paths_execs(self, args_in: argparse.Namespace) -> bool:
         """
+        @return True when all of the desired execs are found.
         @raise ReferenceError: When one of the `OsUtil.which` calls unable to find the corresponding path.
         """
-        self._which_apt = OsUtil.which("apt")
-        self._which_aptcache = OsUtil.which("apt-cache")
-        self._which_aptkey = OsUtil.which("apt-key")
-        self._which_echo = OsUtil.which("echo")
-        self._which_service = OsUtil.which("service")
-        self._which_unset = OsUtil.which("unset")
+        unavailable_count = 0
+        exec_pairs = [
+            [self._which_apt, "apt"],
+            [self._which_aptcache, "apt-cache"],
+            [self._which_aptkey, "apt-key"],
+            [self._which_echo, "echo"],
+            [self._which_service, "service"],
+            [self._which_unset, "unset"]]
+
+        for exec_pair in exec_pairs:
+            exec_pair[0] = OsUtil.which(exec_pair[1])
+            if not exec_pair[0]:
+                unavailable_count += 1
+
+        if 0 < unavailable_count:
+            raise ReferenceError("One or more execs are not found.")
+        else:
+            return True            
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
@@ -1063,8 +1079,11 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.info(f"Looks like Docker setup is already completed.")
                 return
         except RuntimeWarning as e:
-            self._logger.info(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
+            self._logger.warning(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
+        if not self._execs_found:
+            self.add_runtime_issue("Not all necessary executables is found. Aborting setting up Docker.")
+            return
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
         OsUtil.subproc_bash("usermod -aG docker {}".format(userid_os), does_sudo=True)
@@ -1497,7 +1516,7 @@ treats the user ID tha is used to execute this tool as the main user."""
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true", default=True)
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
 
         args = parser.parse_args()
