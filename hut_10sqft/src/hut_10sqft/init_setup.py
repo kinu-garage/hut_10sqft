@@ -145,10 +145,9 @@ class OsUtil:
 
     @staticmethod
     def setup_rosdep():
-        _path_rosdep = OsUtil.which("rosdep")
-        OsUtil.subproc_bash(f"{_path_rosdep} init", does_sudo=True)
-        OsUtil.subproc_bash(f"{_path_rosdep} update")
-        OsUtil.subproc_bash(f"{OsUtil.which('apt')} update", does_sudo=True)
+        OsUtil.subproc_bash(f"rosdep init", does_sudo=True)
+        OsUtil.subproc_bash(f"rosdep update")
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
 
     @staticmethod
     def apt_install(deb_pkg_names: list[str], logger=None):
@@ -168,10 +167,7 @@ class OsUtil:
           - When a candidate for 'debpkg_name' not found, ret_code = -1001
           - When a candidate found but not found installed, ret_code = -1002
         """
-        _path_apt_cache = OsUtil.which("apt-cache")
-        if not _path_apt_cache:
-            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
-        output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
+        output, error, ret_code = OsUtil.subproc_bash(f"apt-cache policy {debpkg_name}")
         if not output:
             ret_code = OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
             error = f"'{debpkg_name}' is not found on this OS, even as an install candidate. Check if it is really available."
@@ -214,15 +210,13 @@ class OsUtil:
 
     @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
-        _path_apt = OsUtil.which("apt")
-
         # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
         # so if a list is spplied then it'd take square brackets and would return an error.
         # Thus need to expand as a non-list, single string.
         deb_pkg_names_str = " ".join(deb_pkgs_name)
 
-        OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
-        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
+        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive apt install -y {deb_pkg_names_str}", does_sudo=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
         OsUtil.apt_cache_policy(deb_pkgs_name)
 
@@ -257,7 +251,7 @@ class OsUtil:
             logger.warning(f"No pip pkgs requested to be installed, so skpping. Passed: {pip_pkgs}")
             return
         _PIP_OPTION_BREAK = "--break-system-packages"
-        cmd_list = [OsUtil.which('pip'), 'install', *pip_pkgs]
+        cmd_list = ['pip', 'install', *pip_pkgs]
         
         if allow_break:
             cmd_list.append(_PIP_OPTION_BREAK)
@@ -427,7 +421,7 @@ class OsUtil:
         return url[last_slash_index + 1:last_suffix_index]
 
     @staticmethod
-    def which(executable_name: str, throw_exception=False):
+    def which(executable_name: str, throw_exception=False) -> str:
         """
         @return: None when `throw_exception` is False AND the path to `executable_name` is not found.
         @raise ReferenceError: When `executable_name` not available, only when `throw_exception` is True.
@@ -589,10 +583,15 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # TODO This member var, purpose of which particularly, is fairly undefined.
         # Better way to manage un/found execs is wanted.
-        self._execs_found = self.get_paths_execs(self._args_in)
+        self._execs_found = self.docker_available(self._args_in)
         self._setup_git()
 
-    def get_paths_execs(self, args_in: argparse.Namespace):
+    def docker_available(self, args_in: argparse.Namespace):
+        """
+        @deprecated: `get_paths_execs` is planned to be deprecated throughout the entire package
+            as `subprocess` should be able to resolve just like the shell environment does, as long as
+            the values of `PATH` env var is properly passed.
+        """
         self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
         if not args_in.skip_setup_docker:
             # Only when 'skip_setup_docker' is True.
@@ -684,7 +683,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         bash_return_code = -1
         _MSG_ERR = "Docker setup is not done yet"
         try:
-            output, error, bash_return_code = OsUtil.subproc_bash(f"{self._which_docker} images")
+            output, error, bash_return_code = OsUtil.subproc_bash(f"docker images")
         except AttributeError as e:
             raise RuntimeWarning(_MSG_ERR)
         if bash_return_code == 0:
@@ -938,30 +937,6 @@ class DebianSetup(ShellCapableOsSetup):
         # Returning the verification result
         return OsUtil.which("code")
 
-    def get_paths_execs(self, args_in: argparse.Namespace) -> bool:
-        """
-        @return True when all of the desired execs are found.
-        @raise ReferenceError: When one of the `OsUtil.which` calls unable to find the corresponding path.
-        """
-        unavailable_count = 0
-        exec_pairs = [
-            [self._which_apt, "apt"],
-            [self._which_aptcache, "apt-cache"],
-            [self._which_aptkey, "apt-key"],
-            [self._which_echo, "echo"],
-            [self._which_service, "service"],
-            [self._which_unset, "unset"]]
-
-        for exec_pair in exec_pairs:
-            exec_pair[0] = OsUtil.which(exec_pair[1])
-            if not exec_pair[0]:
-                unavailable_count += 1
-
-        if 0 < unavailable_count:
-            raise ReferenceError("One or more execs are not found.")
-        else:
-            return True            
-
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
         _abspath_conf_dir = os.path.join(abspath_local_perm_conf, "dconf")
@@ -1040,7 +1015,7 @@ class DebianSetup(ShellCapableOsSetup):
         _option = ""
         if branch:
             _option = "-b" + " " + branch
-        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
+        OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
         self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
@@ -1064,7 +1039,7 @@ class DebianSetup(ShellCapableOsSetup):
         if self.apt_updated:
             self._logger.warning("'apt update' was already done before. Skipping")
             return
-        cmd = f"{self._which_apt} update"
+        cmd = f"apt update"
         _out, _err, retcode = OsUtil.subproc_bash(cmd, does_sudo=True)
         if retcode != 0:
             raise subprocess.CalledProcessError(
@@ -1089,18 +1064,18 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash("usermod -aG docker {}".format(userid_os), does_sudo=True)
 
         # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
-        OsUtil.subproc_bash(f"{self._which_aptkey} adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
-        OsUtil.subproc_bash(f'{self._which_echo} "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
+        OsUtil.subproc_bash(f"apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
+        OsUtil.subproc_bash(f'echo "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
         self.apt_update()
-        OsUtil.subproc_bash(f"{self._which_apt} purge lxc-docker", does_sudo=True)
-        OsUtil.subproc_bash(f"{self._which_aptcache} policy docker-engine")
-        OsUtil.subproc_bash(f"{self._which_apt} install linux-image-extra-$(uname -r)", does_sudo=True)
+        OsUtil.subproc_bash(f"apt purge lxc-docker", does_sudo=True)
+        OsUtil.subproc_bash(f"apt-cache policy docker-engine")
+        OsUtil.subproc_bash(f"apt install linux-image-extra-$(uname -r)", does_sudo=True)
         # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
-        OsUtil.subproc_bash(f'{self._which_apt} -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
+        OsUtil.subproc_bash(f'apt -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
                             does_sudo=True, non_interactive=True)
-        OsUtil.subproc_bash(f"{self._which_service} docker start", does_sudo=True)
-        OsUtil.subproc_bash(f"{self._which_unset} $DEBIAN_FRONTEND")
-        OsUtil.subproc_bash(f'{self._which_docker} run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
+        OsUtil.subproc_bash(f"service docker start", does_sudo=True)
+        OsUtil.subproc_bash(f"unset $DEBIAN_FRONTEND")
+        OsUtil.subproc_bash(f'docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
     
     def _setup_git(self):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
@@ -1161,7 +1136,7 @@ class DebianSetup(ShellCapableOsSetup):
         @summary: Verifies if `deb_pkg_name` package is installed.
         @exception RuntimeError: If `deb_pkg_name` package is not installed.
         """
-        cmd = f"{self._which_aptcache} policy {deb_pkg_name}"
+        cmd = f"apt-cache policy {deb_pkg_name}"
         output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
         if bash_return_code != 0:
             raise RuntimeError(f"Package '{deb_pkg_name}' is not installed.")
@@ -1376,8 +1351,8 @@ class UbuntuOsSetup (DebianSetup):
 
     def setup_ros_installer_src(self):
         self.set_ros_apt_source()
-        cmd_obtain_apt_key_rosdep = f"{OsUtil.which('wget')} http://packages.ros.org/ros.key"
-        cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
+        cmd_obtain_apt_key_rosdep = f"wget http://packages.ros.org/ros.key"
+        cmd_set_apt_key_rosdep = f"apt-key add ros.key"
         OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
         OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
         self.apt_update()
@@ -1391,7 +1366,7 @@ class UbuntuOsSetup (DebianSetup):
         """
         @summary: Install specific `snap` packages that are not available via apt and other package managers.
         """
-        cmd = f"{OsUtil.which('snap')} install {snap_pkg}"
+        cmd = f"snap install {snap_pkg}"
         output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
         if bash_return_code != 0:
             raise RuntimeError(f"Failed to install snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
