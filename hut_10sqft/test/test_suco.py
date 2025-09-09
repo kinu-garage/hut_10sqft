@@ -18,21 +18,25 @@ import os
 import pytest
 import sys
 
-from hut_10sqft.init_setup import ChromeOsSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
+from hut_10sqft.init_setup import ChromeOsSetup, CompInitSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
 
 ATTR_HOME_DIR = "user_home_dir"
 ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
 
 @pytest.fixture
 def cfgbuilder():
+    _csetup = CompInitSetup()
+    _args = _csetup._cli_args()
     _os_type, _distro_type = OsUtil.get_os_type()
+    _args.os = _os_type
+    _args.hostname = "suco_test_host"
     if _os_type == OsUtil.TYPE_OS_LINUX:
         # Assuming Ubuntu is a common Linux distribution
-        return ChromeOsSetup()
+        return ChromeOsSetup(args_in=_args)
     elif _os_type == OsUtil.TYPE_OS_MACOS:
         # You can add more specific checks for macOS versions if needed,
         # e.g., using platform.mac_ver()
-        return MacOsSetup()
+        return MacOsSetup(args_in=_args)
     else:
         raise RuntimeError(f"Unsupported OS platform: {_os_type}.")
 
