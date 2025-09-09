@@ -909,10 +909,6 @@ class DebianSetup(ShellCapableOsSetup):
 
         super().__init__(os_name, args_in)
 
-        # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
-        # for those executables that are likely only available on Debian variants.
-        self.get_paths_execs(args_in)
-
     @property
     def apt_updated(self):
         return self._apt_updated
@@ -1374,7 +1370,7 @@ class UbuntuOsSetup (DebianSetup):
 
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = OsUtil.TYPE_OS_MACOS
-    def __init__(self, os_name=_OS_TYPE):
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
@@ -1480,7 +1476,8 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Optional but close to required args
         parser.add_argument("--hostname", required=True, help="Specify in case you need to modify the host name.")
         parser.add_argument("--msg_endroll", help="Specify the message string that will be printed at the end in case of need.")
-        parser.add_argument("--os", required=True, help=f"Type of OS. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {MacOsSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
+        parser.add_argument("--os_distro", required=True, help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
+        parser.add_argument("--os_type", required=False, help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}")
         parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
         parser.add_argument("--path_local_conf_repo",
                             help=self._MSG_PATH_PERMCONF_REPO,
@@ -1511,13 +1508,13 @@ treats the user ID tha is used to execute this tool as the main user."""
         _args = self._cli_args()
         # Builder pattern
         _os_builder = None
-        if _args.os == ChromeOsSetup._OS_TYPE:
+        if _args.os_distro == ChromeOsSetup._OS_TYPE:
             _os_builder = ChromeOsSetup(args_in=_args)
-        elif _args.os == DebianSetup._OS_TYPE:
+        elif _args.os_distro == DebianSetup._OS_TYPE:
             _os_builder = DebianSetup(args_in=_args)
-        elif _args.os == UbuntuOsSetup._OS_TYPE:
+        elif _args.os_distro == UbuntuOsSetup._OS_TYPE:
             _os_builder = UbuntuOsSetup(args_in=_args)
-        elif _args.os == MacOsSetup._OS_TYPE:
+        elif _args.os_distro == MacOsSetup._OS_TYPE:
             _os_builder = MacOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")

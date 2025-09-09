@@ -17,7 +17,7 @@ Usage
      sudo apt update && sudo apt install -y curl python3 &&  \
      curl --output $INITOS https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/src/hut_10sqft/init_setup.py && \
      chmod 755 $INITOS && \
-     $INITOS --hostname $HOST_NAME --os $OSTYPE --user_id $USERID --conf_repo_version $VERSION
+     $INITOS --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION
    ```
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
