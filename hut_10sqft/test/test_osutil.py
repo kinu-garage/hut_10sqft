@@ -18,6 +18,7 @@ from datetime import datetime
 import os
 from pathlib import Path
 import pytest
+import sys
 
 from hut_10sqft.init_setup import OsUtil
 
@@ -100,6 +101,7 @@ def test_copy_a_file_backup(filepath_src, filepath_dst):
 def test_copy_a_file_symlink_overwrite(timestamp, filepath_src):
     _test_copy_a_file_symlink(timestamp, filepath_src, overwrite=True)
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="This test is not compatible with MacOS.")
 def test_apt_install():
     """
     @description: Test apt install functionality.
