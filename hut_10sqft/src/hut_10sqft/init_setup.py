@@ -988,7 +988,7 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
+    def install_deps_adhoc(self, deb_pkgs=[str], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
