@@ -332,7 +332,7 @@ class OsUtil:
             cmd = "DEBIAN_FRONTEND=noninteractive " + cmd
         bash_full_cmd.append(cmd)
 
-        logger.info(f"subprocess: About to execute the cmd: {cmd}")
+        logger.info(f"subprocess: About to execute the cmd: {bash_full_cmd}")
         _subproc = None
         if print_stdout_err:
             _subproc = subprocess.Popen(bash_full_cmd)
@@ -1487,7 +1487,7 @@ treats the user ID tha is used to execute this tool as the main user."""
     _MSG_ARG_BASE_CONF_PATH = """Path where the conf repo will be cloned into.
  Modifying it is an advanced/bold move, and behavior with the modified path is not planned to be tested as of 2024/08."""
     _URL_CONFREPO = f"https://github.com/kinu-garage/{_REPO_PERMANENT_CONFIG}.git"
-    _PATH_VSCODE_INSTALLER = "~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb"
+    _PATH_VSCODE_INSTALLER = pathlib.Path("~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb").expanduser()
 
     def __init__(self):
         self._logger = logging.getLogger(self._LOGGER_NAME)
