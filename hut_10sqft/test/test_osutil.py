@@ -123,6 +123,16 @@ class TestOsUtil():
         assert OsUtil.which("curl")  # Success if not None.
         assert OsUtil.which("wget")  # Success if not None.
 
+    @pytest.mark.skipif(
+            (_distro_type != OsUtil.TYPE_LINUX_DISTRO_DEBIAN) and
+            (_distro_type != OsUtil.TYPE_LINUX_DISTRO_UBUNTU), reason="This test is not compatible with Non Debian-based OS")
+    def test_apt_install_arg_without_list(self):
+        """
+        @description: If a pkg name string is passed instead of list of strings, the test still should pass.
+        """
+        OsUtil.apt_install("curl")
+        assert OsUtil.which("curl")  # Success if not None.
+
     @pytest.fixture
     def pkgname_nonexistent(self):
         return "apt-pkg-non-existent"

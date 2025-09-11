@@ -23,6 +23,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from typing import List
 from datetime import datetime
 
 
@@ -156,7 +157,7 @@ class OsUtil:
         """
         if not logger:
             logger = OsUtil._gen_logger()
-        logger.info("Installing by apt: {}".format(deb_pkg_names))
+        logger.info(f"Installing by apt: {deb_pkg_names}")
         OsUtil._apt_install_bash(deb_pkg_names, logger)
 
     @staticmethod
@@ -187,6 +188,8 @@ class OsUtil:
             logger = OsUtil._gen_logger()
         if not debpkg_names:
             raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
+        if (type(debpkg_names) is not list):
+            debpkg_names = OsUtil._encapsulate_if_string(debpkg_names)
         if " " in debpkg_names:
             raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
 
@@ -209,7 +212,19 @@ class OsUtil:
         return _msg_all
 
     @staticmethod
+    def _encapsulate_if_string(var) -> List[str]:
+        """
+        @summary: If 'var' is a string, encapsulate it in a list.
+        """
+        if (type(var) is str) and (" " not in var):
+            var = [var]
+        return var
+
+    @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
+        if (type(deb_pkgs_name) is not list):
+            deb_pkgs_name = OsUtil._encapsulate_if_string(deb_pkgs_name)
+
         # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
         # so if a list is spplied then it'd take square brackets and would return an error.
         # Thus need to expand as a non-list, single string.
@@ -785,6 +800,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Implement SSH setup logic here
         raise NotImplementedError("SSH setup is not implemented yet.")
 
+    def nonrosdep_deps(self) -> tuple[list[str], list[str]]:
+        """
+        @return: Tuple of two lists: (list of deb packages, list of pip packages)
+        """
+        raise NotImplementedError()
+
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
@@ -826,8 +847,11 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
         # Install dependency that is not available via rosdep
+        _deps, _deps_pip = self.nonrosdep_deps()
         try:
-            self.install_deps_adhoc()
+            # TODO In DebianSetup, 'install_deps_adhoc' is already called within 'setup_rosdep_and_run',
+            # so this call here might be redundant with no good reason. This needs to be re-think-ed.
+            self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
             self.add_runtime_issue(e)            
         except RuntimeError as e:
@@ -979,20 +1003,23 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
-        if not deb_pkgs:
-            deb_pkgs = self._DEBIAN_DEB_DEPS
+    def nonrosdep_deps(self) -> tuple[list[str], list[str]]:
+        """@override"""
+        return self._DEBIAN_DEB_DEPS, self._PIP_PKGS
 
+    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[str], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
+    def install_deps_adhoc(self, deb_pkgs, pip_pkgs="", allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
-        @param pip_pkgs: Set format. 
+        @param deb_pkgs: [str] intended but if a str without being in a list format nor whitespace,
+            then it should be accepted as well, as it'll be internally converted to a list.
+        @param pip_pkgs: Same applies as 'deb_pkgs'.
         @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
         self.apt_update()
