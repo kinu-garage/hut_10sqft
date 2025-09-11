@@ -16,10 +16,10 @@ jobs:
   build:
 
     strategy:
+      fail-fast: false  # Allows other jobs in the matrix to continue if one fails
       matrix:
-#        os: [debian-11, ubuntu-24.04, macos-11]
         os: [ubuntu-24.04, macos-13]
-
+#        os: [debian-11, ubuntu-24.04, macos-11]
     runs-on: ${{ matrix.os }}
 
     steps:

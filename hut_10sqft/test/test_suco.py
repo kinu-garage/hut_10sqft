@@ -14,27 +14,40 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import argparse
 import os
 import pytest
 import sys
 
-from hut_10sqft.init_setup import ChromeOsSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
+from hut_10sqft.init_setup import ChromeOsSetup, CompInitSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
 
 ATTR_HOME_DIR = "user_home_dir"
 ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
 
 @pytest.fixture
-def cfgbuilder():
+def argparsed():
+    _args = argparse.Namespace()
     _os_type, _distro_type = OsUtil.get_os_type()
-    if _os_type == OsUtil.TYPE_OS_LINUX:
-        # Assuming Ubuntu is a common Linux distribution
-        return ChromeOsSetup()
-    elif _os_type == OsUtil.TYPE_OS_MACOS:
+    _args.os_distro = _distro_type
+    _args.os_type = _os_type
+    _args.hostname = "suco_test_host"
+    _args.user_id = "suco_test_user"
+    _args.skip_setup_docker = True
+    return _args
+
+@pytest.fixture
+def cfgbuilder(argparsed):
+    if argparsed.os_type == OsUtil.TYPE_OS_LINUX:
+        if argparsed.os_distro == OsUtil.TYPE_LINUX_DISTRO_DEBIAN:
+            return ChromeOsSetup(args_in=argparsed)
+        elif argparsed.os_distro == OsUtil.TYPE_LINUX_DISTRO_UBUNTU:
+            return UbuntuOsSetup(args_in=argparsed)
+    elif argparsed.os_type == OsUtil.TYPE_OS_MACOS:
         # You can add more specific checks for macOS versions if needed,
         # e.g., using platform.mac_ver()
-        return MacOsSetup()
+        return MacOsSetup(args_in=argparsed)
     else:
-        raise RuntimeError(f"Unsupported OS platform: {_os_type}.")
+        raise RuntimeError(f"Unsupported OS platform: {argparsed.os_distro}.")
 
 @pytest.fixture
 def chromeos_input_params():

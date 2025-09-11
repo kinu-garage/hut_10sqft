@@ -23,6 +23,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+from typing import List
 from datetime import datetime
 
 
@@ -116,7 +117,7 @@ class OsUtil:
     """
     SUFFIX_BACKUP = ".bk"
     _LOGGER_NAME = "OsUtil-logger"
-    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable. Is this Debian-based OS?"
+    _MSG_EXEC_NOT_FOUND = "Cannot find '{}' executable."
 
     ERRORCOCDE_APTCACHE_NOCANDIDATE = -1001
     ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED = -1002
@@ -145,10 +146,9 @@ class OsUtil:
 
     @staticmethod
     def setup_rosdep():
-        _path_rosdep = shutil.which("rosdep")
-        OsUtil.subproc_bash(f"{_path_rosdep} init", does_sudo=True)
-        OsUtil.subproc_bash(f"{_path_rosdep} update")
-        OsUtil.subproc_bash(f"{shutil.which('apt')} update", does_sudo=True)
+        OsUtil.subproc_bash(f"rosdep init", does_sudo=True)
+        OsUtil.subproc_bash(f"rosdep update")
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
 
     @staticmethod
     def apt_install(deb_pkg_names: list[str], logger=None):
@@ -157,7 +157,7 @@ class OsUtil:
         """
         if not logger:
             logger = OsUtil._gen_logger()
-        logger.info("Installing by apt: {}".format(deb_pkg_names))
+        logger.info(f"Installing by apt: {deb_pkg_names}")
         OsUtil._apt_install_bash(deb_pkg_names, logger)
 
     @staticmethod
@@ -168,10 +168,7 @@ class OsUtil:
           - When a candidate for 'debpkg_name' not found, ret_code = -1001
           - When a candidate found but not found installed, ret_code = -1002
         """
-        _path_apt_cache = shutil.which("apt-cache")
-        if not _path_apt_cache:
-            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt-cache"))
-        output, error, ret_code = OsUtil.subproc_bash(f"{_path_apt_cache} policy {debpkg_name}")
+        output, error, ret_code = OsUtil.subproc_bash(f"apt-cache policy {debpkg_name}")
         if not output:
             ret_code = OsUtil.ERRORCOCDE_APTCACHE_NOCANDIDATE
             error = f"'{debpkg_name}' is not found on this OS, even as an install candidate. Check if it is really available."
@@ -191,6 +188,8 @@ class OsUtil:
             logger = OsUtil._gen_logger()
         if not debpkg_names:
             raise ValueError("No deb package names passed to 'apt_cache_policy' method.")
+        if (type(debpkg_names) is not list):
+            debpkg_names = OsUtil._encapsulate_if_string(debpkg_names)
         if " " in debpkg_names:
             raise ValueError(f"Space found in the input that is supposed to be a list of pkg names: {debpkg_names}")
 
@@ -213,18 +212,26 @@ class OsUtil:
         return _msg_all
 
     @staticmethod
+    def _encapsulate_if_string(var) -> List[str]:
+        """
+        @summary: If 'var' is a string, encapsulate it in a list.
+        """
+        if (type(var) is str) and (" " not in var):
+            var = [var]
+        return var
+
+    @staticmethod
     def _apt_install_bash(deb_pkgs_name: list[str], logger=None):
-        _path_apt = shutil.which("apt")
-        if not _path_apt:
-            raise LookupError(OsUtil._MSG_EXEC_NOT_FOUND.format("apt"))
+        if (type(deb_pkgs_name) is not list):
+            deb_pkgs_name = OsUtil._encapsulate_if_string(deb_pkgs_name)
 
         # 'deb_pkgs_name' is a list of strings, while subprocess takes an input literally
         # so if a list is spplied then it'd take square brackets and would return an error.
         # Thus need to expand as a non-list, single string.
         deb_pkg_names_str = " ".join(deb_pkgs_name)
 
-        OsUtil.subproc_bash(f"{_path_apt} update", does_sudo=True)
-        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive {_path_apt} install -y {deb_pkg_names_str}", does_sudo=True)
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
+        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive apt install -y {deb_pkg_names_str}", does_sudo=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
         OsUtil.apt_cache_policy(deb_pkgs_name)
 
@@ -259,7 +266,7 @@ class OsUtil:
             logger.warning(f"No pip pkgs requested to be installed, so skpping. Passed: {pip_pkgs}")
             return
         _PIP_OPTION_BREAK = "--break-system-packages"
-        cmd_list = [OsUtil.which('pip'), 'install', *pip_pkgs]
+        cmd_list = ['pip', 'install', *pip_pkgs]
         
         if allow_break:
             cmd_list.append(_PIP_OPTION_BREAK)
@@ -325,7 +332,7 @@ class OsUtil:
             cmd = "DEBIAN_FRONTEND=noninteractive " + cmd
         bash_full_cmd.append(cmd)
 
-        logger.info(f"subprocess: About to execute the cmd: {cmd}")
+        logger.info(f"subprocess: About to execute the cmd: {bash_full_cmd}")
         _subproc = None
         if print_stdout_err:
             _subproc = subprocess.Popen(bash_full_cmd)
@@ -429,9 +436,13 @@ class OsUtil:
         return url[last_slash_index + 1:last_suffix_index]
 
     @staticmethod
-    def which(executable_name: str):
+    def which(executable_name: str, throw_exception=False) -> str:
+        """
+        @return: None when `throw_exception` is False AND the path to `executable_name` is not found.
+        @raise ReferenceError: When `executable_name` not available, only when `throw_exception` is True.
+        """
         path = shutil.which(executable_name)
-        if not path:
+        if (not path) and throw_exception:
             raise ReferenceError(f"The executable '{executable_name}' not found.")
         return path
 
@@ -488,7 +499,7 @@ class AbstCompSetupFactory():
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
             os.makedirs(self._path_base_conf)
- 
+
     @property
     def list_runtime_issues(self):
         return self._list_runtime_issues
@@ -585,10 +596,17 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
-        self.get_paths_execs(self._args_in)
+        # TODO This member var, purpose of which particularly, is fairly undefined.
+        # Better way to manage un/found execs is wanted.
+        self._execs_found = self.docker_available(self._args_in)
         self._setup_git()
 
-    def get_paths_execs(self, args_in: argparse.Namespace):
+    def docker_available(self, args_in: argparse.Namespace):
+        """
+        @deprecated: `get_paths_execs` is planned to be deprecated throughout the entire package
+            as `subprocess` should be able to resolve just like the shell environment does, as long as
+            the values of `PATH` env var is properly passed.
+        """
         self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
         if not args_in.skip_setup_docker:
             # Only when 'skip_setup_docker' is True.
@@ -601,6 +619,9 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         @description:
             Upon implementation, 'self._which_git' must be filled in with the concrete path of the executable of 'git'.
         """
+        raise NotImplementedError()
+
+    def setup_vscode(self, path_installer: str):
         raise NotImplementedError()
 
     def swap_file(self, src_file: str, dest_file: str, suffix_backup=".org"):
@@ -677,7 +698,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         bash_return_code = -1
         _MSG_ERR = "Docker setup is not done yet"
         try:
-            output, error, bash_return_code = OsUtil.subproc_bash(f"{self._which_docker} images")
+            output, error, bash_return_code = OsUtil.subproc_bash(f"docker images")
         except AttributeError as e:
             raise RuntimeWarning(_MSG_ERR)
         if bash_return_code == 0:
@@ -779,6 +800,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Implement SSH setup logic here
         raise NotImplementedError("SSH setup is not implemented yet.")
 
+    def nonrosdep_deps(self) -> tuple[list[str], list[str]]:
+        """
+        @return: Tuple of two lists: (list of deb packages, list of pip packages)
+        """
+        raise NotImplementedError()
+
     def run(self, args, host_config, conf_repo_remote, conf_base_path):
         """
         @type args: (argparse' output)
@@ -820,8 +847,11 @@ This is most notably ammendable by setting up local client executables of Dropbo
         # Installation by batch based on the list defined in package.xml.
         self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
         # Install dependency that is not available via rosdep
+        _deps, _deps_pip = self.nonrosdep_deps()
         try:
-            self.install_deps_adhoc()
+            # TODO In DebianSetup, 'install_deps_adhoc' is already called within 'setup_rosdep_and_run',
+            # so this call here might be redundant with no good reason. This needs to be re-think-ed.
+            self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
             self.add_runtime_issue(e)            
         except RuntimeError as e:
@@ -867,6 +897,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
 
+        self.setup_vscode(path_installer=args.path_vscode_installer)
+
 
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
@@ -901,10 +933,6 @@ class DebianSetup(ShellCapableOsSetup):
 
         super().__init__(os_name, args_in)
 
-        # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
-        # for those executables that are likely only available on Debian variants.
-        self.get_paths_execs(args_in)
-
     @property
     def apt_updated(self):
         return self._apt_updated
@@ -913,13 +941,21 @@ class DebianSetup(ShellCapableOsSetup):
     def apt_updated(self, value):
         self._apt_updated = value
 
-    def get_paths_execs(self, args_in: argparse.Namespace):
-        self._which_apt = shutil.which("apt")
-        self._which_aptcache = shutil.which("apt-cache")
-        self._which_aptkey = shutil.which("apt-key")
-        self._which_echo = shutil.which("echo")
-        self._which_service = shutil.which("service")
-        self._which_unset = shutil.which("unset")
+    def setup_vscode(self, path_installer: str) -> str:
+        """
+        @return: Path to the 'code' executable, None if installation was unsuccessful.
+        @see https://code.visualstudio.com/blogs/2020/12/03/chromebook-get-started
+        @raise ReferenceError: if setting up failed.
+        """
+        if not path_installer:
+            raise ValueError(f"'path_installer' is empty.")
+
+        self.install_deps_adhoc("gnome-keyring")
+        cmd_install = f"dpkg -i {path_installer}"
+        OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        # Returning the verification result
+        return OsUtil.which("code")
 
     def setup_terminal_configs(self, abspath_local_perm_conf: str):
         _CONFFILE_NAME_SHORTCUT = "terminal_shortcuts.dconf"
@@ -967,20 +1003,23 @@ class DebianSetup(ShellCapableOsSetup):
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
-    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
-        if not deb_pkgs:
-            deb_pkgs = self._DEBIAN_DEB_DEPS
+    def nonrosdep_deps(self) -> tuple[list[str], list[str]]:
+        """@override"""
+        return self._DEBIAN_DEB_DEPS, self._PIP_PKGS
 
+    def _install_deps_adhoc_debian(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False):
         OsUtil.apt_install(deb_pkgs, self._logger)
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
-    def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
+    def install_deps_adhoc(self, deb_pkgs, pip_pkgs="", allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
         @summary: Install the packages that cannot be installed by batch using
             'rosdep install'. Example is 'python3-rosdep' itself.
-        @param pip_pkgs: Set format. 
+        @param deb_pkgs: [str] intended but if a str without being in a list format nor whitespace,
+            then it should be accepted as well, as it'll be internally converted to a list.
+        @param pip_pkgs: Same applies as 'deb_pkgs'.
         @param allow_break: If True, `pip` runs with '--break-system-packages' option.
         """
         self.apt_update()
@@ -999,7 +1038,7 @@ class DebianSetup(ShellCapableOsSetup):
         _option = ""
         if branch:
             _option = "-b" + " " + branch
-        OsUtil.subproc_bash(f"{self._which_git} clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
+        OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
         self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
@@ -1023,7 +1062,7 @@ class DebianSetup(ShellCapableOsSetup):
         if self.apt_updated:
             self._logger.warning("'apt update' was already done before. Skipping")
             return
-        cmd = f"{self._which_apt} update"
+        cmd = f"apt update"
         _out, _err, retcode = OsUtil.subproc_bash(cmd, does_sudo=True)
         if retcode != 0:
             raise subprocess.CalledProcessError(
@@ -1038,31 +1077,34 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.info(f"Looks like Docker setup is already completed.")
                 return
         except RuntimeWarning as e:
-            self._logger.info(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
+            self._logger.warning(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
+        if not self._execs_found:
+            self.add_runtime_issue("Not all necessary executables is found. Aborting setting up Docker.")
+            return
 
         OsUtil.subproc_bash("groupadd docker", does_sudo=True)
         OsUtil.subproc_bash("usermod -aG docker {}".format(userid_os), does_sudo=True)
 
         # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
-        OsUtil.subproc_bash(f"{self._which_aptkey} adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
-        OsUtil.subproc_bash(f'{self._which_echo} "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
+        OsUtil.subproc_bash(f"apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
+        OsUtil.subproc_bash(f'echo "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
         self.apt_update()
-        OsUtil.subproc_bash(f"{self._which_apt} purge lxc-docker", does_sudo=True)
-        OsUtil.subproc_bash(f"{self._which_aptcache} policy docker-engine")
-        OsUtil.subproc_bash(f"{self._which_apt} install linux-image-extra-$(uname -r)", does_sudo=True)
+        OsUtil.subproc_bash(f"apt purge lxc-docker", does_sudo=True)
+        OsUtil.subproc_bash(f"apt-cache policy docker-engine")
+        OsUtil.subproc_bash(f"apt install linux-image-extra-$(uname -r)", does_sudo=True)
         # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
-        OsUtil.subproc_bash(f'{self._which_apt} -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
+        OsUtil.subproc_bash(f'apt -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
                             does_sudo=True, non_interactive=True)
-        OsUtil.subproc_bash(f"{self._which_service} docker start", does_sudo=True)
-        OsUtil.subproc_bash(f"{self._which_unset} $DEBIAN_FRONTEND")
-        OsUtil.subproc_bash(f'{self._which_docker} run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
+        OsUtil.subproc_bash(f"service docker start", does_sudo=True)
+        OsUtil.subproc_bash(f"unset $DEBIAN_FRONTEND")
+        OsUtil.subproc_bash(f'docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
     
     def _setup_git(self):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
         # If git had not been installed yet prior to the one line above,
         # then its executable hadn't been available either.
-        self._which_git = shutil.which("git")
+        self._which_git = OsUtil.which("git")
 
     def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         pairs_conf_autostart = [
@@ -1117,7 +1159,7 @@ class DebianSetup(ShellCapableOsSetup):
         @summary: Verifies if `deb_pkg_name` package is installed.
         @exception RuntimeError: If `deb_pkg_name` package is not installed.
         """
-        cmd = f"{self._which_aptcache} policy {deb_pkg_name}"
+        cmd = f"apt-cache policy {deb_pkg_name}"
         output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
         if bash_return_code != 0:
             raise RuntimeError(f"Package '{deb_pkg_name}' is not installed.")
@@ -1332,8 +1374,8 @@ class UbuntuOsSetup (DebianSetup):
 
     def setup_ros_installer_src(self):
         self.set_ros_apt_source()
-        cmd_obtain_apt_key_rosdep = f"{shutil.which('wget')} http://packages.ros.org/ros.key"
-        cmd_set_apt_key_rosdep = f"{self._which_aptkey} add ros.key"
+        cmd_obtain_apt_key_rosdep = f"wget http://packages.ros.org/ros.key"
+        cmd_set_apt_key_rosdep = f"apt-key add ros.key"
         OsUtil.subproc_bash(cmd_obtain_apt_key_rosdep)
         OsUtil.subproc_bash(cmd_set_apt_key_rosdep, does_sudo=True)
         self.apt_update()
@@ -1347,7 +1389,7 @@ class UbuntuOsSetup (DebianSetup):
         """
         @summary: Install specific `snap` packages that are not available via apt and other package managers.
         """
-        cmd = f"{shutil.which('snap')} install {snap_pkg}"
+        cmd = f"snap install {snap_pkg}"
         output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=True)
         if bash_return_code != 0:
             raise RuntimeError(f"Failed to install snap package '{snap_pkg}'.\n\tOutput: {output}\n\tError: {error}")
@@ -1355,7 +1397,7 @@ class UbuntuOsSetup (DebianSetup):
 
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = OsUtil.TYPE_OS_MACOS
-    def __init__(self, os_name=_OS_TYPE):
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
@@ -1401,6 +1443,9 @@ class MacOsSetup(AbstCompSetupFactory):
         raise RuntimeWarning(f"Enabling SSH server on MacOS might have to be done manually. See https://superuser.com/a/1764825/106974, \
                              or the text copied from there below:\n{_MSG_INSTRUCTION_ENABLE_SSH_SERVER}")
 
+    def setup_vscode(self, path_installer: str):
+        raise RuntimeWarning("Skipping as no plan to use this host for the development.")
+
 
 class CompInitSetup():
     """
@@ -1442,6 +1487,7 @@ treats the user ID tha is used to execute this tool as the main user."""
     _MSG_ARG_BASE_CONF_PATH = """Path where the conf repo will be cloned into.
  Modifying it is an advanced/bold move, and behavior with the modified path is not planned to be tested as of 2024/08."""
     _URL_CONFREPO = f"https://github.com/kinu-garage/{_REPO_PERMANENT_CONFIG}.git"
+    _PATH_VSCODE_INSTALLER = pathlib.Path("~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb").expanduser()
 
     def __init__(self):
         self._logger = logging.getLogger(self._LOGGER_NAME)
@@ -1457,7 +1503,8 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Optional but close to required args
         parser.add_argument("--hostname", required=True, help="Specify in case you need to modify the host name.")
         parser.add_argument("--msg_endroll", help="Specify the message string that will be printed at the end in case of need.")
-        parser.add_argument("--os", required=True, help=f"Type of OS. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {MacOsSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
+        parser.add_argument("--os_distro", required=True, help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
+        parser.add_argument("--os_type", required=False, help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}")
         parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
         parser.add_argument("--path_local_conf_repo",
                             help=self._MSG_PATH_PERMCONF_REPO,
@@ -1468,7 +1515,8 @@ treats the user ID tha is used to execute this tool as the main user."""
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true", default=True)
+        parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
@@ -1487,13 +1535,13 @@ treats the user ID tha is used to execute this tool as the main user."""
         _args = self._cli_args()
         # Builder pattern
         _os_builder = None
-        if _args.os == ChromeOsSetup._OS_TYPE:
+        if _args.os_distro == ChromeOsSetup._OS_TYPE:
             _os_builder = ChromeOsSetup(args_in=_args)
-        elif _args.os == DebianSetup._OS_TYPE:
+        elif _args.os_distro == DebianSetup._OS_TYPE:
             _os_builder = DebianSetup(args_in=_args)
-        elif _args.os == UbuntuOsSetup._OS_TYPE:
+        elif _args.os_distro == UbuntuOsSetup._OS_TYPE:
             _os_builder = UbuntuOsSetup(args_in=_args)
-        elif _args.os == MacOsSetup._OS_TYPE:
+        elif _args.os_distro == MacOsSetup._OS_TYPE:
             _os_builder = MacOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
