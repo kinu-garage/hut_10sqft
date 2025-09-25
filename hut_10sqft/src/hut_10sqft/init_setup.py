@@ -62,7 +62,7 @@ class HostConf():
 
 class ConfigDispach():
     """Need for the setter of each entry is questionable in the beginning though"""
-    def __init__(self, path_source, path_dest=None, is_symlink=False, necessary=False, hint_enable=""):
+    def __init__(self, path_source, path_dest=None, is_symlink=False, necessary=True, hint_enable=""):
         """
         @param necessary: If True, when the path in `path_source` not found then the accessor should raise an error.
         @param hint_enable: Hint to enable the symlink creation, e.g. how to set up a mount on to Google Drive directory from Linux container on ChromeOS.
@@ -750,6 +750,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
                     _error_msg += f"\nHint: {pair.hint_enable}"
                 self.add_runtime_issue(e)
                 self._logger.error(_error_msg)
+                if not pair.necessary:
+                    continue
                 raise e
 
     def set_os_user_conf(
@@ -1316,6 +1318,7 @@ class UbuntuOsSetup (DebianSetup):
             ConfigDispach(
                 path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
+                necessary=False,
                 is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, self._DIR_DROXBOX_CONTAINER, "Dropbox", "My Mac (tork-mac1)"),
