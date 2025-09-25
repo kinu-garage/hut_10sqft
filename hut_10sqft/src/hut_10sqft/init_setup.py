@@ -1282,19 +1282,19 @@ class UbuntuOsSetup (DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "git_repos"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "JobSuchen"),
-                path_dest=os.path.join(rootpath_symlinks, "JobSuchen"),
+                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career"),
+                path_dest=os.path.join(rootpath_symlinks, "Career"),
                 is_symlink=True),
             ConfigDispach(
                 path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Current"),
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "engineering", "ARIAC"),
+                path_source=os.path.join(path_user_home, "link", "Career", "engineering", "ARIAC"),
                 path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
                 is_symlink=True),
             ConfigDispach(
-                path_source=os.path.join(path_user_home, "link", "GoogleDrive", "Career", "MOOC"),
+                path_source=os.path.join(path_user_home, "link", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
             ConfigDispach(
