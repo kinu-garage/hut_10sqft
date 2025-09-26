@@ -376,6 +376,8 @@ class OsUtil:
         - True if dest exists after the process.
         - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispach. This method can be written with just taking str.
+        @raise FileExistsError: When 'overwrite' is False and the destination file already exists.
+        @raise FileNotFoundError: When a file at 'path_source' does not exist.
         """
         if not logger:
             logger = OsUtil._gen_logger()
@@ -490,15 +492,55 @@ class AbstCompSetupFactory():
     """
     _DIR_DROXBOX_CONTAINER = "data"  # This is beyond programming, something that sticks with 130s' computer usage for decades.
 
-    def __init__(self, os_name="", args_in: argparse.Namespace=None):
+    def __init__(self, os_name="", args_in: argparse.Namespace=None, hostname=""):
+        """
+        @param hostname: If non-empty, this value will be set instead of the one in `args_in.hostname`.
+        """
         self._os = os_name
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
+        if (not hostname) and args_in.hostname:
+            self._hostname = args_in.hostname
+        else:
+            self._hostname = hostname
+
         # Create a conf folder under ~/.
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
-            os.makedirs(self._path_base_conf)
+            os.makedirs(self._path_base_conf) 
+
+        if not args_in:
+            # Host name
+            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
+            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
+            # User ID. Setting system-provided value when a user didn't pass a value.
+            try:
+                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
+            except KeyError as e:
+                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
+        else:
+            self._args_in = args_in
+
+            if args_in.user_id:
+                self._os_user_id = args_in.user_id
+
+        self._host_cfg = self.gen_hostconf(self._args_in.hostname)
+
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        """
+        @param hostname: Hostname to be set in the HostConf object.
+        @return: HostConf object with the given hostname and default values for other attributes. 
+        """
+        raise NotImplementedError()
+
+    @property
+    def host_cfg(self):
+        return self._host_cfg
+
+    @host_cfg.setter
+    def host_cfg(self, v):
+        self._host_cfg = v
 
     @property
     def list_runtime_issues(self):
@@ -556,10 +598,13 @@ class AbstCompSetupFactory():
     def __repr__(self) -> str:
         return f"{type(self).__name__}(os_name={self._os_name})"
 
-    def run(self, host_config, conf_repo_remote, conf_base_path=""):
+    def run(self, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
+        raise NotImplementedError()
+
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str, abs_path_private_confdir: str):
         raise NotImplementedError()
 
 
@@ -574,24 +619,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     def __init__(self, os_name="", args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
-
-        self._args_in = args_in
-
-        if not args_in:  # Setting rather arbitrary values when argparse output is none.
-            # Host name
-            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
-            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
-            # User ID
-            try:
-                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
-            except KeyError as e:
-                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
-        else:
-            if args_in.hostname:
-                self._hostname = args_in.hostname
-
-            if args_in.user_id:
-                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
@@ -658,8 +685,16 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf)
         self.setup_file(conf_gitignore)
 
-    def setup_dropbox(self):
+    def _is_dropbox_setup(self):
         output, error, bash_return_code = OsUtil.subproc_bash("dropbox")
+        return output, error, bash_return_code 
+
+    def setup_dropbox(self):
+        """
+        @raise RuntimeWarning: When Dropbox setup needs to be done manually.
+        @raise RuntimeError: When Dropbox installation seems to have failed.
+        """
+        o, e, bash_return_code = self._is_dropbox_setup()
         if bash_return_code == 0:
             self._logger.info("Skipping Dropbox setup as it's already set up.")
 
@@ -669,6 +704,12 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         OsUtil.subproc_bash("wget {}".format(url_deb))
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code != 0:
+            raise RuntimeError(f"Dropbox installation seems to have failed. Error: {e}")
+        
+        raise RuntimeWarning("Dropbox: Installation is done. Its setup needs to be done manually.")
 
     def clone(self, repo_to_clone, dir_cloned_at, branch=""):
         """
@@ -730,9 +771,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         @param skip: Set 'True' when docker is not necessary e.g. running already inside a docker container.
         """
-        raise NotImplementedError()
-
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
@@ -855,7 +893,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             # so this call here might be redundant with no good reason. This needs to be re-think-ed.
             self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
-            self.add_runtime_issue(e)            
+            self.add_runtime_issue(e)
         except RuntimeError as e:
             self.add_runtime_issue(e)            
 
@@ -867,6 +905,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
+        _abs_path_private_confdir = os.path.join(args.path_local_conf_repo, args.path_private_conf_dir)
+        
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
 
         self.setup_terminal_configs(_abs_path_confdir)
@@ -894,7 +934,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             path_user_home=self._user_home_dir)
         self.common_symlinks(_pairs_symlinks)
 
-        self.setup_configs(host_config, abs_path_confdir=_abs_path_confdir)
+        self.setup_configs(self.host_config, abs_path_confdir=_abs_path_confdir, abs_path_private_confdir=_abs_path_private_confdir)
 
         _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
@@ -921,6 +961,7 @@ class DebianSetup(ShellCapableOsSetup):
                 #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
                 "synaptic",
+                "system-config-printer"
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "whois",
@@ -1056,8 +1097,8 @@ class DebianSetup(ShellCapableOsSetup):
     ## sudo apt install oracle-java8-set-default
 """)
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path=""):
-        super().run(args, host_config, conf_repo_remote, conf_base_path)
+    def run(self, args, conf_repo_remote, conf_base_path=""):
+        super().run(args, self.host_config, conf_repo_remote, conf_base_path)
         self.setup_oracle_java()
 
     def apt_update(self):
@@ -1108,7 +1149,7 @@ class DebianSetup(ShellCapableOsSetup):
         # then its executable hadn't been available either.
         self._which_git = OsUtil.which("git")
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str="~/.config/hut_10sqft", abs_path_private_confdir: str=):
         pairs_conf_autostart = [
             ConfigDispach(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
@@ -1403,6 +1444,10 @@ class MacOsSetup(AbstCompSetupFactory):
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
         super().__init__(os_name)
 
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
+        raise RuntimeWarning("Sounds like rosdep seems supported on MacOS but it is not realized on 130s-mac1 host \
+                             (related https://github.com/ros2/ros2_documentation/issues/5818), so skipping the setup for now.")
+
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")
 
@@ -1435,6 +1480,31 @@ class MacOsSetup(AbstCompSetupFactory):
             ]
         return pairs_symlinks
 
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+        pairs_conf_bash = [
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".bashrc"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_bash:
+            self.setup_file(c, overwrite=True)
+
+        # TODO ssh config, path of which needs to be private.
+
+        pairs_conf_tools = [
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
+                path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
+                is_symlink=True),
+            ConfigDispach(
+                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".emacs"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_tools:
+            self.setup_file(c)
+
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
         _MSG_INSTRUCTION_ENABLE_SSH_SERVER = "On terminal run 'sudo systemsetup -setremotelogin on'. \
             If you get an error that looks like:\n \
@@ -1448,6 +1518,27 @@ class MacOsSetup(AbstCompSetupFactory):
 
     def setup_vscode(self, path_installer: str):
         raise RuntimeWarning("Skipping as no plan to use this host for the development.")
+
+
+class Brya(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "emacs_130s-brya.el", "id_rsa_130s-brya", "id_rsa_130s-brya.pub")
+
+class C13Morph(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
+
+class Mac1(MacOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-mac1.bash", "130s-mac1.el", prvkey, pubkey)
+
+class P16S2(UbuntuOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+
+class Zork16(ChromeOsSetup):
+    def gen_hostconf(self, hostname: str) -> HostConf:
+        return HostConf(hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
 
 
 class CompInitSetup():
@@ -1471,6 +1562,7 @@ class CompInitSetup():
     _PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(_PATH_FOLDER_CONF, _REPO_PERMANENT_CONFIG)
     # Un-expanded version of this looks like 'hut_10sqft/config'
     _PATH_DEFAULT_CONFIG_CONFDIR = os.path.join(_REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
+    _PATH_DEFAULT_PRIVATE_CONFDIR = os.path.join(pathlib.Path.home(), "data", "Dropbox", "app")  # This has been used on all shell-enabled OSes so far but it'll be nice if user can designate.
     _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     # Messages for stdout
     _MSG_CONSOLE_TOOL_INTRO = """This tool is for setting up a Linux-based personal computer.
@@ -1482,6 +1574,8 @@ class CompInitSetup():
 which is for {DebianSetup._OS_TYPE}."""
     _MSG_PATH_CONF_DIR = f"""Path to the the config folder within the '{_REPO_PERMANENT_CONFIG}' repo.
  If not passed then the path will be the default {_PATH_DEFAULT_CONFIG_CONFDIR}."""
+    _MSG_PATH_PRIVATE_CONF_DIR = f"Path to the the folder of private configs within the Dropbox dir. \
+        If not passed then the path will be the default {_PATH_DEFAULT_PRIVATE_CONFDIR}."
     _MSG_ARG_PATH_COMMON_SYMLINKS = f"""Path to the folder that contains symlinks.
  If not passed then the path will be the default {_PATH_SYMLINKS_DIR}."""    
     _MSG_ARG_USERID = """User ID on the OS that will be mainly used. While this
@@ -1509,13 +1603,15 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--os_distro", required=True, help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
         parser.add_argument("--os_type", required=False, help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}")
         parser.add_argument("--path_base_conf", required=False, help=self._MSG_ARG_BASE_CONF_PATH, default=self._PATH_FOLDER_CONF)
-        parser.add_argument("--path_local_conf_repo",
-                            help=self._MSG_PATH_PERMCONF_REPO,
+        parser.add_argument("--path_local_conf_repo",                            help=self._MSG_PATH_PERMCONF_REPO,
                             default=self._PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir",
                             help=self._MSG_PATH_CONF_DIR,
                             default=self._PATH_DEFAULT_CONFIG_CONFDIR)
+        parser.add_argument("--path_conf_private_dir",
+                            help=self._MSG_PATH_PRIVATE_CONF_DIR,
+                            default=self._PATH_DEFAULT_PRIVATE_CONFDIR)
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=self._PATH_SYMLINKS_DIR)
         parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true", default=True)
@@ -1539,13 +1635,22 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Builder pattern
         _os_builder = None
         if _args.os_distro == ChromeOsSetup._OS_TYPE:
-            _os_builder = ChromeOsSetup(args_in=_args)
+            if _args.hostname == self.HOSTNAME_BRYA:            
+                _os_builder = Brya(args_in=_args, hostname=_args.hostname)
+            elif _args.hostname == (self.HOSTNAME_C13_MORPH or self.HOSTNAME_ZORK16 or self.HOSTNAME_OPFYDE_RPI5):
+                _os_builder == C13Morph(args_in=_args, hostname=_args.hostname)
         elif _args.os_distro == DebianSetup._OS_TYPE:
-            _os_builder = DebianSetup(args_in=_args)
+            _os_builder = DebianSetup(args_in=_args, hostname=_args.hostname)
         elif _args.os_distro == UbuntuOsSetup._OS_TYPE:
-            _os_builder = UbuntuOsSetup(args_in=_args)
-        elif _args.os_distro == MacOsSetup._OS_TYPE:
-            _os_builder = MacOsSetup(args_in=_args)
+            if _args.hostname == self.HOSTNAME_P16S:
+                _os_builder = P16S2(args_in=_args, hostname=_args.hostname)
+            _os_builder = UbuntuOsSetup(args_in=_args, hostname=_args.hostname)
+        # TODO The condition in this 'if' clause are not met --
+        # i.e.  some ask about 'os_distro' while some does for a different value.
+        # This can be a source of future issues.
+        elif _args.os_type == MacOsSetup._OS_TYPE:
+            if _args.hostname == self.HOSTNAME_MAC1:
+                _os_builder = Mac1(os_name=_args.os, args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
 
