@@ -19,7 +19,12 @@ import os
 import pytest
 import sys
 
-from hut_10sqft.init_setup import ChromeOsSetup, CompInitSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
+from hut_10sqft.comp_chrome_os import ChromeOsSetup
+from hut_10sqft.suco_main import CompInitSetup
+from hut_10sqft.comp_mac_os import MacOsSetup
+from hut_10sqft.comp_ubuntu import UbuntuOsSetup
+from hut_10sqft.config_dispatch import ConfigDispatch
+from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
 ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
@@ -60,7 +65,7 @@ def test_generate_symlinks(cfgbuilder, chromeos_input_params):
     pairs = cfgbuilder.generate_symlinks(
             rootpath_symlinks=os.path.join(chromeos_input_params[ATTR_HOME_DIR], chromeos_input_params[ATTR_PATH_SYMLINKS_DIR]),
             path_user_home=chromeos_input_params[ATTR_HOME_DIR])
-#    assert type(pairs) == list[ConfigDispach]
+#    assert type(pairs) == list[ConfigDispatch]
     assert type(pairs) == list
     assert len(pairs) == 6
     

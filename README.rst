@@ -25,4 +25,10 @@ Python modules in this package can be tested via `nosetests <http://nose.readthe
 
 Currently you should move to %REPO_HOME%/`test` folder to run nosetests.
 
+Repository content
+==================
+This repo contains multiple packages.
+- [hut_10sqft_lib](./hut_10sqft_lib): Library/API-only package.
+- [hut_10sqft](./hut_10sqft): Aimed to meet the original author's very specific usecases.
+
 EoF
