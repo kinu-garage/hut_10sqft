@@ -11,7 +11,7 @@ setup(
      ('share/' + package_name, ['package.xml']),
    ],
  install_requires=[
-     'colcon-common-extensions'
+     'colcon-common-extensions',
      'setuptools',
      ],
  zip_safe=True,
