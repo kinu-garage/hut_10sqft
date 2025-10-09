@@ -93,7 +93,7 @@ class AbstCompSetupFactory():
     def __repr__(self) -> str:
         return f"{type(self).__name__}(os_name={self._os_name})"
 
-    def run(self, host_config, conf_repo_remote, conf_base_path=""):
+    def run(self, host_config: HostConf, conf_repo_remote, conf_base_path=""):
         raise NotImplementedError()
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home=""):
@@ -202,7 +202,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
 
-    def clone(self, repo_to_clone, dir_cloned_at, branch=""):
+    def clone(self, repo_to_clone: str, dir_cloned_at: str, branch=""):
         """
         @return: Absolute path of the successfully cloned local repo.
         @raise ValueError when some input is null
@@ -340,9 +340,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
         """
         raise NotImplementedError()
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path):
+    def run(self, host_config: HostConf, conf_repo_remote: str, conf_base_path: str):
         """
-        @type args: (argparse' output)
         @type host_cfg: HostConf
         @param conf_repo: Absolute path URL of the repo to clone that contains host config.
         @param conf_base_path: Path to a local location conf_repo to be cloned to.
@@ -379,7 +378,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             For now the user account that is used to execute this process will be the main account.""")
 
         # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(args.path_local_conf_repo, init_rosdep=True)
+        self.setup_rosdep_and_run(self._args_in.path_local_conf_repo, init_rosdep=True)
         # Install dependency that is not available via rosdep
         _deps, _deps_pip = self.nonrosdep_deps()
         try:
@@ -398,7 +397,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
         except RuntimeError as e:
             self.add_runtime_issue(e)
 
-        _abs_path_confdir = os.path.join(args.path_local_conf_repo, args.path_conf_dir)
+        _abs_path_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_conf_dir)
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
 
         self.setup_terminal_configs(_abs_path_confdir)
@@ -420,15 +419,15 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         self.create_data_dir(
             [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
-             os.path.join(self._user_home_dir, args.path_symlinks_dir)])
+             os.path.join(self._user_home_dir, self._args_in.path_symlinks_dir)])
         _pairs_symlinks = self.generate_symlinks(
-            rootpath_symlinks=os.path.join(self._user_home_dir, args.path_symlinks_dir),
+            rootpath_symlinks=os.path.join(self._user_home_dir, self._args_in.path_symlinks_dir),
             path_user_home=self._user_home_dir)
         self.common_symlinks(_pairs_symlinks)
 
         self.setup_configs(host_config, abs_path_confdir=_abs_path_confdir)
 
-        _msg_endroll = args.msg_endroll if args.msg_endroll else "Setup finished."
+        _msg_endroll = self._args_in.msg_endroll if self._args_in.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
 
-        self.setup_vscode(path_installer=args.path_vscode_installer)
+        self.setup_vscode(path_installer=self._args_in.path_vscode_installer)

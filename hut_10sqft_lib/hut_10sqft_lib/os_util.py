@@ -83,7 +83,7 @@ class OsUtil:
             ret_code = OsUtil.ERRORCOCDE_APTCACHE_CANDIDATE_NOTINSTALLED
             error = f"The install candidate of the pkg '{debpkg_name}' found on this OS, but 'apt-cache policy' didn't find it installed."
         return output, error, ret_code
-        
+
     @staticmethod
     def apt_cache_policy(debpkg_names: list[str], logger=None):
         """
@@ -110,12 +110,12 @@ class OsUtil:
                 logger.info(f"'apt-cache policy' result for '{pkg_name}':\n\t{output}")
         _msg_result_header = f"Report: Package installation status:\n"
         _msg_result_header_success = f"- Packages found installed: {pkgs_success}"
-        _msg_all = f"{_msg_result_header}\n\t{_msg_result_header_success}"
+        _msg_all = f"{_msg_result_header}\n{_msg_result_header_success}"
         if errors:
             _str_errors = ""
             for error in errors:
-                _str_errors += "\t" + error + "\n"
-            raise RuntimeWarning(f"{_msg_all}\n\t- The following pkgs didn't get installed: {_str_errors}")
+                _str_errors += "\t- " + error + "\n"
+            raise RuntimeWarning(f"{_msg_all}\n- The following pkgs didn't get installed:\n {_str_errors}")
         return _msg_all
 
     @staticmethod

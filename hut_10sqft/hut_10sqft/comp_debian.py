@@ -167,8 +167,8 @@ class DebianSetup(ShellCapableOsSetup):
     ## sudo apt install oracle-java8-set-default
 """)
 
-    def run(self, args, host_config, conf_repo_remote, conf_base_path=""):
-        super().run(args, host_config, conf_repo_remote, conf_base_path)
+    def run(self, host_config, conf_repo_remote, conf_base_path=""):
+        super().run(host_config, conf_repo_remote, conf_base_path)
         self.setup_oracle_java()
 
     def apt_update(self):

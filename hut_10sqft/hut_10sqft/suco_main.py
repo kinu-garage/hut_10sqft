@@ -102,7 +102,11 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         return args
 
-    def run(self):
+    def run(self) -> bool:
+        """
+        @return bool: `True` if reaches the end of the method, if it doesn't reach the end nothing returns.
+          This is primarily for testing purpose.
+        """
         _args = self._cli_args()
         # Builder pattern
         _os_builder = None
@@ -136,14 +140,14 @@ treats the user ID tha is used to execute this tool as the main user."""
         # Ref. "_MSG_ARG_BASE_CONF_PATH"
         _conf_base_path = OsUtil.tilde_to_expand(_args.path_base_conf) if _args.path_base_conf else ""
             
-        _os_builder.run(_args,
-                        _host_cfg,
+        _os_builder.run(_host_cfg,
                         conf_repo_remote=self._URL_CONFREPO,
                         conf_base_path=_conf_base_path)
 
         _msg_endroll = _args.msg_endroll if _args.msg_endroll else "Setup finished."
         self._logger.info(_msg_endroll)
         _os_builder.listup_runtime_issues()
+        return True
 
 
 def main():
