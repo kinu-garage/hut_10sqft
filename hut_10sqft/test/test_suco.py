@@ -24,6 +24,7 @@ from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
 from hut_10sqft.host_config import HostConf
 from hut_10sqft.suco_main import CompInitSetup
+from hut_10sqft.suco_main import CompInitSetupConfig, SucoInstaller
 from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
@@ -31,7 +32,7 @@ ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
 
 @pytest.fixture
 def argparsed():
-    parser = argparse.ArgumentParser(description=CompInitSetup._MSG_CONSOLE_TOOL_INTRO)
+    parser = argparse.ArgumentParser(description=CompInitSetupConfig.MSG_CONSOLE_TOOL_INTRO)
     _args = parser.parse_args([])
 
     _os_type, _distro_type = OsUtil.get_os_type()
@@ -42,7 +43,7 @@ def argparsed():
     _args.user_id = "suco_test_user"
     _args.skip_setup_docker = True
     _args.conf_repo_version = "develop"
-    _args.path_local_conf_repo = CompInitSetup._PATH_DEFAULT_PERMANENT_CONF_REPO
+    _args.path_local_conf_repo = CompInitSetupConfig.PATH_DEFAULT_PERMANENT_CONF_REPO
     return _args
 
 @pytest.fixture
@@ -83,4 +84,4 @@ def test_suco_main(cfgbuilder):
     assert cfgbuilder.run(
         _host_cfg,
         conf_repo_remote=CompInitSetup._URL_CONFREPO,
-        conf_base_path=CompInitSetup._PATH_FOLDER_CONF) is True
+        conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True

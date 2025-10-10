@@ -23,5 +23,7 @@ setup(
  tests_require=['pytest'],
  entry_points={
      "console_scripts": [
-         "suco = hut_10sqft.suco_main:main",]},
+         "suco = hut_10sqft.suco_main:main",
+         "suco_installer = hut_10sqft.suco_installer:main"
+         ]},
 )
