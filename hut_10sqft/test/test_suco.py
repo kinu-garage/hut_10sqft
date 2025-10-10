@@ -23,8 +23,7 @@ from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
 from hut_10sqft.host_config import HostConf
-from hut_10sqft.suco_main import CompInitSetup
-from hut_10sqft.suco_main import CompInitSetupConfig, SucoInstaller
+from hut_10sqft.suco_installer import CompInitSetupConfig
 from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
