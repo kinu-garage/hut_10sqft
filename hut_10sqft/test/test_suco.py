@@ -80,8 +80,8 @@ def test_suco_main(cfgbuilder):
     @summary: End-to-end test of the main logic of SUCO.
     """
     # Just for test purpose, use an existing host config.
-    _host_cfg = HostConf(CompInitSetup.HOSTNAME_P16S, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+    _host_cfg = HostConf(CompInitSetupConfig.HOSTNAME_P16S, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
     assert cfgbuilder.run(
         _host_cfg,
-        conf_repo_remote=CompInitSetup._URL_CONFREPO,
+        conf_repo_remote=CompInitSetupConfig.URL_HUT,
         conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True
