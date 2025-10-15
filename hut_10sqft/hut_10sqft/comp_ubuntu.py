@@ -145,9 +145,31 @@ class UbuntuOsSetup (DebianSetup):
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
                            path_os_release = "/etc/os-release",
                            key_os_code = "VERSION_CODENAME="):
-        _URL_ROS2_UBUNTU_INSTALL_DEP = "https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html"
-        self._logger.warning(f"At some point after ROS2 Foxy, the apt source setting for ROS2 on Ubuntu has changed. Follow manually the instruction at {_URL_ROS2_UBUNTU_INSTALL_DEP}. "
-                             f"If the ROS2 setup is not done, then the future steps that depend on ROS2 apt source setting might fail.")
+        """
+        @summary: Set up apt source for ROS2 on Ubuntu.
+        """
+        _URL_DEB_APT_SRC = "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"
+
+        # Execute the following bash command set, which is documented in https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html#setup-sources:
+        # ```
+        # sudo apt update && sudo apt install curl -y
+        # export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
+        # curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
+        # sudo dpkg -i /tmp/ros2-apt-source.deb
+        # ```
+        cmd_install_curl = "apt update && apt install curl -y"
+        OsUtil.subproc_bash(cmd_install_curl, does_sudo=True, print_stdout_err=True, logger=self._logger)
+        # Some gimmicks in order to copy-paste `bash` cmd on Python code.
+        # - Escape single-quote by backslash.
+        # - Avoid using f-string, use an older method `.format`, as there's a usage of {} in `grep` cmd.
+        os.environ["ROS_APT_SOURCE_VERSION"] = '$(curl -s {} | grep -F "tag_name" | awk -F\" \'{print $4}\') && echo $ROS_APT_SOURCE_VERSION'.format(_URL_DEB_APT_SRC)
+        _ros_apt_src_version = os.environ["ROS_APT_SOURCE_VERSION"]
+        _path_deb = "/tmp/ros2-apt-source.deb"
+        _cmd_download_ros_apt_src_pkg = 'curl -L -o {} "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{}/ros2-apt-source_{}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb'.format(
+            _path_deb, _ros_apt_src_version, _ros_apt_src_version)
+        OsUtil.subproc_bash(_cmd_download_ros_apt_src_pkg, does_sudo=False, print_stdout_err=True, logger=self._logger)
+        cmd_install_ros_apt_src_pkg = f"dpkg -i {_path_deb}"
+        OsUtil.subproc_bash(cmd_install_ros_apt_src_pkg, does_sudo=True, print_stdout_err=True, logger=self._logger)
 
     def _set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
@@ -198,6 +220,9 @@ class UbuntuOsSetup (DebianSetup):
         self.apt_update()
 
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
+        # Execute 'apt-source_ros2.sh', which is supposed to function only on Ubuntu, is supposed to be globally installed within hut_10sqft package.
+        OsUtil.subproc_bash("apt-source_ros2.sh nosudo", does_sudo=False, logger=self._logger)
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
     def setup_snap_pkgs(self, snap_pkg: str):

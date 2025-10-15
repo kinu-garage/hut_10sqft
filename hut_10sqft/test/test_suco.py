@@ -84,3 +84,19 @@ def test_suco_main(cfgbuilder):
         _host_cfg,
         conf_repo_remote=CompInitSetupConfig.URL_HUT,
         conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True
+
+def test_read_conf_os_release():
+    """
+    @description: Test `OsUtil.read_conf` with /etc/os-release or /usr/lib/os-release file.
+    """
+    os_release_data = OsUtil.read_conf("/etc/os-release", path_alternative="/usr/lib/os-release")
+    assert isinstance(os_release_data, dict)
+    assert "NAME" in os_release_data
+    assert "VERSION_ID" in os_release_data
+    assert "ID" in os_release_data
+    assert "VERSION_CODENAME" in os_release_data
+    assert os_release_data["NAME"]  # Not empty
+    assert os_release_data["VERSION_ID"]  # Not empty
+    assert os_release_data["ID"]  # Not empty
+    assert os_release_data["VERSION_CODENAME"]  # Not empty
+

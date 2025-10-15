@@ -92,6 +92,7 @@ class DebianSetup(ShellCapableOsSetup):
         @param init_rosdep: If `True`, then `rosdep init` also executes.
         """
         self.setup_ros_installer_src()
+        self.install_deps_adhoc(deb_pkgs=[pkg_rosdep])
 
         if init_rosdep:
             OsUtil.setup_rosdep()

@@ -266,7 +266,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         if bash_return_code == 0:
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
-            raise RuntimeWarning(f"{_MSG_ERR}. Status unclear, sorry.")        
+            raise RuntimeWarning(f"{_MSG_ERR}. Status unclear, sorry. {output=} {error=}")
         return bash_return_code
 
     def _import_git(self):
@@ -428,9 +428,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_conf_dir)
-        _abs_path_private_confdir = os.path.join(argsself._args_in.path_local_conf_repo, self._args_in.path_private_conf_dir)
+        _abs_path_private_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_private_conf_dir)
 
-        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
+        self._logger.debug(f"'{_abs_path_confdir=}'")
 
         self.setup_terminal_configs(_abs_path_confdir)
 
