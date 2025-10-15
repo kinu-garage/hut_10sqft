@@ -130,22 +130,26 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
         # TODO This member var, purpose of which particularly, is fairly undefined.
         # Better way to manage un/found execs is wanted.
-        self._execs_found = self.docker_available(self._args_in)
+        self._exec_docker = self.docker_available(self._args_in)
         self._setup_git()
 
-    def docker_available(self, args_in: argparse.Namespace):
+    def docker_available(self, args_in: argparse.Namespace) -> str:
         """
         @deprecated: `get_paths_execs` is planned to be deprecated throughout the entire package
             as `subprocess` should be able to resolve just like the shell environment does, as long as
             the values of `PATH` env var is properly passed.
         """
         self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
+        _which_docker = ""
         if not args_in.skip_setup_docker:
             # Only when 'skip_setup_docker' is True.
             # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
             self._logger.info(f"Path to 'docker' executable: {self._which_docker}")
-
+            _which_docker = OsUtil.which("docker")
+            self._logger.info(f"Path to 'docker' executable: {_which_docker}")
+        return _which_docker
+    
     def _setup_git(self):
         """
         @description:
@@ -232,11 +236,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         try:
             output, error, bash_return_code = OsUtil.subproc_bash(f"docker images")
         except AttributeError as e:
-            raise RuntimeWarning(_MSG_ERR)
+            raise RuntimeWarning(f"{_MSG_ERR}. Error occurred while testing docker command: {str(e)}")        
         if bash_return_code == 0:
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
-            raise RuntimeWarning("Docker setup is not done yet")
+            raise RuntimeWarning(f"{_MSG_ERR}. Status unclear, sorry.")        
         return bash_return_code
 
     def _import_git(self):

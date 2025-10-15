@@ -205,7 +205,7 @@ class DebianSetup(ShellCapableOsSetup):
         except RuntimeWarning as e:
             self._logger.warning(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
-        if not self._execs_found:
+        if not self._exec_docker:
             self.add_runtime_issue("Not all necessary executables is found. Aborting setting up Docker.")
             return
 

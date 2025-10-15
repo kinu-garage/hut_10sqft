@@ -4,10 +4,6 @@
 # Copyright (C) 2025 Kinu Garage
 
 import argparse
-try:
-    import pkg_resources
-except ModuleNotFoundError as e:
-    print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
 import os
 import shutil
 
@@ -176,8 +172,6 @@ class UbuntuOsSetup (DebianSetup):
         self.apt_update()
 
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
-        if pkg_resources == self._APTPKG_ROSDEP2:
-            self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
     def setup_snap_pkgs(self, snap_pkg: str):
