@@ -232,7 +232,11 @@ class DebianSetup(ShellCapableOsSetup):
         # then its executable hadn't been available either.
         self._which_git = OsUtil.which("git")
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def setup_configs(
+            self,
+            host_config: HostConf,
+            abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
+            abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
         pairs_conf_autostart = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),

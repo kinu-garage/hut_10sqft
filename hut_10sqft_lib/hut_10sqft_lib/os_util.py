@@ -284,6 +284,8 @@ class OsUtil:
         - True if dest exists after the process.
         - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispatch. This method can be written with just taking str.
+        @raise FileExistsError: When 'overwrite' is False and the destination file already exists.
+        @raise FileNotFoundError: When a file at 'path_source' does not exist.
         """
         if not logger:
             logger = OsUtil._gen_logger()

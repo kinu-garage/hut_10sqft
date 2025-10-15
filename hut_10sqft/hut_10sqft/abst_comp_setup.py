@@ -104,6 +104,18 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     @summary: Operating system that is capable of bash, zsh or any *sh shell that meets this tool's requirement.
     """
+    # Name of the local repo that stores the config and will have to be
+    # available for the entire life time of the OS. 
+    _REPO_PERMANENT_CONFIG = "hut_10sqft"
+    _FOLDER_CONF_PERM_REPO = "config"
+    _PATH_FOLDER_CONF = os.path.join(pathlib.Path.home(), "." + _FOLDER_CONF_PERM_REPO)
+    # Un-expanded version of this looks like '~/.config/hut_10sqft'
+    _PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(_PATH_FOLDER_CONF, _REPO_PERMANENT_CONFIG)
+    # Un-expanded version of this looks like 'hut_10sqft/config'
+    _PATH_DEFAULT_CONFIG_CONFDIR = os.path.join(_REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
+    _PATH_DEFAULT_PRIVATE_CONFDIR = os.path.join(pathlib.Path.home(), "data", "Dropbox", "app")  # This has been used on all shell-enabled OSes so far but it'll be nice if user can designate.
+    _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
+    
     def __init__(self, os_name="", args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
 
@@ -194,17 +206,31 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf)
         self.setup_file(conf_gitignore)
 
-    def setup_dropbox(self):
+    def _is_dropbox_setup(self):
         output, error, bash_return_code = OsUtil.subproc_bash("dropbox")
-        if bash_return_code == 0:
-            self._logger.info("Skipping Dropbox setup as it's already set up.")
+        return output, error, bash_return_code 
 
+    def setup_dropbox(self, skip_install=False):
+        """
+        @raise RuntimeWarning: When Dropbox setup needs to be done manually.
+        @raise RuntimeError: When Dropbox installation seems to have failed.
+        """
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code == 0:
+           raise RuntimeWarning("Skipping Dropbox setup as it's already set up.")
+        if skip_install:
+           raise RuntimeWarning("Skipping Dropbox setup as the user requested to do so.")
         FILENAME_DEB_DROPBOX = "dropbox_2022.12.05_amd64.deb"
-        url_deb = "https://linux.dropbox.com/packages/ubuntu/{}".format(FILENAME_DEB_DROPBOX)
-        os.chdir("/tmp")
-        OsUtil.subproc_bash("wget {}".format(url_deb))
-        cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
+        url_deb = f"https://linux.dropbox.com/packages/ubuntu/{FILENAME_DEB_DROPBOX}"
+        OsUtil.subproc_bash(f"wget {url_deb} -O /tmp/{FILENAME_DEB_DROPBOX}")
+        cmd_install = f"dpkg -i /tmp/{FILENAME_DEB_DROPBOX}"
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code != 0:
+            raise RuntimeError(f"Dropbox installation seems to have failed. Error: {e}")
+
+        raise RuntimeWarning("Dropbox: Installation is done. Its setup needs to be done manually.")
 
     def clone(self, repo_to_clone: str, dir_cloned_at: str, branch=""):
         """
@@ -268,10 +294,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         raise NotImplementedError()
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def generate_symlinks(self, rootpath_symlinks, path_user_home):
         raise NotImplementedError()
 
-    def generate_symlinks(self, rootpath_symlinks, path_user_home):
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str, abs_path_private_confdir: str):
         raise NotImplementedError()
 
     def common_symlinks(self, pairs_symlinks: list[ConfigDispatch]):
@@ -390,7 +416,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             # so this call here might be redundant with no good reason. This needs to be re-think-ed.
             self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
-            self.add_runtime_issue(e)            
+            self.add_runtime_issue(e)
         except RuntimeError as e:
             self.add_runtime_issue(e)            
 
@@ -402,6 +428,8 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_conf_dir)
+        _abs_path_private_confdir = os.path.join(argsself._args_in.path_local_conf_repo, self._args_in.path_private_conf_dir)
+
         self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
 
         self.setup_terminal_configs(_abs_path_confdir)
@@ -419,7 +447,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         # Skip synergy setting.
 
-        self.setup_dropbox()
+        try:
+            self.setup_dropbox()
+        except RuntimeWarning as e:
+            self.add_runtime_issue(e)            
+        except Exception as e:
+            self.add_runtime_issue(e)
 
         self.create_data_dir(
             [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),
