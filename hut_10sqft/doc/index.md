@@ -5,19 +5,22 @@
 Prerequisite:
 - Any shell/terminal where an executable [`curl`](https://curl.se/), `python3` are available.
 
-Usage
+### Steps for Linux (Debian incl. ChromeOS / Ubuntu)
 
 1. Execute the following command. Note: Above command set assumes `bash` and `apt`. TBD for other platform and package managers.
    ```
-   $ export INITOS=/tmp/hut_10sqft_os-setup.py &&  \
+   $ export SUCO=/tmp/suco.py &&  \
+     export PATH_BASE_CLONE=~/.local/share/tmp_colconws_suco &&  \
      export VERSION=develop &&  \
-     export HOST_NAME=130s-C13-Morph &&  \
-     export OSTYPE=ChromeOS &&  \
+     export HOST_NAME=130s-p16s-3 &&  \
+     export OSTYPE=Ubuntu &&  \
      export USERID=n130s &&  \
-     sudo apt update && sudo apt install -y curl python3 &&  \
-     curl --output $INITOS https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/src/hut_10sqft/init_setup.py && \
-     chmod 755 $INITOS && \
-     $INITOS --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION
+     sudo apt update && sudo apt install -y curl git python3 &&  \
+     curl --output $SUCO https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && \
+     chmod 755 $SUCO && \
+     $SUCO --path_base_conf $PATH_BASE_CLONE && \
+     source $PATH_BASE_CLONE/install/setup.bash && \
+     suco --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION --path_base_conf $PATH_BASE_CLONE
    ```
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
@@ -37,6 +40,10 @@ Sometimes a deveoper may want to keep coding while testing on the actual targete
 
 Troubleshoot-1: Sometimes the downloaded execution .py file may not get updated even though you're sure you updated your branch on the remote.
 This may happen with Github sends cache/old state. Dumb solution is to update the branch name on the remote.
+
+### Steps for macOS
+
+TBD
 
 ## Usecase: Run a "Developer's Unit Test"
 

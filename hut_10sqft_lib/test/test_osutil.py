@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 import sys
 
-from hut_10sqft.init_setup import OsUtil
+from hut_10sqft_lib.os_util import OsUtil
 
 
 class TestOsUtil():

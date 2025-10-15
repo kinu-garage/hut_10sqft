@@ -17,26 +17,37 @@
 import argparse
 import os
 import pytest
-import sys
 
-from hut_10sqft.init_setup import ChromeOsSetup, CompInitSetup, ConfigDispach, MacOsSetup, OsUtil, UbuntuOsSetup
+from hut_10sqft.abst_comp_setup import AbstCompSetupFactory
+from hut_10sqft.comp_chrome_os import ChromeOsSetup
+from hut_10sqft.comp_mac_os import MacOsSetup
+from hut_10sqft.comp_ubuntu import UbuntuOsSetup
+from hut_10sqft.host_config import HostConf
+from hut_10sqft.suco_main import CompInitSetup
+from hut_10sqft.suco_main import CompInitSetupConfig, SucoInstaller
+from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
 ATTR_PATH_SYMLINKS_DIR = "path_symlinks_dir"
 
 @pytest.fixture
 def argparsed():
-    _args = argparse.Namespace()
+    parser = argparse.ArgumentParser(description=CompInitSetupConfig.MSG_CONSOLE_TOOL_INTRO)
+    _args = parser.parse_args([])
+
     _os_type, _distro_type = OsUtil.get_os_type()
+
     _args.os_distro = _distro_type
     _args.os_type = _os_type
     _args.hostname = "suco_test_host"
     _args.user_id = "suco_test_user"
     _args.skip_setup_docker = True
+    _args.conf_repo_version = "develop"
+    _args.path_local_conf_repo = CompInitSetupConfig.PATH_DEFAULT_PERMANENT_CONF_REPO
     return _args
 
 @pytest.fixture
-def cfgbuilder(argparsed):
+def cfgbuilder(argparsed) -> AbstCompSetupFactory:
     if argparsed.os_type == OsUtil.TYPE_OS_LINUX:
         if argparsed.os_distro == OsUtil.TYPE_LINUX_DISTRO_DEBIAN:
             return ChromeOsSetup(args_in=argparsed)
@@ -50,17 +61,27 @@ def cfgbuilder(argparsed):
         raise RuntimeError(f"Unsupported OS platform: {argparsed.os_distro}.")
 
 @pytest.fixture
-def chromeos_input_params():
+def init_input_params() -> dict:
     return {
         ATTR_HOME_DIR: "~",
         ATTR_PATH_SYMLINKS_DIR: "/"
     }
 
-def test_generate_symlinks(cfgbuilder, chromeos_input_params):
+def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     pairs = cfgbuilder.generate_symlinks(
-            rootpath_symlinks=os.path.join(chromeos_input_params[ATTR_HOME_DIR], chromeos_input_params[ATTR_PATH_SYMLINKS_DIR]),
-            path_user_home=chromeos_input_params[ATTR_HOME_DIR])
-#    assert type(pairs) == list[ConfigDispach]
+            rootpath_symlinks=os.path.join(init_input_params[ATTR_HOME_DIR], init_input_params[ATTR_PATH_SYMLINKS_DIR]),
+            path_user_home=init_input_params[ATTR_HOME_DIR])
+#    assert type(pairs) == list[ConfigDispatch]
     assert type(pairs) == list
     assert len(pairs) == 6
     
+def test_suco_main(cfgbuilder):
+    """
+    @summary: End-to-end test of the main logic of SUCO.
+    """
+    # Just for test purpose, use an existing host config.
+    _host_cfg = HostConf(CompInitSetupConfig.HOSTNAME_P16S, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+    assert cfgbuilder.run(
+        _host_cfg,
+        conf_repo_remote=CompInitSetupConfig.URL_HUT,
+        conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True

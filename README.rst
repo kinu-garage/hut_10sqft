@@ -21,8 +21,12 @@ See `hut_10sqft package's doc <./hut_10sqft/doc/index.md>`_.
 Run Python's tests
 ------------------
 
-Python modules in this package can be tested via `nosetests <http://nose.readthedocs.io/en/latest/>`_.
+Python modules in this package can be tested via `colcon test <https://colcon.readthedocs.io/en/released/reference/verb/test.html/>`_, which requires sourcing `setup.bash`. Refer to `.github folder <.github/workflows/python-app.yml/>`_ for some CI setting that runs tests.
 
-Currently you should move to %REPO_HOME%/`test` folder to run nosetests.
+Repository content
+==================
+This repo contains multiple packages.
+- [hut_10sqft_lib](./hut_10sqft_lib): Library/API-only package.
+- [hut_10sqft](./hut_10sqft): Aimed to meet the original author's very specific usecases.
 
 EoF
