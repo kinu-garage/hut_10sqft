@@ -154,7 +154,20 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
-        self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
+        """
+        @raise RuntimeException: When ssh server not confirmed to be running.
+        """
+        self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), \
+                          SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
+        if skip:
+            self._logger.warning(f"User chose to skip ssh setup.")
+            return
+
+        # Verify ssh server is up and running.
+        try:
+            OsUtil.is_ssh_server()
+        except Exception as e:
+            raise e
 
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:

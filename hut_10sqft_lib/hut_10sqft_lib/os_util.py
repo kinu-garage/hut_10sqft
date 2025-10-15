@@ -13,6 +13,7 @@ import os
 import pathlib
 import platform
 import shutil
+import socket
 import subprocess
 import sys
 from typing import List
@@ -389,3 +390,19 @@ class OsUtil:
         if not _type_os:
             raise RuntimeError(f"OS type undetected or unsupported type found: '{platform.system()}'")
         return _type_os, _type_distro
+
+    @staticmethod
+    def is_ssh_server(host='127.0.0.1', port=22, timeout=1):
+        """
+        @summary: Checks if an SSH server is running on the specified host and port.
+        @raise RuntimeError: When server is not confirmed to be running.
+        """
+        try:
+            with socket.create_connection((host, port), timeout=timeout) as sock:
+                # If the connection is successful, the server is likely running
+                # You could add further checks here, like reading a banner
+                return True
+        except (socket.timeout, ConnectionRefusedError) as e:
+            raise RuntimeError(f"An error regarding socket occurred while verifying ssh server operation: {e}")
+        except Exception as e:
+            raise RuntimeError(f"An error occurred while verifying ssh server operation: {e}")

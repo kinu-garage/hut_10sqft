@@ -322,13 +322,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
         """
         raise NotImplementedError()
 
-    def setup_ssh(self, skip=True, path_local_conf_repo=""):
+    def setup_ssh(self, skip=False, path_local_conf_repo=""):
         """
         @param skip: If True, skip setting up SSH.
         @param path_local_conf_repo: Path to the local configuration repo.
         """
         if skip:
-            self._logger.info("Skipping SSH setup as 'skip' is set to True.")
+            self._logger.warning("Skipping SSH setup as 'skip' is set to True.")
             return
 
         # Implement SSH setup logic here
@@ -403,7 +403,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self.setup_terminal_configs(_abs_path_confdir)
 
         try:
-            self.setup_ssh()
+            self.setup_ssh(skip=self._args_in.skip_ssh)
         except RuntimeWarning as e:
             self.add_runtime_issue(e)            
         except Exception as e:
