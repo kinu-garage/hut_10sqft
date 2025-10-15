@@ -408,3 +408,40 @@ class OsUtil:
             raise RuntimeError(f"An error regarding socket occurred while verifying ssh server operation: {e}")
         except Exception as e:
             raise RuntimeError(f"An error occurred while verifying ssh server operation: {e}")
+
+    @staticmethod
+    def read_conf(path: str, path_alternative: str="", logger=None) -> Dict[str, str]:
+        """
+        @summary: Reads, parses a text file where a set of attribute and the value pairs are 
+          e.g. `/etc/os-release`, and returns a dict of the pairs.
+        @param path: Primarily `/etc/os-release` is intended.
+        @param path_alternative: Alternative path to try when `path` not found.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()        
+        try:
+            filename = path
+            f = open(filename)
+        except FileNotFoundError:
+            if path_alternative:
+                return OsUtil.read_conf(path=path_alternative)
+
+        os_release_data = {}
+        for line_number, line in enumerate(f, start=1):
+            line = line.rstrip()
+            if not line or line.startswith('#'):
+                continue
+
+            m = re.match(r'([A-Z][A-Z_0-9]+)=(.+)', line)
+            if m:
+                name, val = m.groups()
+                # Handle quoted values
+                if val and val[0] in '\"\'':
+                    try:
+                        val = ast.literal_eval(val)
+                    except (SyntaxError, ValueError):
+                        # Fallback for simple cases or errors in literal_eval
+                        val = val.strip('\"\'')
+                os_release_data[name] = val
+        f.close()
+        return os_release_data

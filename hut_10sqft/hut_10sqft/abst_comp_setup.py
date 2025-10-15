@@ -32,6 +32,14 @@ class AbstCompSetupFactory():
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
+        self._logger.info("If 'user_id' is not passed, get the user id of the current process.")
+        if not getattr(args_in, "user_id", None):
+            args_in.user_id = pwd.getpwuid(os.getuid()).pw_name
+            self._logger.warning(f"Could not get user ID from OS. Setting an arbitrary user ID 'user_set_by_suco'.")
+        if not getattr(args_in, "hostname", None):
+            args_in.hostname = os.uname()[1]
+            self._logger.warning(f"If 'hostname' is not passed, get the host name from the OS.: {args_in.hostname}")
+
         # Create a conf folder under ~/.
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
         if not os.path.exists(self._path_base_conf):
@@ -120,22 +128,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         super().__init__(os_name, args_in)
 
         self._args_in = args_in
-
-        if not args_in:  # Setting rather arbitrary values when argparse output is none.
-            # Host name
-            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
-            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
-            # User ID
-            try:
-                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
-            except KeyError as e:
-                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
-        else:
-            if args_in.hostname:
-                self._hostname = args_in.hostname
-
-            if args_in.user_id:
-                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
@@ -377,7 +369,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
         @param conf_base_path: Path to a local location conf_repo to be cloned to.
           Default is defined in each OS type class by "_PATH_BASE_CONF" variable.
         """
-        self._logger.info("Update the host name as '{}'".format(self._hostname))
+        self._logger.info("Update the host name as '{}'".format(self._args_in.hostname))
 
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
@@ -391,14 +383,14 @@ This is most notably ammendable by setting up local client executables of Dropbo
             try:
                 self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
             except AttributeError as e:
-                _MSG_E = f"'setup_docker' method is incomp;lete. Moving on despite the error: {str(e)}"
+                _MSG_E = f"'setup_docker' method is incomplete. Moving on despite the error: {str(e)}"
                 self.add_runtime_issue(_MSG_E)
 
         else:
             self._logger.info(f"Skipping Docker setup as 'skip_setup_docker' is set to True (verify -> {self._args_in.skip_setup_docker}).")
 
         try:
-            self.update_hostname(self._hostname)
+            self.update_hostname(self._args_in.hostname)
         except NotImplementedError as e:
             self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
             self.add_runtime_issue(e)

@@ -149,25 +149,37 @@ class UbuntuOsSetup (DebianSetup):
         @summary: Set up apt source for ROS2 on Ubuntu.
         """
         _URL_DEB_APT_SRC = "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"
+        _URL_ROS_APT_SRC = "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"
+        _path_deb = "/tmp/ros2-apt-source.deb"
 
         # Execute the following bash command set, which is documented in https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html#setup-sources:
-        # ```
-        # sudo apt update && sudo apt install curl -y
-        # export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
-        # curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb"
-        # sudo dpkg -i /tmp/ros2-apt-source.deb
-        # ```
-        cmd_install_curl = "apt update && apt install curl -y"
-        OsUtil.subproc_bash(cmd_install_curl, does_sudo=True, print_stdout_err=True, logger=self._logger)
-        # Some gimmicks in order to copy-paste `bash` cmd on Python code.
-        # - Escape single-quote by backslash.
-        # - Avoid using f-string, use an older method `.format`, as there's a usage of {} in `grep` cmd.
-        os.environ["ROS_APT_SOURCE_VERSION"] = '$(curl -s {} | grep -F "tag_name" | awk -F\" \'{print $4}\') && echo $ROS_APT_SOURCE_VERSION'.format(_URL_DEB_APT_SRC)
-        _ros_apt_src_version = os.environ["ROS_APT_SOURCE_VERSION"]
-        _path_deb = "/tmp/ros2-apt-source.deb"
-        _cmd_download_ros_apt_src_pkg = 'curl -L -o {} "https://github.com/ros-infrastructure/ros-apt-source/releases/download/{}/ros2-apt-source_{}.$(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})_all.deb'.format(
-            _path_deb, _ros_apt_src_version, _ros_apt_src_version)
-        OsUtil.subproc_bash(_cmd_download_ros_apt_src_pkg, does_sudo=False, print_stdout_err=True, logger=self._logger)
+ 
+        OsUtil.apt_install("curl", self._logger)
+        _cmd_get_ros_apt_src = f"curl -s {_URL_ROS_APT_SRC}"
+        _output_string, error, bash_return_code = OsUtil.subproc_bash(
+            _cmd_get_ros_apt_src, does_sudo=True, print_stdout_err=False, logger=self._logger)
+
+        for line in _output_string.splitlines():
+            if "tag_name" in line:
+                _data_string = line
+                break
+        # Split the string by the colon. The second part will be e.g. "1.1.0"
+        _value_with_quotes = _data_string.split(":", 1)[1]
+        # Strip the leading/trailing whitespace and quotes
+        _ros_apt_src_version = _value_with_quotes.strip().strip('"')
+        self._logger.info(f"Latest ROS apt source version: '{_ros_apt_src_version}'")
+
+        # $(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})
+        _env_vars_os_release = OsUtil.read_conf(path="/etc/os-release")
+        _ubu_codename = _env_vars_os_release["UBUNTU_CODENAME"]
+        _ver_codename = _env_vars_os_release["VERSION_CODENAME"]
+        _os_ver_dist_str = f"{_ubu_codename}-{_ver_codename}"
+
+        _URL_DEB_ROS_APT = f"https://github.com/ros-infrastructure/ros-apt-source/releases/download/{_ros_apt_src_version}/ros2-apt-source_{_ros_apt_src_version}.{_os_ver_dist_str}_all.deb"
+        self._logger.info(f"'{_URL_DEB_ROS_APT=}', '{_ubu_codename=}', '{_ver_codename=}'")
+
+        _cmd_download_ros_apt_src_pkg = f"curl -L -o {_URL_DEB_ROS_APT}"
+        OsUtil.subproc_bash(_cmd_download_ros_apt_src_pkg, does_sudo=False, print_stdout_err=False, logger=self._logger)
         cmd_install_ros_apt_src_pkg = f"dpkg -i {_path_deb}"
         OsUtil.subproc_bash(cmd_install_ros_apt_src_pkg, does_sudo=True, print_stdout_err=True, logger=self._logger)
 

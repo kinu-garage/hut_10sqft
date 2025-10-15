@@ -77,14 +77,6 @@ treats the user ID tha is used to execute this tool as the main user."""
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
 
-        self._logger.info("If 'user_id' is not passed, get the user id of the current process.")
-        if not args.user_id:
-            args.user_id = pwd.getpwuid(os.getuid())[0]
-
-        if not args.hostname:
-            args.hostname = os.uname()[1]
-            self._logger.warn(f"If 'hostname' is not passed, get the host name from the OS.: {args.hostname}")
-
         return args
 
     def remove_colconws(self, path_colconws: str) -> bool:
