@@ -20,7 +20,7 @@ class CompInitSetupConfig():
     HOSTNAME_C13_MORPH = "130s-C13-Morph"
     HOSTNAME_MAC1 = "130s-mac1"
     HOSTNAME_OPFYDE_RPI5 = "opfyde-rpi5"
-    HOSTNAME_P16S = "130s-p16s-2"
+    HOSTNAME_P16S = "130s-p16s-3"
     HOSTNAME_ZORK16 = "130s-zork16"
 
     PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
