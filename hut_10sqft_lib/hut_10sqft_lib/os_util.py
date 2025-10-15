@@ -249,8 +249,13 @@ class OsUtil:
                 try:
                     _subproc = subprocess.Popen(bash_full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 except FileNotFoundError as e:
-                    del bash_full_cmd[0]
-                    logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. New command: {bash_full_cmd}. Retry now.")
+                    # Remove 'sudo' from the command set and retry.
+                    if 'sudo' in bash_full_cmd:
+                        bash_full_cmd.remove('sudo')
+                        logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. \
+                                   New command: {bash_full_cmd}. Retry now.")
+                    else:
+                        raise RuntimeError(f"'sudo' not found on this env but removing that didn't help. Error: {str(e)}")
 
         output, error = _subproc.communicate()
         bash_return_code = _subproc.returncode
