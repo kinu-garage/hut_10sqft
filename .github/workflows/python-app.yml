@@ -47,5 +47,4 @@ jobs:
     - name: Test with colcon
       run: |
         source install/setup.bash
-        colcon test
-        colcon test-result --all --verbose
+        colcon test --event-handlers console_direct+; colcon test-result --all --verbose
