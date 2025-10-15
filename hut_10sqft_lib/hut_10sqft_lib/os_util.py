@@ -7,16 +7,18 @@ try:
     import apt
 except ModuleNotFoundError as e:
     print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
+import ast
 from datetime import datetime
 import logging
 import os
 import pathlib
 import platform
+import re
 import shutil
 import socket
 import subprocess
 import sys
-from typing import List
+from typing import Dict, List
 
 
 class OsUtil:
@@ -139,7 +141,7 @@ class OsUtil:
         deb_pkg_names_str = " ".join(deb_pkgs_name)
 
         OsUtil.subproc_bash(f"apt update", does_sudo=True)
-        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive apt install -y {deb_pkg_names_str}", does_sudo=True)
+        OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, non_interactive=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
         OsUtil.apt_cache_policy(deb_pkgs_name)
 
@@ -236,18 +238,19 @@ class OsUtil:
         if does_sudo == True:
             bash_full_cmd.insert(0, 'sudo')
 
-        if non_interactive:
-            cmd = "DEBIAN_FRONTEND=noninteractive " + cmd
         bash_full_cmd.append(cmd)
+        _env = os.environ.copy()
+        if non_interactive:
+            _env["DEBIAN_FRONTEND"] = "noninteractive"
 
         logger.info(f"subprocess: About to execute the cmd: {bash_full_cmd}")
         _subproc = None
         if print_stdout_err:
-            _subproc = subprocess.Popen(bash_full_cmd)
+            _subproc = subprocess.Popen(bash_full_cmd, env=_env)
         else:
             while not _subproc:  # TODO Afraid this look could lead an infinite loop.
                 try:
-                    _subproc = subprocess.Popen(bash_full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    _subproc = subprocess.Popen(bash_full_cmd, env=_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 except FileNotFoundError as e:
                     # Remove 'sudo' from the command set and retry.
                     if 'sudo' in bash_full_cmd:
