@@ -28,6 +28,7 @@ class CompInitSetupConfig():
     # available for the entire life time of the OS. 
     REPO_PERMANENT_CONFIG = "hut_10sqft"
     BRANCH_DEFAULT_CONF_REPO = "develop"
+    LOGGER_NAME_CISC = "CompInitSetup-logger"
     # Un-expanded version of this looks like '~/.config'
     PATH_FOLDER_CONF = os.path.join(pathlib.Path.home(), "." + FOLDER_CONF_PERM_REPO)
     # Un-expanded version of this looks like 'hut_10sqft/config'
@@ -55,9 +56,11 @@ class SucoInstaller():
     _MSG_CONSOLE_TOOL_INTRO = ""
     _MSG_ARG_PATH_COLCONWS = f"Path to the temporary Colcon workspace for building and installing SUCO itself. \
         If not passed then the path will be the default '{CompInitSetupConfig.PATH_TEMP_COLCON_WS}'."
+    _MSG_PIP_BREAK_SYSPKG = "If specified, install packages by pip even if the package is already installed by \
+        the system package manager (e.g., apt). This may break the system packages."
 
     def __init__(self):
-        self._logger = logging.getLogger(self._LOGGER_NAME)
+        self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
         log_handler = logging.StreamHandler()
         self._logger.setLevel(logging.DEBUG)  # Needs changed
         self._logger.addHandler(log_handler)
@@ -71,6 +74,8 @@ class SucoInstaller():
         parser = argparse.ArgumentParser(description=CompInitSetupConfig.MSG_CONSOLE_TOOL_INTRO)
         parser.add_argument("--path_base_conf", required=False, help=CompInitSetupConfig.MSG_ARG_BASE_CONF_PATH, default=CompInitSetupConfig.PATH_FOLDER_CONF)
         parser.add_argument("--path_temp_colconws", required=False, help=SucoInstaller._MSG_ARG_PATH_COLCONWS, default=CompInitSetupConfig.PATH_TEMP_COLCON_WS)
+        parser.add_argument("--pip_break_syspkg", required=False, help=SucoInstaller._MSG_PIP_BREAK_SYSPKG, action="store_true")
+        parser.add_argument("--git_branch", required=False, help="Branch of SUCO repo", default=CompInitSetupConfig.BRANCH_DEFAULT_CONF_REPO)
         return parser
 
     def cli_args_install_suco(self, parser: argparse.Namespace) -> argparse.Namespace:
@@ -83,6 +88,22 @@ class SucoInstaller():
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
         return args
+
+    def install_colcon(self, break_syspkg: bool=False) -> None:
+        opt_break_pip = "--break-system-packages" if break_syspkg else ""
+        cmd_install_colcon = f"pip3 install colcon-common-extensions {opt_break_pip}"
+        self._logger.info(f"Installing colcon by executing: {cmd_install_colcon}")
+        ret = os.system(cmd_install_colcon)
+        if ret != 0:
+            self._logger.error(f"Failed to install colcon.")
+            return
+
+    def source_colconws(self, cmd_sourcing_ws: str) -> None:
+        self._logger.info(f"Sourcing the colcon workspace setting by executing: {cmd_sourcing_ws}")
+        ret = os.system(cmd_sourcing_ws)
+        if ret != 0:
+            self._logger.error(f"Failed to source the colcon workspace setting.")
+            return
 
     def main(self):
         """
@@ -108,7 +129,8 @@ class SucoInstaller():
         os.makedirs(path_srcdir, exist_ok=True)
         path_hut = os.path.join(path_srcdir, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
         if not os.path.exists(path_hut):
-            cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {path_hut}"
+            branch_option = f"-b {args.git_branch}" if args.git_branch else ""
+            cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_hut}"
             self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_hut}' by executing: {cmd_clone}")
             ret = os.system(cmd_clone)
             if ret != 0:
@@ -122,6 +144,9 @@ class SucoInstaller():
                 self._logger.error(f"Failed to update '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
                 return
 
+        # Install colcon from pip if not yet installed.
+        self.install_colcon(args.pip_break_syspkg)
+
         # 2) Build and install packages in the temporary Colcon workspace
         #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
         cmd_build = f"cd {args.path_temp_colconws} && colcon build --symlink-install"
@@ -132,13 +157,10 @@ class SucoInstaller():
             return
 
         # 3) Source the colcon workspace setting.
-        cmd_source = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.bash')}"
-        self._logger.info(f"Sourcing the colcon workspace setting by executing: {cmd_source}")
-        ret = os.system(cmd_source)
-        if ret != 0:
-            self._logger.error(f"Failed to source the colcon workspace setting.")
-            return
-        
+        cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.bash')}"
+        #self.source_colconws(cmd_sourcing_ws)
+        self._logger.info(f"""SUCO installation is complete. You can now source the colcon workspace setting by:\n\t{cmd_sourcing_ws}""")
+
 
 if __name__ == '__main__':
     si = SucoInstaller()

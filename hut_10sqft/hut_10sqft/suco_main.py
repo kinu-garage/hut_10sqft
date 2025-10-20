@@ -24,8 +24,6 @@ class CompInitSetup():
     """
     @summary TBD
     """
-    _LOGGER_NAME = "CompInitSetup-logger"
-
     # Messages for stdout
     _MSG_PATH_PERMCONF_REPO = f"Path to the FINAL location of '{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}' local repo. \
         If not passed then the path will be the default {ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO}, \
@@ -48,7 +46,7 @@ treats the user ID tha is used to execute this tool as the main user."""
     _PATH_VSCODE_INSTALLER = pathlib.Path("~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb").expanduser()
 
     def __init__(self):
-        self._logger = logging.getLogger(self._LOGGER_NAME)
+        self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
         log_handler = logging.StreamHandler()
         self._logger.setLevel(logging.DEBUG)  # Needs changed
         self._logger.addHandler(log_handler)
