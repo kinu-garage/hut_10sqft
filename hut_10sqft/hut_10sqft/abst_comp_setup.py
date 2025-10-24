@@ -16,8 +16,8 @@ import pwd
 import shutil
 from typing import List
 
-from hut_10sqft.host_config import HostConf
 from hut_10sqft.config_dispatch import ConfigDispatch
+from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
 
 
@@ -32,10 +32,6 @@ class AbstCompSetupFactory():
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
 
-        self._logger.info("If 'user_id' is not passed, get the user id of the current process.")
-        if not getattr(args_in, "user_id", None):
-            args_in.user_id = pwd.getpwuid(os.getuid()).pw_name
-            self._logger.warning(f"Could not get user ID from OS. Setting an arbitrary user ID 'user_set_by_suco'.")
         if not getattr(args_in, "hostname", None):
             args_in.hostname = os.uname()[1]
             self._logger.warning(f"If 'hostname' is not passed, get the host name from the OS.: {args_in.hostname}")
@@ -147,7 +143,6 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         _which_docker = ""
         if not args_in.skip_setup_docker:
             # Only when 'skip_setup_docker' is True.
-            # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
             self._logger.info(f"Path to 'docker' executable: {self._which_docker}")
             _which_docker = OsUtil.which("docker")
@@ -379,9 +374,9 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
         if not self._args_in.skip_setup_docker:
-            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._os_user_id}'.")
+            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._args_in.user_id}'.")
             try:
-                self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+                self.setup_docker(userid_os=self._args_in._user_id, skip=self._args_in.skip_setup_docker)
             except AttributeError as e:
                 _MSG_E = f"'setup_docker' method is incomplete. Moving on despite the error: {str(e)}"
                 self.add_runtime_issue(_MSG_E)
@@ -420,7 +415,6 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_conf_dir)
-        _abs_path_private_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_private_conf_dir)
 
         self._logger.debug(f"'{_abs_path_confdir=}'")
 

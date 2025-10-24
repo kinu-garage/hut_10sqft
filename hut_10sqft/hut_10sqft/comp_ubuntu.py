@@ -105,7 +105,7 @@ class UbuntuOsSetup (DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
                 is_symlink=True),
             ConfigDispatch(
-                path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
+                path_source=(os.path.sep + os.path.join("media", self._args_in.user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 necessary=False,
                 is_symlink=True),

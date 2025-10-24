@@ -14,7 +14,6 @@ Prerequisite:
      export VERSION=develop &&  \
      export HOST_NAME=130s-p16s-3 &&  \
      export OSTYPE=Ubuntu &&  \
-     export USERID=n130s &&  \
      sudo apt update && sudo apt install -y curl git python3 &&  \
      curl --output $SUCO https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && \
      chmod 755 $SUCO && \
