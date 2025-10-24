@@ -98,7 +98,7 @@ class DebianSetup(ShellCapableOsSetup):
             OsUtil.setup_rosdep()
         os.chdir(path_ws)
         self._logger.info(f"Changed directory to '{path_ws}' to run 'rosdep install' against the manifest that defines dependencies")
-        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y --verbose")
         if bash_return_code != 0:
             self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
         else:

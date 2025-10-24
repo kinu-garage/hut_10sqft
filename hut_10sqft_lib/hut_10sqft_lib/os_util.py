@@ -222,7 +222,7 @@ class OsUtil:
 
     @staticmethod
     def subproc_bash(
-            cmd,
+            cmd: str,
             does_sudo=False,
             print_stdout_err=False,
             logger=None,

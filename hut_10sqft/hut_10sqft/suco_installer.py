@@ -110,7 +110,8 @@ class SucoInstaller():
         @summary: Install, or at least clone, and make SUCO ready to be executed locally, which includes:
             1) Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
               If the folder already exists, try to update the git repo.
-            2) Build and install packages in the temporary Colcon workspace
+            2) Install colcon from pip if not yet installed.
+            3) Build and install packages in the temporary Colcon workspace
               (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
 
             After these, user can continue, source the olcon workspace setting, execute SUCO from the colcon workspace.
@@ -122,7 +123,7 @@ class SucoInstaller():
         """
         args = self.cli_args_install_suco(None)
 
-        # 1) Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
+        # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
         #    If the folder already exists, try to update the git repo.
         os.makedirs(args.path_temp_colconws, exist_ok=True)
         path_srcdir = os.path.join(args.path_temp_colconws, CompInitSetupConfig.PATH_COLCON_SRC)
@@ -134,29 +135,26 @@ class SucoInstaller():
             self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_hut}' by executing: {cmd_clone}")
             ret = os.system(cmd_clone)
             if ret != 0:
-                self._logger.error(f"Failed to clone '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
-                return
+                raise RuntimeError(f"Failed to clone '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
         else:
             self._logger.info(f"'{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo already exists at '{path_hut}'. Try to update it.")
             cmd_pull = f"cd {path_hut} && git pull"
             ret = os.system(cmd_pull)
             if ret != 0:
-                self._logger.error(f"Failed to update '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
-                return
+                raise RuntimeError(f"Failed to update '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
 
         # Install colcon from pip if not yet installed.
         self.install_colcon(args.pip_break_syspkg)
 
-        # 2) Build and install packages in the temporary Colcon workspace
+        # Build and install packages in the temporary Colcon workspace
         #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
         cmd_build = f"cd {args.path_temp_colconws} && colcon build --symlink-install"
         self._logger.info(f"Building and installing SUCO itself by executing: {cmd_build}")
         ret = os.system(cmd_build)
         if ret != 0:
-            self._logger.error(f"Failed to build and install SUCO itself.")
-            return
+            raise RuntimeError(f"Failed to build and install SUCO itself.")
 
-        # 3) Source the colcon workspace setting.
+        # Source the colcon workspace setting.
         cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.bash')}"
         #self.source_colconws(cmd_sourcing_ws)
         self._logger.info(f"""SUCO installation is complete. You can now source the colcon workspace setting by:\n\t{cmd_sourcing_ws}""")

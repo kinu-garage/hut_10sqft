@@ -4,7 +4,6 @@ from setuptools import setup
 exec_aptsrc = "apt-source_ros2.sh"
 package_name = 'hut_10sqft'
 
-
 setup(
     name=package_name,
     version='0.2.0',

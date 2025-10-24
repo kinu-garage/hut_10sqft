@@ -100,3 +100,19 @@ def test_read_conf_os_release():
     assert os_release_data["ID"]  # Not empty
     assert os_release_data["VERSION_CODENAME"]  # Not empty
 
+def test_setup_rosdep():
+    #_manual_args = ["--skip_setup_docker"]
+    config_dict = {
+        "hostname": "test-host",
+        "msg_endroll": "msg endroll test",
+        "os_distro": "Ubuntu",
+        "os_type": "Linux",
+        "skip_setup_docker": True,
+        }
+    parser = argparse.ArgumentParser(description="")
+    args = argparse.Namespace(**config_dict)
+    ubuntu = UbuntuOsSetup(args_in=args)
+    ubuntu.set_ros_apt_source()
+
+    output, error, ret_code = OsUtil.subproc_bash(f"rosdep update")
+    assert ret_code == 0
