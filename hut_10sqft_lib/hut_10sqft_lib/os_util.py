@@ -227,6 +227,9 @@ class OsUtil:
             print_stdout_err=False,
             logger=None,
             non_interactive=False):
+        """
+        @param print_stdout_err: Deprecated: Context is lost, no behavior difference whether or not this is True.
+        """
         if not logger:
             logger = OsUtil._gen_logger()  
         if not cmd:
@@ -245,20 +248,17 @@ class OsUtil:
 
         logger.info(f"subprocess: About to execute the cmd: {bash_full_cmd}")
         _subproc = None
-        if print_stdout_err:
-            _subproc = subprocess.Popen(bash_full_cmd, env=_env)
-        else:
-            while not _subproc:  # TODO Afraid this look could lead an infinite loop.
-                try:
-                    _subproc = subprocess.Popen(bash_full_cmd, env=_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                except FileNotFoundError as e:
-                    # Remove 'sudo' from the command set and retry.
-                    if 'sudo' in bash_full_cmd:
-                        bash_full_cmd.remove('sudo')
-                        logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. \
-                                   New command: {bash_full_cmd}. Retry now.")
-                    else:
-                        raise RuntimeError(f"'sudo' not found on this env but removing that didn't help. Error: {str(e)}")
+        while not _subproc:  # TODO Afraid this look could lead an infinite loop.
+            try:
+                _subproc = subprocess.Popen(bash_full_cmd, env=_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except FileNotFoundError as e:
+                # Remove 'sudo' from the command set and retry.
+                if 'sudo' in bash_full_cmd:
+                    bash_full_cmd.remove('sudo')
+                    logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. \
+                               New command: {bash_full_cmd}. Retry now.")
+                else:
+                    raise RuntimeError(f"'sudo' not found on this env but removing that didn't help. Error: {str(e)}")
 
         output, error = _subproc.communicate()
         bash_return_code = _subproc.returncode
