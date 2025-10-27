@@ -377,10 +377,12 @@ class OsUtil:
             try:
                 with open(_FILEPATH_OS_RELEASE, "r") as f:
                     content = f.read()
-                    if f"ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content:
+                    if (f"ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content) or (f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content):
                         _type_distro = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
-                    elif f"ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content:
-                        _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
+                        # The `content` may include both `TYPE_LINUX_DISTRO_DEBIAN` AND `TYPE_LINUX_DISTRO_UBUNTU`,
+                        # if the os is Ubuntu.
+                        if (f"ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content) or (f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content):
+                            _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
                     else:
                         raise RuntimeError(f"Running on another Linux distribution SUCO does not support. Content of {_FILEPATH_OS_RELEASE}: {content}")
             except FileNotFoundError as e:
