@@ -59,6 +59,8 @@ class SucoInstaller():
     _MSG_PIP_BREAK_SYSPKG = "If specified, install packages by pip even if the package is already installed by \
         the system package manager (e.g., apt). This may break the system packages."
 
+    _PKG_COLCON_PIP = "colcon-common-extensions"
+
     def __init__(self):
         self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
         log_handler = logging.StreamHandler()
@@ -90,13 +92,17 @@ class SucoInstaller():
         return args
 
     def install_colcon(self, break_syspkg: bool=False) -> None:
+        if 0 == os.system("which colcon"):
+            self._logger.info("Skipping to install colcon as it's already installed.")
+            return
         opt_break_pip = "--break-system-packages" if break_syspkg else ""
-        cmd_install_colcon = f"pip3 install colcon-common-extensions {opt_break_pip}"
+        cmd_install_colcon = f"pip3 install {self._PKG_COLCON_PIP} {opt_break_pip}"
         self._logger.info(f"Installing colcon by executing: {cmd_install_colcon}")
         ret = os.system(cmd_install_colcon)
         if ret != 0:
-            self._logger.error(f"Failed to install colcon.")
-            return
+            raise RuntimeError(f"Failed to install colcon.")
+        else:
+            return True
 
     def source_colconws(self, cmd_sourcing_ws: str) -> None:
         self._logger.info(f"Sourcing the colcon workspace setting by executing: {cmd_sourcing_ws}")
@@ -122,6 +128,7 @@ class SucoInstaller():
               that is used for building and installing SUCO itself. This may be deleted after SUCO is executed.
         """
         args = self.cli_args_install_suco(None)
+        _colcon_installed_pip = False
 
         # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
         #    If the folder already exists, try to update the git repo.
@@ -144,7 +151,7 @@ class SucoInstaller():
                 raise RuntimeError(f"Failed to update '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
 
         # Install colcon from pip if not yet installed.
-        self.install_colcon(args.pip_break_syspkg)
+        _colcon_installed_pip = self.install_colcon(args.pip_break_syspkg)
 
         # Build and install packages in the temporary Colcon workspace
         #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
@@ -158,6 +165,9 @@ class SucoInstaller():
         cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.bash')}"
         #self.source_colconws(cmd_sourcing_ws)
         self._logger.info(f"""SUCO installation is complete. You can now source the colcon workspace setting by:\n\t{cmd_sourcing_ws}""")
+
+        if _colcon_installed_pip:
+            os.system(f"pip3 uninstall -y {self._PKG_COLCON_PIP}")
 
 
 if __name__ == '__main__':
