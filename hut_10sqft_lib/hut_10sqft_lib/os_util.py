@@ -429,15 +429,16 @@ class OsUtil:
         """
         if not logger:
             logger = OsUtil._gen_logger()        
+        file_obj = None
         try:
             filename = path
-            f = open(filename)
+            file_obj = open(filename)
         except FileNotFoundError:
             if path_alternative:
                 return OsUtil.read_conf(path=path_alternative)
 
         os_release_data = {}
-        for line_number, line in enumerate(f, start=1):
+        for line_number, line in enumerate(file_obj, start=1):
             line = line.rstrip()
             if not line or line.startswith('#'):
                 continue
@@ -453,5 +454,5 @@ class OsUtil:
                         # Fallback for simple cases or errors in literal_eval
                         val = val.strip('\"\'')
                 os_release_data[name] = val
-        f.close()
+        file_obj.close()
         return os_release_data
