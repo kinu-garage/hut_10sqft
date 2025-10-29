@@ -15,7 +15,7 @@ from hut_10sqft_lib.os_util import OsUtil
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = OsUtil.TYPE_OS_MACOS
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name)
+        super().__init__(os_name, args_in)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")
