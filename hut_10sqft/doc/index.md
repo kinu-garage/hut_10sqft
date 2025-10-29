@@ -14,12 +14,13 @@ Prerequisite:
      export VERSION=develop &&  \
      export HOST_NAME=130s-p16s-3 &&  \
      export OSTYPE=Ubuntu &&  \
-     sudo apt update && sudo apt install -y curl git python3 &&  \
+     sudo apt update && sudo apt install -y curl git python3 python3-colcon-core &&  \
      curl --output $SUCO https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && \
      chmod 755 $SUCO && \
      $SUCO --path_base_conf $PATH_BASE_CLONE && \
      source $PATH_BASE_CLONE/install/setup.bash && \
-     suco --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION --path_base_conf $PATH_BASE_CLONE
+     suco --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION --path_base_conf $PATH_BASE_CLONE \
+     && echo "Removing a temp colcon ws dir".; rm -fr $PATH_BASE_CLONE
    ```
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
