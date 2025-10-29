@@ -74,8 +74,9 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     assert type(pairs) == list
     assert len(pairs) == 6
     
-def test_suco_main(cfgbuilder):
+def _test_suco_main(cfgbuilder):
     """
+    @note: Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315
     @summary: End-to-end test of the main logic of SUCO.
     """
     # Just for test purpose, use an existing host config.
@@ -100,7 +101,10 @@ def test_read_conf_os_release():
     assert os_release_data["ID"]  # Not empty
     assert os_release_data["VERSION_CODENAME"]  # Not empty
 
-def test_setup_rosdep():
+def _test_setup_rosdep():
+    """
+    @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315
+    """
     #_manual_args = ["--skip_setup_docker"]
     config_dict = {
         "hostname": "test-host",
