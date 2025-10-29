@@ -18,7 +18,7 @@ import shutil
 import socket
 import subprocess
 import sys
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 class OsUtil:
@@ -226,7 +226,7 @@ class OsUtil:
             does_sudo=False,
             print_stdout_err=False,
             logger=None,
-            non_interactive=False):
+            non_interactive=False) -> Tuple[str, str, int]:
         """
         @param print_stdout_err: Deprecated: Context is lost, no behavior difference whether or not this is True.
         """
