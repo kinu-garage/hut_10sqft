@@ -70,9 +70,14 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     pairs = cfgbuilder.generate_symlinks(
             rootpath_symlinks=os.path.join(init_input_params[ATTR_HOME_DIR], init_input_params[ATTR_PATH_SYMLINKS_DIR]),
             path_user_home=init_input_params[ATTR_HOME_DIR])
-#    assert type(pairs) == list[ConfigDispatch]
     assert type(pairs) == list
-    assert len(pairs) == 6
+
+    # TODO Branching logic by if per each test method may not be clean way to run tests on multiple OSes,
+    # but I couldnm't figure out a clean way to do this in time as of 2025/10.
+    if type(cfgbuilder) == UbuntuOsSetup:
+        assert len(pairs) == 13
+    elif type(cfgbuilder) == ChromeOsSetup:
+        assert len(pairs) == 6
     
 def _test_suco_main(cfgbuilder):
     """
@@ -86,10 +91,12 @@ def _test_suco_main(cfgbuilder):
         conf_repo_remote=CompInitSetupConfig.URL_HUT,
         conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True
 
-def test_read_conf_os_release():
+def test_read_conf_os_release(cfgbuilder):
     """
     @description: Test `OsUtil.read_conf` with /etc/os-release or /usr/lib/os-release file.
     """
+    if type(cfgbuilder) not in [UbuntuOsSetup, ChromeOsSetup]:
+        pytest.skip(f"For the time being this test is only for Linux-based OS, not for '{type(cfgbuilder)}'.")
     os_release_data = OsUtil.read_conf("/etc/os-release", path_alternative="/usr/lib/os-release")
     assert isinstance(os_release_data, dict)
     assert "NAME" in os_release_data
