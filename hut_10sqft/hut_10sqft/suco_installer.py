@@ -4,6 +4,7 @@
 # Copyright (C) 2025 Kinu Garage
 
 import argparse
+import datetime
 import logging
 import os
 import pathlib
@@ -35,7 +36,7 @@ class CompInitSetupConfig():
     PATH_DEFAULT_CONFIG_CONFDIR = os.path.join(REPO_PERMANENT_CONFIG, FOLDER_CONF_PERM_REPO)
     # Un-expanded version of this looks like '~/.config/hut_10sqft'
     PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(PATH_FOLDER_CONF, REPO_PERMANENT_CONFIG)
-    PATH_TEMP_COLCON_WS = os.path.join(pathlib.Path.home(), ".local", "share", "tmp_colconws_suco")  # `~/.local/share/tmp_colconws_suco`
+    PATH_TEMP_COLCON_WS = os.path.join(pathlib.Path.home(), ".local", "share", "tmp_suco", "colconws")  # `~/.local/share/tmp_suco`
     PATH_COLCON_SRC = "src"  # Constant for colcon workspace
     URL_HUT = f"https://github.com/kinu-garage/{REPO_PERMANENT_CONFIG}.git"
 
@@ -91,12 +92,14 @@ class SucoInstaller():
         self._logger.info("args: {}".format(args))
         return args
 
-    def install_colcon(self, break_syspkg: bool=False) -> None:
+    def install_pip_essentials(self, break_syspkg: bool=False) -> None:
+        """
+        @summary: Install packages by pip that are essential to run suco-installer, including colcon."""
         if 0 == os.system("which colcon"):
             self._logger.info("Skipping to install colcon as it's already installed.")
             return
         opt_break_pip = "--break-system-packages" if break_syspkg else ""
-        cmd_install_colcon = f"pip3 install {self._PKG_COLCON_PIP} {opt_break_pip}"
+        cmd_install_colcon = f"pip3 install {self._PKG_COLCON_PIP} setuptools {opt_break_pip}"
         self._logger.info(f"Installing colcon by executing: {cmd_install_colcon}")
         ret = os.system(cmd_install_colcon)
         if ret != 0:
@@ -114,7 +117,7 @@ class SucoInstaller():
     def main(self):
         """
         @summary: Install, or at least clone, and make SUCO ready to be executed locally, which includes:
-            1) Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
+            1) Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.
               If the folder already exists, try to update the git repo.
             2) Install colcon from pip if not yet installed.
             3) Build and install packages in the temporary Colcon workspace
@@ -124,34 +127,52 @@ class SucoInstaller():
         @note: This creates 2 different locations of `hut_10sqft` local repo, each of which serves
           for different purposes as follows:
             - ~/.config/hut_10sqft: Permanent location of the config repo that the applications on the OS refers to.
-            - ~/.local/share/tmp_colconws_suco/src/hut_10sqft: Temporary location of the config repo
+            - ~/.local/share/tmp_suco/colconws/src/hut_10sqft: Temporary location of the config repo
               that is used for building and installing SUCO itself. This may be deleted after SUCO is executed.
         """
         args = self.cli_args_install_suco(None)
         _colcon_installed_pip = False
 
-        # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_colconws_suco/src`.
+        # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.
         #    If the folder already exists, try to update the git repo.
         os.makedirs(args.path_temp_colconws, exist_ok=True)
         path_srcdir = os.path.join(args.path_temp_colconws, CompInitSetupConfig.PATH_COLCON_SRC)
         os.makedirs(path_srcdir, exist_ok=True)
-        path_hut = os.path.join(path_srcdir, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
-        if not os.path.exists(path_hut):
+        path_hut_ws = os.path.join(path_srcdir, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+        if not os.path.exists(path_hut_ws):
             branch_option = f"-b {args.git_branch}" if args.git_branch else ""
-            cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_hut}"
-            self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_hut}' by executing: {cmd_clone}")
+            cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_hut_ws}"
+            self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_hut_ws}' by executing: {cmd_clone}")
             ret = os.system(cmd_clone)
             if ret != 0:
                 raise RuntimeError(f"Failed to clone '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
         else:
-            self._logger.info(f"'{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo already exists at '{path_hut}'. Try to update it.")
-            cmd_pull = f"cd {path_hut} && git pull"
+            self._logger.info(f"'{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo already exists at '{path_hut_ws}'. Try to update it.")
+            cmd_pull = f"cd {path_hut_ws} && git pull"
             ret = os.system(cmd_pull)
             if ret != 0:
                 raise RuntimeError(f"Failed to update '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.")
 
+        path_conf_dest = os.path.join(args.path_base_conf, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+        if os.path.exists(path_conf_dest):
+            # Copy the hut_10sqft repo, which was just cloned, to a user's config folder (e.g. ~/.config).
+            # If the destination already exists, back it up by renaming it with a timestamp suffix, and copy the cloned repo.
+            timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
+            self._logger.info(f"Backing up existing config repo at '{path_conf_dest}' to '{path_conf_backup}'.")
+            os.rename(path_conf_dest, path_conf_backup)
+        else:
+            # If the path does not exist, create parent dirs as needed.
+            os.makedirs(os.path.dirname(args.path_base_conf), exist_ok=True)
+            os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
+        cmd_copy_repo = f"cp -r {path_hut_ws} {path_conf_dest}"
+        self._logger.info(f"Copying the cloned config repo to the user's config folder by executing: {cmd_copy_repo}")
+        ret = os.system(cmd_copy_repo)
+        if ret != 0:
+            raise RuntimeError(f"Failed to copy the config repo to '{path_conf_dest}'.")
+        
         # Install colcon from pip if not yet installed.
-        _colcon_installed_pip = self.install_colcon(args.pip_break_syspkg)
+        _colcon_installed_pip = self.install_pip_essentials(break_syspkg=args.pip_break_syspkg)
 
         # Build and install packages in the temporary Colcon workspace
         #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).

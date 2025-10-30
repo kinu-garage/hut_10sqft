@@ -395,7 +395,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             For now the user account that is used to execute this process will be the main account.""")
 
         # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(self._args_in.path_local_conf_repo, init_rosdep=True)
+        self.setup_rosdep_and_run(self._args_in.path_temp_colconws, init_rosdep=True)
         # Install dependency that is not available via rosdep
         _deps, _deps_pip = self.nonrosdep_deps()
         try:

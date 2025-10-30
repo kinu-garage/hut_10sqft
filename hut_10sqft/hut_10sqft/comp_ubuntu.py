@@ -233,7 +233,7 @@ class UbuntuOsSetup (DebianSetup):
 
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
         # Execute 'apt-source_ros2.sh', which is supposed to function only on Ubuntu, is supposed to be globally installed within hut_10sqft package.
-        OsUtil.subproc_bash("apt-source_ros2.sh nosudo", does_sudo=False, logger=self._logger)
+        OsUtil.subproc_bash("apt-source_ros2.sh", does_sudo=False, logger=self._logger)
         OsUtil.subproc_bash(f"apt update", does_sudo=True)
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 

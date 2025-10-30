@@ -9,18 +9,21 @@ Prerequisite:
 
 1. Execute the following command. Note: Above command set assumes `bash` and `apt`. TBD for other platform and package managers.
    ```
-   $ export SUCO=/tmp/suco.py &&  \
-     export PATH_BASE_CLONE=~/.local/share/tmp_colconws_suco &&  \
-     export VERSION=develop &&  \
+   $ export PATH_TMP_SUCO=~/.local/share/tmp_suco
+   $ export PATH_VENV=~/.local/share/tmp_suco/venv
+   $ mkdir -p $PATH_TMP_SUCO && cd $PATH_TMP_SUCO && python3 -m venv $PATH_VENV && source $PATH_VENV/bin/activate
+   $ export SUCO_INSTALLER=/tmp/suco.py &&  \
+     export PATH_BASE_CLONE=~/.local/share/tmp_suco/colconws &&  \
+     export VERSION=fix-rosdep &&  \
      export HOST_NAME=130s-p16s-3 &&  \
      export OSTYPE=Ubuntu &&  \
-     sudo apt update && sudo apt install -y curl git python3 python3-colcon-core &&  \
-     curl --output $SUCO https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && \
-     chmod 755 $SUCO && \
-     $SUCO --path_base_conf $PATH_BASE_CLONE && \
+     sudo apt update && sudo apt install -y curl git python3 python3-venv &&  \
+     curl --output $SUCO_INSTALLER https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && chmod 755 $SUCO_INSTALLER && \
+     $SUCO_INSTALLER --git_branch $VERSION && \
      source $PATH_BASE_CLONE/install/setup.bash && \
-     suco --hostname $HOST_NAME --os_distro $OSTYPE --user_id $USERID --conf_repo_version $VERSION --path_base_conf $PATH_BASE_CLONE \
-     && echo "Removing a temp colcon ws dir".; rm -fr $PATH_BASE_CLONE
+     cd $PATH_BASE_CLONE/src/hut_10sqft/hut_10sqft && pip install setuptools && python setup.py install && cd $PATH_BASE_CLONE && \
+     suco --hostname $HOST_NAME --os_distro $OSTYPE --conf_repo_version $VERSION --path_base_conf $PATH_BASE_CLONE && \
+     echo "Removing a temp colcon ws dir".; rm -fr $PATH_BASE_CLONE
    ```
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
