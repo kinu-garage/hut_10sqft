@@ -60,7 +60,7 @@ class SucoInstaller():
     _MSG_PIP_BREAK_SYSPKG = "If specified, install packages by pip even if the package is already installed by \
         the system package manager (e.g., apt). This may break the system packages."
 
-    _PKG_COLCON_PIP = "colcon-common-extensions"
+    _PKG_COLCON_PIP = "colcon-common-extensions colcon-core"
 
     def __init__(self):
         self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
@@ -95,9 +95,9 @@ class SucoInstaller():
     def install_pip_essentials(self, break_syspkg: bool=False) -> None:
         """
         @summary: Install packages by pip that are essential to run suco-installer, including colcon."""
-        if 0 == os.system("which colcon"):
-            self._logger.info("Skipping to install colcon as it's already installed.")
-            return
+        #if 0 == os.system("which colcon"):
+        #    self._logger.info("Skipping to install colcon as it's already installed.")
+        #    return
         opt_break_pip = "--break-system-packages" if break_syspkg else ""
         cmd_install_colcon = f"pip3 install {self._PKG_COLCON_PIP} setuptools {opt_break_pip}"
         self._logger.info(f"Installing colcon by executing: {cmd_install_colcon}")

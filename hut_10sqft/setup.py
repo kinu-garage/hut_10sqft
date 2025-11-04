@@ -15,6 +15,7 @@ setup(
     install_requires=[
         'cmake',
         'colcon-common-extensions',
+        'colcon-core',
         'hut_10sqft_lib',
         'setuptools'],
     zip_safe=True,
