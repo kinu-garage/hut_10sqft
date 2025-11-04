@@ -183,7 +183,7 @@ class SucoInstaller():
             raise RuntimeError(f"Failed to build and install SUCO itself.")
 
         # Source the colcon workspace setting.
-        cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.bash')}"
+        cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.sh')}"
         #self.source_colconws(cmd_sourcing_ws)
         self._logger.info(f"""SUCO installation is complete. You can now source the colcon workspace setting by:\n\t{cmd_sourcing_ws}""")
 
