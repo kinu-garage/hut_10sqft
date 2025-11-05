@@ -16,8 +16,8 @@ import pwd
 import shutil
 from typing import List
 
-from hut_10sqft.host_config import HostConf
 from hut_10sqft.config_dispatch import ConfigDispatch
+from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
 
 
@@ -31,6 +31,10 @@ class AbstCompSetupFactory():
         self._os = os_name
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
+
+        if not getattr(args_in, "hostname", None):
+            args_in.hostname = os.uname()[1]
+            self._logger.warning(f"If 'hostname' is not passed, get the host name from the OS.: {args_in.hostname}")
 
         # Create a conf folder under ~/.
         self._path_base_conf = os.path.join(pathlib.Path.home(), ".config")
@@ -104,48 +108,47 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     """
     @summary: Operating system that is capable of bash, zsh or any *sh shell that meets this tool's requirement.
     """
+    # Name of the local repo that stores the config and will have to be
+    # available for the entire life time of the OS. 
+    _REPO_PERMANENT_CONFIG = "hut_10sqft"
+    _FOLDER_CONF_PERM_REPO = "config"
+    _PATH_FOLDER_CONF = os.path.join(pathlib.Path.home(), "." + _FOLDER_CONF_PERM_REPO)
+    # Un-expanded version of this looks like '~/.config/hut_10sqft'
+    _PATH_DEFAULT_PERMANENT_CONF_REPO = os.path.join(_PATH_FOLDER_CONF, _REPO_PERMANENT_CONFIG)
+    # Un-expanded version of this looks like 'hut_10sqft/config'
+    _PATH_DEFAULT_CONFIG_CONFDIR = os.path.join(_REPO_PERMANENT_CONFIG, _FOLDER_CONF_PERM_REPO)
+    _PATH_DEFAULT_PRIVATE_CONFDIR = os.path.join(pathlib.Path.home(), "data", "Dropbox", "app")  # This has been used on all shell-enabled OSes so far but it'll be nice if user can designate.
+    _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
+    
     def __init__(self, os_name="", args_in: argparse.Namespace=None):
         super().__init__(os_name, args_in)
 
         self._args_in = args_in
-
-        if not args_in:  # Setting rather arbitrary values when argparse output is none.
-            # Host name
-            self._hostname = OsUtil.subproc_bash("hostname")[0].strip()
-            self._logger.warning(f"Hostname not passed in args, using the current hostname: '{self._hostname}'")
-            # User ID
-            try:
-                self._os_user_id = pwd.getpwuid(os.getuid()).pw_name
-            except KeyError as e:
-                self._logger.warning(f"Cannot get user ID from OS. Error: {str(e)}\nSetting an arbitrary user ID 'user_set_by_suco'.")
-        else:
-            if args_in.hostname:
-                self._hostname = args_in.hostname
-
-            if args_in.user_id:
-                self._os_user_id = args_in.user_id
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
 
         # TODO This member var, purpose of which particularly, is fairly undefined.
         # Better way to manage un/found execs is wanted.
-        self._execs_found = self.docker_available(self._args_in)
+        self._exec_docker = self.docker_available(self._args_in)
         self._setup_git()
 
-    def docker_available(self, args_in: argparse.Namespace):
+    def docker_available(self, args_in: argparse.Namespace) -> str:
         """
         @deprecated: `get_paths_execs` is planned to be deprecated throughout the entire package
             as `subprocess` should be able to resolve just like the shell environment does, as long as
             the values of `PATH` env var is properly passed.
         """
         self._logger.warning(f"'get_paths_execs' in ShellCapableOsSetup: '{args_in.skip_setup_docker=}'")
+        _which_docker = ""
         if not args_in.skip_setup_docker:
             # Only when 'skip_setup_docker' is True.
-            # self.setup_docker(userid_os=self._os_user_id, skip=args_in.skip_setup_docker)
             self._which_docker = OsUtil.which("docker")
             self._logger.info(f"Path to 'docker' executable: {self._which_docker}")
-
+            _which_docker = OsUtil.which("docker")
+            self._logger.info(f"Path to 'docker' executable: {_which_docker}")
+        return _which_docker
+    
     def _setup_git(self):
         """
         @description:
@@ -190,17 +193,31 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf)
         self.setup_file(conf_gitignore)
 
-    def setup_dropbox(self):
+    def _is_dropbox_setup(self):
         output, error, bash_return_code = OsUtil.subproc_bash("dropbox")
-        if bash_return_code == 0:
-            self._logger.info("Skipping Dropbox setup as it's already set up.")
+        return output, error, bash_return_code 
 
+    def setup_dropbox(self, skip_install=False):
+        """
+        @raise RuntimeWarning: When Dropbox setup needs to be done manually.
+        @raise RuntimeError: When Dropbox installation seems to have failed.
+        """
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code == 0:
+           raise RuntimeWarning("Skipping Dropbox setup as it's already set up.")
+        if skip_install:
+           raise RuntimeWarning("Skipping Dropbox setup as the user requested to do so.")
         FILENAME_DEB_DROPBOX = "dropbox_2022.12.05_amd64.deb"
-        url_deb = "https://linux.dropbox.com/packages/ubuntu/{}".format(FILENAME_DEB_DROPBOX)
-        os.chdir("/tmp")
-        OsUtil.subproc_bash("wget {}".format(url_deb))
-        cmd_install = "dpkg -i download?dl=packages%2Fubuntu%2F{}".format(FILENAME_DEB_DROPBOX)
+        url_deb = f"https://linux.dropbox.com/packages/ubuntu/{FILENAME_DEB_DROPBOX}"
+        OsUtil.subproc_bash(f"wget {url_deb} -O /tmp/{FILENAME_DEB_DROPBOX}")
+        cmd_install = f"dpkg -i /tmp/{FILENAME_DEB_DROPBOX}"
         OsUtil.subproc_bash(cmd_install, does_sudo=True)
+
+        o, e, bash_return_code = self._is_dropbox_setup()
+        if bash_return_code != 0:
+            raise RuntimeError(f"Dropbox installation seems to have failed. Error: {e}")
+
+        raise RuntimeWarning("Dropbox: Installation is done. Its setup needs to be done manually.")
 
     def clone(self, repo_to_clone: str, dir_cloned_at: str, branch=""):
         """
@@ -232,11 +249,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         try:
             output, error, bash_return_code = OsUtil.subproc_bash(f"docker images")
         except AttributeError as e:
-            raise RuntimeWarning(_MSG_ERR)
+            raise RuntimeWarning(f"{_MSG_ERR}. Error occurred while testing docker command: {str(e)}")        
         if bash_return_code == 0:
             self._logger.info("Docker setup skipped as it's already set up.")
         else:
-            raise RuntimeWarning("Docker setup is not done yet")
+            raise RuntimeWarning(f"{_MSG_ERR}. Status unclear, sorry. {output=} {error=}")
         return bash_return_code
 
     def _import_git(self):
@@ -264,10 +281,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         """
         raise NotImplementedError()
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def generate_symlinks(self, rootpath_symlinks, path_user_home):
         raise NotImplementedError()
 
-    def generate_symlinks(self, rootpath_symlinks, path_user_home):
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str, abs_path_private_confdir: str):
         raise NotImplementedError()
 
     def common_symlinks(self, pairs_symlinks: list[ConfigDispatch]):
@@ -322,13 +339,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
         """
         raise NotImplementedError()
 
-    def setup_ssh(self, skip=True, path_local_conf_repo=""):
+    def setup_ssh(self, skip=False, path_local_conf_repo=""):
         """
         @param skip: If True, skip setting up SSH.
         @param path_local_conf_repo: Path to the local configuration repo.
         """
         if skip:
-            self._logger.info("Skipping SSH setup as 'skip' is set to True.")
+            self._logger.warning("Skipping SSH setup as 'skip' is set to True.")
             return
 
         # Implement SSH setup logic here
@@ -347,7 +364,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
         @param conf_base_path: Path to a local location conf_repo to be cloned to.
           Default is defined in each OS type class by "_PATH_BASE_CONF" variable.
         """
-        self._logger.info("Update the host name as '{}'".format(self._hostname))
+        self._logger.info("Update the host name as '{}'".format(self._args_in.hostname))
 
         # Extract repo base name (e.g. 'xyz' from https://github.org/orgorg/xyz.git)
         _repo_basename = OsUtil.get_repo_basename_from_url(conf_repo_remote)
@@ -357,18 +374,18 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self.clone(conf_repo_remote, _abs_path_repo_cloned_into, branch=_conf_repo_version)
 
         if not self._args_in.skip_setup_docker:
-            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._os_user_id}'.")
+            self._logger.warning(f"{self._args_in.skip_setup_docker=}. Setting up Docker with user ID '{self._args_in.user_id}'.")
             try:
-                self.setup_docker(userid_os=self._os_user_id, skip=self._args_in.skip_setup_docker)
+                self.setup_docker(userid_os=self._args_in._user_id, skip=self._args_in.skip_setup_docker)
             except AttributeError as e:
-                _MSG_E = f"'setup_docker' method is incomp;lete. Moving on despite the error: {str(e)}"
+                _MSG_E = f"'setup_docker' method is incomplete. Moving on despite the error: {str(e)}"
                 self.add_runtime_issue(_MSG_E)
 
         else:
             self._logger.info(f"Skipping Docker setup as 'skip_setup_docker' is set to True (verify -> {self._args_in.skip_setup_docker}).")
 
         try:
-            self.update_hostname(self._hostname)
+            self.update_hostname(self._args_in.hostname)
         except NotImplementedError as e:
             self._logger.warning("{}\nIgnore and moving on for now.".format(str(e)))
             self.add_runtime_issue(e)
@@ -378,7 +395,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             For now the user account that is used to execute this process will be the main account.""")
 
         # Installation by batch based on the list defined in package.xml.
-        self.setup_rosdep_and_run(self._args_in.path_local_conf_repo, init_rosdep=True)
+        self.setup_rosdep_and_run(self._args_in.path_temp_colconws, init_rosdep=True)
         # Install dependency that is not available via rosdep
         _deps, _deps_pip = self.nonrosdep_deps()
         try:
@@ -386,7 +403,7 @@ This is most notably ammendable by setting up local client executables of Dropbo
             # so this call here might be redundant with no good reason. This needs to be re-think-ed.
             self.install_deps_adhoc(_deps, _deps_pip)
         except RuntimeWarning as e:
-            self.add_runtime_issue(e)            
+            self.add_runtime_issue(e)
         except RuntimeError as e:
             self.add_runtime_issue(e)            
 
@@ -398,12 +415,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         _abs_path_confdir = os.path.join(self._args_in.path_local_conf_repo, self._args_in.path_conf_dir)
-        self._logger.debug(f"Abs_path_confdir: '{_abs_path_confdir}")
+
+        self._logger.debug(f"'{_abs_path_confdir=}'")
 
         self.setup_terminal_configs(_abs_path_confdir)
 
         try:
-            self.setup_ssh()
+            self.setup_ssh(skip=self._args_in.skip_ssh)
         except RuntimeWarning as e:
             self.add_runtime_issue(e)            
         except Exception as e:
@@ -415,7 +433,12 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         # Skip synergy setting.
 
-        self.setup_dropbox()
+        try:
+            self.setup_dropbox()
+        except RuntimeWarning as e:
+            self.add_runtime_issue(e)            
+        except Exception as e:
+            self.add_runtime_issue(e)
 
         self.create_data_dir(
             [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),

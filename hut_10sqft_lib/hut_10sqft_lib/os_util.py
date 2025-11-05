@@ -7,15 +7,18 @@ try:
     import apt
 except ModuleNotFoundError as e:
     print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
+import ast
 from datetime import datetime
 import logging
 import os
 import pathlib
 import platform
+import re
 import shutil
+import socket
 import subprocess
 import sys
-from typing import List
+from typing import Dict, List, Tuple
 
 
 class OsUtil:
@@ -138,7 +141,7 @@ class OsUtil:
         deb_pkg_names_str = " ".join(deb_pkgs_name)
 
         OsUtil.subproc_bash(f"apt update", does_sudo=True)
-        OsUtil.subproc_bash(f"DEBIAN_FRONTEND=noninteractive apt install -y {deb_pkg_names_str}", does_sudo=True)
+        OsUtil.subproc_bash(f"apt install -y {deb_pkg_names_str}", does_sudo=True, non_interactive=True)
         # Just to verify, print 'apt-cache policy' output for the 'deb_pkg_names_str'.
         OsUtil.apt_cache_policy(deb_pkgs_name)
 
@@ -219,11 +222,14 @@ class OsUtil:
 
     @staticmethod
     def subproc_bash(
-            cmd,
+            cmd: str,
             does_sudo=False,
             print_stdout_err=False,
             logger=None,
-            non_interactive=False):
+            non_interactive=False) -> Tuple[str, str, int]:
+        """
+        @param print_stdout_err: Deprecated: Context is lost, no behavior difference whether or not this is True.
+        """
         if not logger:
             logger = OsUtil._gen_logger()  
         if not cmd:
@@ -235,21 +241,24 @@ class OsUtil:
         if does_sudo == True:
             bash_full_cmd.insert(0, 'sudo')
 
-        if non_interactive:
-            cmd = "DEBIAN_FRONTEND=noninteractive " + cmd
         bash_full_cmd.append(cmd)
+        _env = os.environ.copy()
+        if non_interactive:
+            _env["DEBIAN_FRONTEND"] = "noninteractive"
 
         logger.info(f"subprocess: About to execute the cmd: {bash_full_cmd}")
         _subproc = None
-        if print_stdout_err:
-            _subproc = subprocess.Popen(bash_full_cmd)
-        else:
-            while not _subproc:  # TODO Afraid this look could lead an infinite loop.
-                try:
-                    _subproc = subprocess.Popen(bash_full_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                except FileNotFoundError as e:
-                    del bash_full_cmd[0]
-                    logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. New command: {bash_full_cmd}. Retry now.")
+        while not _subproc:  # TODO Afraid this look could lead an infinite loop.
+            try:
+                _subproc = subprocess.Popen(bash_full_cmd, env=_env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except FileNotFoundError as e:
+                # Remove 'sudo' from the command set and retry.
+                if 'sudo' in bash_full_cmd:
+                    bash_full_cmd.remove('sudo')
+                    logger.warning(f"If 'sudo' is not found on this env, remove that from the command set. \
+                               New command: {bash_full_cmd}. Retry now.")
+                else:
+                    raise RuntimeError(f"'sudo' not found on this env but removing that didn't help. Error: {str(e)}")
 
         output, error = _subproc.communicate()
         bash_return_code = _subproc.returncode
@@ -283,6 +292,8 @@ class OsUtil:
         - True if dest exists after the process.
         - Timestamp of the file copied.
         @todo Remove dependency on ConfigDispatch. This method can be written with just taking str.
+        @raise FileExistsError: When 'overwrite' is False and the destination file already exists.
+        @raise FileNotFoundError: When a file at 'path_source' does not exist.
         """
         if not logger:
             logger = OsUtil._gen_logger()
@@ -366,10 +377,12 @@ class OsUtil:
             try:
                 with open(_FILEPATH_OS_RELEASE, "r") as f:
                     content = f.read()
-                    if f"ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content:
+                    if (f"ID={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content) or (f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_DEBIAN.lower()}" in content):
                         _type_distro = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
-                    elif f"ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content or f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content:
-                        _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
+                        # The `content` may include both `TYPE_LINUX_DISTRO_DEBIAN` AND `TYPE_LINUX_DISTRO_UBUNTU`,
+                        # if the os is Ubuntu.
+                        if (f"ID={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content) or (f"ID_LIKE={OsUtil.TYPE_LINUX_DISTRO_UBUNTU.lower()}" in content):
+                            _type_distro = OsUtil.TYPE_LINUX_DISTRO_UBUNTU
                     else:
                         raise RuntimeError(f"Running on another Linux distribution SUCO does not support. Content of {_FILEPATH_OS_RELEASE}: {content}")
             except FileNotFoundError as e:
@@ -389,3 +402,57 @@ class OsUtil:
         if not _type_os:
             raise RuntimeError(f"OS type undetected or unsupported type found: '{platform.system()}'")
         return _type_os, _type_distro
+
+    @staticmethod
+    def is_ssh_server(host='127.0.0.1', port=22, timeout=1):
+        """
+        @summary: Checks if an SSH server is running on the specified host and port.
+        @raise RuntimeError: When server is not confirmed to be running.
+        """
+        try:
+            with socket.create_connection((host, port), timeout=timeout) as sock:
+                # If the connection is successful, the server is likely running
+                # You could add further checks here, like reading a banner
+                return True
+        except (socket.timeout, ConnectionRefusedError) as e:
+            raise RuntimeError(f"An error regarding socket occurred while verifying ssh server operation: {e}")
+        except Exception as e:
+            raise RuntimeError(f"An error occurred while verifying ssh server operation: {e}")
+
+    @staticmethod
+    def read_conf(path: str, path_alternative: str="", logger=None) -> Dict[str, str]:
+        """
+        @summary: Reads, parses a text file where a set of attribute and the value pairs are 
+          e.g. `/etc/os-release`, and returns a dict of the pairs.
+        @param path: Primarily `/etc/os-release` is intended.
+        @param path_alternative: Alternative path to try when `path` not found.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()        
+        file_obj = None
+        try:
+            filename = path
+            file_obj = open(filename)
+        except FileNotFoundError:
+            if path_alternative:
+                return OsUtil.read_conf(path=path_alternative)
+
+        os_release_data = {}
+        for line_number, line in enumerate(file_obj, start=1):
+            line = line.rstrip()
+            if not line or line.startswith('#'):
+                continue
+
+            m = re.match(r'([A-Z][A-Z_0-9]+)=(.+)', line)
+            if m:
+                name, val = m.groups()
+                # Handle quoted values
+                if val and val[0] in '\"\'':
+                    try:
+                        val = ast.literal_eval(val)
+                    except (SyntaxError, ValueError):
+                        # Fallback for simple cases or errors in literal_eval
+                        val = val.strip('\"\'')
+                os_release_data[name] = val
+        file_obj.close()
+        return os_release_data

@@ -4,15 +4,12 @@
 # Copyright (C) 2025 Kinu Garage
 
 import argparse
-try:
-    import pkg_resources
-except ModuleNotFoundError as e:
-    print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
 import os
 import shutil
 
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.comp_debian import DebianSetup
+from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
 
 
@@ -108,7 +105,7 @@ class UbuntuOsSetup (DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),
                 is_symlink=True),
             ConfigDispatch(
-                path_source=(os.path.sep + os.path.join("media", self._os_user_id, self._EXTERNAL_STORAGE_KUDU1)),
+                path_source=(os.path.sep + os.path.join("media", self._args_in.user_id, self._EXTERNAL_STORAGE_KUDU1)),
                 path_dest=os.path.join(rootpath_symlinks, self._EXTERNAL_STORAGE_KUDU1),
                 necessary=False,
                 is_symlink=True),
@@ -119,13 +116,72 @@ class UbuntuOsSetup (DebianSetup):
             ]
         return pairs_symlinks
 
+    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+        pairs_conf_bash = [
+            ConfigDispatch(
+                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".bashrc"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_bash:
+            self.setup_file(c, overwrite=True)
+
+        # TODO ssh config, path of which needs to be private.
+
+        pairs_conf_tools = [
+            ConfigDispatch(
+                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
+                path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
+                is_symlink=True),
+            ConfigDispatch(
+                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
+                path_dest=os.path.join(self._user_home_dir, ".emacs"),
+                is_symlink=True),
+            ]
+        for c in pairs_conf_tools:
+            self.setup_file(c)
+
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
                            path_os_release = "/etc/os-release",
                            key_os_code = "VERSION_CODENAME="):
-        _URL_ROS2_UBUNTU_INSTALL_DEP = "https://docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html"
-        self._logger.warning(f"At some point after ROS2 Foxy, the apt source setting for ROS2 on Ubuntu has changed. Follow manually the instruction at {_URL_ROS2_UBUNTU_INSTALL_DEP}. "
-                             f"If the ROS2 setup is not done, then the future steps that depend on ROS2 apt source setting might fail.")
+        """
+        @summary: Set up apt source for ROS2 on Ubuntu.
+        """
+        _URL_DEB_APT_SRC = "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"
+        _URL_ROS_APT_SRC = "https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest"
+        _path_deb = "/tmp/ros2-apt-source.deb"
+
+        # Execute the following bash command set, which is documented in https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debs.html#setup-sources:
+ 
+        OsUtil.apt_install("curl", self._logger)
+        _cmd_get_ros_apt_src = f"curl -s {_URL_ROS_APT_SRC}"
+        _output_string, error, bash_return_code = OsUtil.subproc_bash(
+            _cmd_get_ros_apt_src, does_sudo=True, print_stdout_err=False, logger=self._logger)
+
+        for line in _output_string.splitlines():
+            if "tag_name" in line:
+                _data_string = line
+                break
+        # Split the string by the colon. The second part will be e.g. "1.1.0"
+        _value_with_quotes = _data_string.split(":", 1)[1]
+        # Strip the leading/trailing whitespace and quotes
+        _ros_apt_src_version = _value_with_quotes.strip().strip('"')
+        self._logger.info(f"Latest ROS apt source version: '{_ros_apt_src_version}'")
+
+        # $(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})
+        _env_vars_os_release = OsUtil.read_conf(path="/etc/os-release")
+        _ubu_codename = _env_vars_os_release["UBUNTU_CODENAME"]
+        _ver_codename = _env_vars_os_release["VERSION_CODENAME"]
+        _os_ver_dist_str = f"{_ubu_codename}-{_ver_codename}"
+
+        _URL_DEB_ROS_APT = f"https://github.com/ros-infrastructure/ros-apt-source/releases/download/{_ros_apt_src_version}/ros2-apt-source_{_ros_apt_src_version}.{_os_ver_dist_str}_all.deb"
+        self._logger.info(f"'{_URL_DEB_ROS_APT=}', '{_ubu_codename=}', '{_ver_codename=}'")
+
+        _cmd_download_ros_apt_src_pkg = f"curl -L -o {_URL_DEB_ROS_APT}"
+        OsUtil.subproc_bash(_cmd_download_ros_apt_src_pkg, does_sudo=False, print_stdout_err=False, logger=self._logger)
+        cmd_install_ros_apt_src_pkg = f"dpkg -i {_path_deb}"
+        OsUtil.subproc_bash(cmd_install_ros_apt_src_pkg, does_sudo=True, print_stdout_err=True, logger=self._logger)
 
     def _set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
@@ -176,8 +232,9 @@ class UbuntuOsSetup (DebianSetup):
         self.apt_update()
 
     def setup_rosdep_and_run(self, path_ws, pkg_rosdep="python3-rosdep", init_rosdep=False):
-        if pkg_resources == self._APTPKG_ROSDEP2:
-            self._logger.warning(f"On Ubuntu, relying on '{self._APTPKG_ROSDEP2}', which is unofficially maintained, is not recommended. For now moving foward though.")
+        # Execute 'apt-source_ros2.sh', which is supposed to function only on Ubuntu, is supposed to be globally installed within hut_10sqft package.
+        OsUtil.subproc_bash("apt-source_ros2.sh", does_sudo=False, logger=self._logger)
+        OsUtil.subproc_bash(f"apt update", does_sudo=True)
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
     def setup_snap_pkgs(self, snap_pkg: str):

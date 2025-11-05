@@ -16,6 +16,7 @@ from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
 from hut_10sqft.comp_mac_os import MacOsSetup
+from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
 from hut_10sqft.suco_installer import CompInitSetupConfig, SucoInstaller
 
 
@@ -23,14 +24,16 @@ class CompInitSetup():
     """
     @summary TBD
     """
-    _LOGGER_NAME = "CompInitSetup-logger"
-
     # Messages for stdout
-    _MSG_PATH_PERMCONF_REPO = f"""Path to the FINAL location of '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' local repo.
- If not passed then the path will be the default {CompInitSetupConfig.PATH_DEFAULT_PERMANENT_CONF_REPO}, 
-which is for {DebianSetup._OS_TYPE}."""
-    _MSG_PATH_CONF_DIR = f"""Path to the the config folder within the '{CompInitSetupConfig.REPO_PERMANENT_CONFIG}' repo.
- If not passed then the path will be the default {CompInitSetupConfig.PATH_DEFAULT_CONFIG_CONFDIR}."""
+    _MSG_PATH_PERMCONF_REPO = f"Path to the FINAL location of '{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}' local repo. \
+        If not passed then the path will be the default {ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO}, \
+        which is for {DebianSetup._OS_TYPE}."
+    _MSG_PATH_CONF_DIR = f"""Path to the the config folder within the '{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}' repo.
+ If not passed then the path will be the default {ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR}."""
+    _MSG_PATH_CONF_DIR = f"""Path to the the config folder within the '{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}' repo.
+ If not passed then the path will be the default {ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR}."""
+    _MSG_PATH_PRIVATE_CONF_DIR = f"Path to the the folder of private configs within the Dropbox dir. \
+        If not passed then the path will be the default {ShellCapableOsSetup._PATH_DEFAULT_PRIVATE_CONFDIR}."
     _MSG_ARG_PATH_COMMON_SYMLINKS = f"""Path to the folder that contains symlinks.
  If not passed then the path will be the default {CompInitSetupConfig.PATH_SYMLINKS_DIR}."""    
     _MSG_ARG_USERID = """User ID on the OS that will be mainly used. While this
@@ -39,11 +42,13 @@ treats the user ID tha is used to execute this tool as the main user."""
     _MSG_REMOVE_TMP_COLCONWS = f"If specified, remove the temporary colcon workspace after SUCO is executed. \
       If SUCO installation was done by 'suco_installer', there should be a temporary colcon workspace at e.g. \
       '{CompInitSetupConfig.PATH_TEMP_COLCON_WS}'."
-    _URL_CONFREPO = f"https://github.com/kinu-garage/{CompInitSetupConfig.REPO_PERMANENT_CONFIG}.git"
+    _URL_CONFREPO = f"https://github.com/kinu-garage/{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}.git"
     _PATH_VSCODE_INSTALLER = pathlib.Path("~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb").expanduser()
 
+    ARG_USER_ID = "user_id"
+
     def __init__(self):
-        self._logger = logging.getLogger(self._LOGGER_NAME)
+        self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
         log_handler = logging.StreamHandler()
         self._logger.setLevel(logging.DEBUG)  # Needs changed
         self._logger.addHandler(log_handler)
@@ -61,22 +66,16 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_local_conf_repo", help=self._MSG_PATH_PERMCONF_REPO, default=CompInitSetupConfig.PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir", help=self._MSG_PATH_CONF_DIR, default=CompInitSetupConfig.PATH_DEFAULT_CONFIG_CONFDIR)
+        parser.add_argument("--path_conf_private_dir", help=self._MSG_PATH_PRIVATE_CONF_DIR, default=ShellCapableOsSetup._PATH_DEFAULT_PRIVATE_CONFDIR)        
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=CompInitSetupConfig.PATH_SYMLINKS_DIR)
-        parser.add_argument("--user_id", required=False, help=self._MSG_ARG_USERID, default="")
-        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true", default=True)
+        parser.add_argument(f"--{CompInitSetup.ARG_USER_ID}", required=False, help=self._MSG_ARG_USERID, default="")
+        parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
+        parser.add_argument("--skip_ssh", required=False, help="Skip setup for ssh server", action="store_true")
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
         parser.add_argument("--remove_tmpws", required=False, help=self._MSG_REMOVE_TMP_COLCONWS, action="store_true")
 
         args = parser.parse_args()
         self._logger.info("args: {}".format(args))
-
-        self._logger.info("If 'user_id' is not passed, get the user id of the current process.")
-        if not args.user_id:
-            args.user_id = pwd.getpwuid(os.getuid())[0]
-
-        if not args.hostname:
-            args.hostname = os.uname()[1]
-            self._logger.warn(f"If 'hostname' is not passed, get the host name from the OS.: {args.hostname}")
 
         return args
 
@@ -104,6 +103,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         _args = self._cli_args()
         # Builder pattern
         _os_builder = None
+        _user_id = ""
         if _args.os_distro == ChromeOsSetup._OS_TYPE:
             _os_builder = ChromeOsSetup(args_in=_args)
         elif _args.os_distro == DebianSetup._OS_TYPE:
@@ -114,6 +114,16 @@ treats the user ID tha is used to execute this tool as the main user."""
             _os_builder = MacOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
+
+        # User ID based on the type of OS
+        if not getattr(_args, f"{CompInitSetup.ARG_USER_ID}", None):
+            if _args.os_distro == ChromeOsSetup._OS_TYPE:
+                _args.user_id = "gm130s"
+            elif _args.os_distro == DebianSetup._OS_TYPE or _args.os_distro == UbuntuOsSetup._OS_TYPE or _args.os_distro == MacOsSetup._OS_TYPE:
+                _args.user_id = "n130s"
+            else:
+                _args.user_id if pwd.getpwuid(os.getuid()).pw_name else "host_set_by_suco"
+                self._logger.warning(f"'user_id' is not passed, set by SUCO = {_args.user_id}.")
 
         # Env vars per host: Bash, Emacs
         _host_cfg = None

@@ -19,6 +19,5 @@ setup(
  maintainer_email='iisaac.saito@gmail.com',
  description='A library package for generic utility for setting up computer environment.',
  license='Apache',
- tests_require=['pytest'],
  entry_points={},
 )

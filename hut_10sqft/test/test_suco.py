@@ -23,8 +23,7 @@ from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
 from hut_10sqft.host_config import HostConf
-from hut_10sqft.suco_main import CompInitSetup
-from hut_10sqft.suco_main import CompInitSetupConfig, SucoInstaller
+from hut_10sqft.suco_installer import CompInitSetupConfig
 from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
@@ -71,12 +70,18 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     pairs = cfgbuilder.generate_symlinks(
             rootpath_symlinks=os.path.join(init_input_params[ATTR_HOME_DIR], init_input_params[ATTR_PATH_SYMLINKS_DIR]),
             path_user_home=init_input_params[ATTR_HOME_DIR])
-#    assert type(pairs) == list[ConfigDispatch]
     assert type(pairs) == list
-    assert len(pairs) == 6
+
+    # TODO Branching logic by if per each test method may not be clean way to run tests on multiple OSes,
+    # but I couldnm't figure out a clean way to do this in time as of 2025/10.
+    if type(cfgbuilder) == UbuntuOsSetup:
+        assert len(pairs) == 13
+    elif type(cfgbuilder) == ChromeOsSetup:
+        assert len(pairs) == 6
     
 def test_suco_main(cfgbuilder):
     """
+    @note: Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315
     @summary: End-to-end test of the main logic of SUCO.
     """
     # Just for test purpose, use an existing host config.
@@ -85,3 +90,40 @@ def test_suco_main(cfgbuilder):
         _host_cfg,
         conf_repo_remote=CompInitSetupConfig.URL_HUT,
         conf_base_path=CompInitSetupConfig.PATH_FOLDER_CONF) is True
+
+def test_read_conf_os_release(cfgbuilder):
+    """
+    @description: Test `OsUtil.read_conf` with /etc/os-release or /usr/lib/os-release file.
+    """
+    if type(cfgbuilder) not in [UbuntuOsSetup, ChromeOsSetup]:
+        pytest.skip(f"For the time being this test is only for Linux-based OS, not for '{type(cfgbuilder)}'.")
+    os_release_data = OsUtil.read_conf("/etc/os-release", path_alternative="/usr/lib/os-release")
+    assert isinstance(os_release_data, dict)
+    assert "NAME" in os_release_data
+    assert "VERSION_ID" in os_release_data
+    assert "ID" in os_release_data
+    assert "VERSION_CODENAME" in os_release_data
+    assert os_release_data["NAME"]  # Not empty
+    assert os_release_data["VERSION_ID"]  # Not empty
+    assert os_release_data["ID"]  # Not empty
+    assert os_release_data["VERSION_CODENAME"]  # Not empty
+
+def test_setup_rosdep():
+    """
+    @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315
+    """
+    #_manual_args = ["--skip_setup_docker"]
+    config_dict = {
+        "hostname": "test-host",
+        "msg_endroll": "msg endroll test",
+        "os_distro": "Ubuntu",
+        "os_type": "Linux",
+        "skip_setup_docker": True,
+        }
+    parser = argparse.ArgumentParser(description="")
+    args = argparse.Namespace(**config_dict)
+    ubuntu = UbuntuOsSetup(args_in=args)
+    ubuntu.set_ros_apt_source()
+
+    output, error, ret_code = OsUtil.subproc_bash(f"rosdep update")
+    assert ret_code == 0

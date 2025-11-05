@@ -92,12 +92,13 @@ class DebianSetup(ShellCapableOsSetup):
         @param init_rosdep: If `True`, then `rosdep init` also executes.
         """
         self.setup_ros_installer_src()
+        self.install_deps_adhoc(deb_pkgs=[pkg_rosdep])
 
         if init_rosdep:
             OsUtil.setup_rosdep()
         os.chdir(path_ws)
         self._logger.info(f"Changed directory to '{path_ws}' to run 'rosdep install' against the manifest that defines dependencies")
-        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y")
+        output, error, bash_return_code = OsUtil.subproc_bash("rosdep install --from-paths . --ignore-src -r -y --verbose")
         if bash_return_code != 0:
             self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
         else:
@@ -154,7 +155,20 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f"git clone {repo_to_clone} {dir_cloned_at} {_option}", does_sudo=False, print_stdout_err=True)
 
     def setup_ssh(self, skip=False, path_local_conf_repo=""):
-        self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
+        """
+        @raise RuntimeException: When ssh server not confirmed to be running.
+        """
+        self._logger.info(f"On {OsUtil.TYPE_OS_LINUX} type of OS, where 'rosdep install' should function (?), \
+                          SSH server should be enabled when a set of relevant pkgs get installed via 'rosdep'.")
+        if skip:
+            self._logger.warning(f"User chose to skip ssh setup.")
+            return
+
+        # Verify ssh server is up and running.
+        try:
+            OsUtil.is_ssh_server()
+        except Exception as e:
+            raise e
 
     def setup_oracle_java(self):
         self._logger.warning("""The following should be done manually, mainly due to license operation that is hard to automate, in order to set up Oracle Java that is required by Eclipse:
@@ -192,7 +206,7 @@ class DebianSetup(ShellCapableOsSetup):
         except RuntimeWarning as e:
             self._logger.warning(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
             self.add_runtime_issue(e)
-        if not self._execs_found:
+        if not self._exec_docker:
             self.add_runtime_issue("Not all necessary executables is found. Aborting setting up Docker.")
             return
 
@@ -219,7 +233,11 @@ class DebianSetup(ShellCapableOsSetup):
         # then its executable hadn't been available either.
         self._which_git = OsUtil.which("git")
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
+    def setup_configs(
+            self,
+            host_config: HostConf,
+            abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
+            abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
         pairs_conf_autostart = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
