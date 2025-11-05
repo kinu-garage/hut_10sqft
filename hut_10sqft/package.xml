@@ -1,6 +1,6 @@
 <package format="3">
   <name>hut_10sqft</name>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
   <description>Tool suite for setting up lives, mostly for computer environment.</description>
   <maintainer email="iisaac.saito@gmail.com">Isaac Saito</maintainer>
   <license>Apache</license>
