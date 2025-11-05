@@ -79,7 +79,7 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     elif type(cfgbuilder) == ChromeOsSetup:
         assert len(pairs) == 6
     
-def _test_suco_main(cfgbuilder):
+def test_suco_main(cfgbuilder):
     """
     @note: Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315
     @summary: End-to-end test of the main logic of SUCO.
@@ -108,7 +108,7 @@ def test_read_conf_os_release(cfgbuilder):
     assert os_release_data["ID"]  # Not empty
     assert os_release_data["VERSION_CODENAME"]  # Not empty
 
-def _test_setup_rosdep():
+def test_setup_rosdep():
     """
     @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315
     """
