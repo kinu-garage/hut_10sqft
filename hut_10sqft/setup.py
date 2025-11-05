@@ -24,7 +24,6 @@ setup(
     description="A package primarilly for setting up the maintainers' personal computers environment.",
     license='Apache-2.0',
     scripts=[os.path.join("exec", exec_aptsrc)],
-    tests_require=['pytest'],
     entry_points={
         "console_scripts": [
         "suco = hut_10sqft.suco_main:main",
