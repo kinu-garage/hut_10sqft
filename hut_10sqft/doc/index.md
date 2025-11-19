@@ -13,7 +13,7 @@ Prerequisite:
      export PATH_VENV=~/.local/share/tmp_suco/venv && \
      mkdir -p $PATH_TMP_SUCO && cd $PATH_TMP_SUCO && python3 -m venv $PATH_VENV && source $PATH_VENV/bin/activate
    $ export SUCO_INSTALLER=/tmp/suco.py &&  \
-     export VERSION=fix-rosdep &&  \
+     export VERSION=0.3.0 &&  \
      sudo apt update && sudo apt install -y curl git python3 python3-venv python3-pip &&  \
      curl --output $SUCO_INSTALLER https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && chmod 755 $SUCO_INSTALLER && \
      $SUCO_INSTALLER --git_branch $VERSION
