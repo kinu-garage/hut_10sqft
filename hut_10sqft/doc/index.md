@@ -13,10 +13,10 @@ Prerequisite:
      export PATH_VENV=~/.local/share/tmp_suco/venv && \
      mkdir -p $PATH_TMP_SUCO && cd $PATH_TMP_SUCO && python3 -m venv $PATH_VENV && source $PATH_VENV/bin/activate
    $ export SUCO_INSTALLER=/tmp/suco.py &&  \
-     export VERSION=fix-rosdep &&  \
+     export VERSION=0.3.0 &&  \
      sudo apt update && sudo apt install -y curl git python3 python3-venv python3-pip &&  \
      curl --output $SUCO_INSTALLER https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && chmod 755 $SUCO_INSTALLER && \
-     $SUCO_INSTALLER --git_branch $VERSION
+     export GIT_CONFIG_GLOBAL=''; export GIT_CONFIG_SYSTEM=''; $SUCO_INSTALLER --git_branch $VERSION
    $ export PATH_TMP_WS=~/.local/share/tmp_suco/colconws &&  \
      export HOST_NAME=130s-p16s-4 &&  \
      export OSTYPE=Ubuntu &&  \
@@ -25,6 +25,8 @@ Prerequisite:
    $ suco --hostname $HOST_NAME --os_distro $OSTYPE --conf_repo_version $VERSION && \
      echo "Removing a temp colcon ws dir".; rm -fr $PATH_TMP_WS
    ```
+   Note as of v0.3.1, when re-running SUCO, running the whole set of lines, instead of resuming at certain line in the middle, is recommended.
+
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
    - `HOST_NAME`: Must be already defined in the code (e.g. 130s-p16s). Otherwise execution fails.

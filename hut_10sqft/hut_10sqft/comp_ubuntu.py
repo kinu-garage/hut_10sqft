@@ -53,7 +53,7 @@ class UbuntuOsSetup (DebianSetup):
         self._logger.warning("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
         for dir in dirs_tobe_removed:
             try:
-                shutil.rmtree(dir)
+                shutil.rmtree(os.path.join(os.path.expanduser('~'), dir))
             except FileNotFoundError as e:
                 self._logger.warning("File/Dir '{}' does not exist. Moving on without deleting it.".format(dir))
                 self.add_runtime_issue(e)
