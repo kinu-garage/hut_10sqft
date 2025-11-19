@@ -16,7 +16,7 @@ Prerequisite:
      export VERSION=0.3.0 &&  \
      sudo apt update && sudo apt install -y curl git python3 python3-venv python3-pip &&  \
      curl --output $SUCO_INSTALLER https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && chmod 755 $SUCO_INSTALLER && \
-     $SUCO_INSTALLER --git_branch $VERSION
+     export GIT_CONFIG_GLOBAL=''; export GIT_CONFIG_SYSTEM=''; $SUCO_INSTALLER --git_branch $VERSION
    $ export PATH_TMP_WS=~/.local/share/tmp_suco/colconws &&  \
      export HOST_NAME=130s-p16s-4 &&  \
      export OSTYPE=Ubuntu &&  \
