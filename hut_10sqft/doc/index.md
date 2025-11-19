@@ -25,6 +25,8 @@ Prerequisite:
    $ suco --hostname $HOST_NAME --os_distro $OSTYPE --conf_repo_version $VERSION && \
      echo "Removing a temp colcon ws dir".; rm -fr $PATH_TMP_WS
    ```
+   Note as of v0.3.1, when re-running SUCO, running the whole set of lines, instead of resuming at certain line in the middle, is recommended.
+
    Customization:
    - `VERSION`: if you want to use non-standard branch/version.
    - `HOST_NAME`: Must be already defined in the code (e.g. 130s-p16s). Otherwise execution fails.
