@@ -1,0 +1,3 @@
+# Remove internal Nvidia GPU from the system on boot. See https://github.com/kinu-garage/hut_10sqft/issues/1317#issuecomment-3549333532
+# 'KERNEL' value needs to match with iGPU on the host.
+ACTION=="add", KERNEL=="0000:03:00.0", SUBSYSTEM=="pci", ATTR{remove}="1"
