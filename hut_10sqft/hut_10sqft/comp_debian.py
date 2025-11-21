@@ -11,7 +11,7 @@ from hut_10sqft.host_config import HostConf
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
 from hut_10sqft_lib.os_util import OsUtil
-
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
@@ -39,12 +39,12 @@ class DebianSetup(ShellCapableOsSetup):
     _OS_TYPE = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
     _PIP_PKGS = ["pipx"]
 
-    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
         # This variable might be accessed in `super().__init__` so
         # defined prior to the call. Might not be a good practice though.
         self._apt_updated = False
 
-        super().__init__(os_name, args_in)
+        super().__init__(os_name, args_in, default_userid=default_userid)
 
     @property
     def apt_updated(self):

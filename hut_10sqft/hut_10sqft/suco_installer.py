@@ -40,6 +40,10 @@ class CompInitSetupConfig():
     PATH_COLCON_SRC = "src"  # Constant for colcon workspace
     URL_HUT = f"https://github.com/kinu-garage/{REPO_PERMANENT_CONFIG}.git"
 
+    ARG_USER_ID = "user_id"
+    VAL_USERID_DEFAULT = "n130s"
+    VAL_USERID_GOOG = "gm130s"
+
     MSG_CONSOLE_TOOL_INTRO = "This tool 'SUCO' is for setting up a Linux-based personal computer. \
      It does the following: 1) Installs dependency (which must be defined in package.xml). \
      2) Create symlinks to config files, which are provided in hut_10sqft local git repo \

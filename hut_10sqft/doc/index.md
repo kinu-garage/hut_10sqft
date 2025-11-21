@@ -19,10 +19,10 @@ Prerequisite:
      export GIT_CONFIG_GLOBAL=''; export GIT_CONFIG_SYSTEM=''; $SUCO_INSTALLER --git_branch $VERSION
    $ export PATH_TMP_WS=~/.local/share/tmp_suco/colconws &&  \
      export HOST_NAME=130s-p16s-4 &&  \
-     export OSTYPE=Ubuntu &&  \
+     export OS_DiSTRO=Ubuntu &&  \
      source $PATH_TMP_WS/install/setup.bash && \
      cd $PATH_TMP_WS/src/hut_10sqft/hut_10sqft && python -m pip install setuptools && python setup.py install && cd $PATH_TMP_WS
-   $ suco --hostname $HOST_NAME --os_distro $OSTYPE --conf_repo_version $VERSION && \
+   $ suco --hostname $HOST_NAME --os_distro $OS_DiSTRO --conf_repo_version $VERSION && \
      echo "Removing a temp colcon ws dir".; rm -fr $PATH_TMP_WS
    ```
    Note as of v0.3.1, when re-running SUCO, running the whole set of lines, instead of resuming at certain line in the middle, is recommended.

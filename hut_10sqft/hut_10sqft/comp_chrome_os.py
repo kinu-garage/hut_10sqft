@@ -9,7 +9,7 @@ import os
 from hut_10sqft_lib.os_util import OsUtil
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.config_dispatch import ConfigDispatch
-
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 class ChromeOsSetup(DebianSetup):
     _DIRNAME_GDRIVE = "GoogleDrive"
@@ -24,8 +24,8 @@ class ChromeOsSetup(DebianSetup):
     _HINT_ENABLE_MOUNT_LOCAL_DOWNLOADS = _HINT_ENABLE_MOUNT_GENERIC.format(_DIRNAME_LOCAL_DOWNLOADS, _DIRNAME_LOCAL_DOWNLOADS, os.path.join(_DIRNAME_LOCAL_DIR, _DIRNAME_LOCAL_DOWNLOADS))
     _OS_TYPE = OsUtil.TYPE_OS_CHROMEOS
 
-    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_GOOG):
+        super().__init__(os_name, args_in, default_userid=default_userid)
 
     def setup_dropbox(self):
         self._logger.warning(

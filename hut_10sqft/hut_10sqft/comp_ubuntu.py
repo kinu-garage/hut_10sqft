@@ -11,6 +11,7 @@ from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 
 class UbuntuOsSetup (DebianSetup):
@@ -21,6 +22,7 @@ class UbuntuOsSetup (DebianSetup):
         "gtk-recordmydesktop",
         "ibus-el",
         "indicator-multiload",
+        "lvm2",  # For handling external SATA SSD with LVM
         "peek",
         "python-software-properties",  # From http://askubuntu.com/a/55960/24203 primarilly for Oracle Java for Eclipse
         "ptex-bin",
@@ -29,9 +31,23 @@ class UbuntuOsSetup (DebianSetup):
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
     _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
-    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
+        super().__init__(os_name, args_in, default_userid=default_userid)
+
+        self._path_mountpoint = ""
+        # TODO This is not very nice design. Set up external SATA SSD first,
+        # as in __init__ the path to the mount point will be used to create a symlink to it.
+        try:
+            self._path_mountpoint = self._setup_sata_ssd()
+        except RuntimeError as e:
+            self.add_runtime_issue(e)
+
         self.ubuntu_desktop_cleanup()
+
+        try:
+            self._setup_unreal_engine(self._path_mountpoint)
+        except RuntimeError as e:
+            self.add_runtime_issue(e)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=_PKGS_SNAP):
         if not deb_pkgs:
@@ -57,6 +73,57 @@ class UbuntuOsSetup (DebianSetup):
             except FileNotFoundError as e:
                 self._logger.warning("File/Dir '{}' does not exist. Moving on without deleting it.".format(dir))
                 self.add_runtime_issue(e)
+
+    def _setup_sata_ssd(self) -> str:
+        """
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/871, https://github.com/kinu-garage/hut_10sqft/issues/1341
+        @summary: Install a necessary package to handle logical volume (, which presumably taking care of mounting too),
+          make the mounted directory accessible.
+        @note: As of 2025/11, the usecase of this method is specific to the particular device
+          named as `self._EXTERNAL_STORAGE_KUDU1` and also mentioned in
+          https://github.com/kinu-garage/hut_10sqft/issues/1341. Also, this method needs to be executed
+          priot to the main `run` method where an attempt to symlink the directory on the SSD will be made.
+        @return: The path to the mount point of the SSD.
+        @raise: RuntimeError: When the mount point does not exist even after installing `lvm2` package.
+        """
+        path_mountpoint = os.path.sep + os.path.join("media", self._args_in.user_id, self._EXTERNAL_STORAGE_KUDU1)
+        if not os.path.exists(path_mountpoint):
+            raise RuntimeError(f"Mount point '{path_mountpoint}' does not exist even after installing 'lvm2' package.")
+
+        cmd_chown = f"chown -R {self._args_in.user_id}:{self._args_in.user_id} {path_mountpoint}"
+        self._logger.warning(f"About to execute: '{cmd_chown}', which makes the mount point accessible \
+                             by the user '{self._args_in.user_id}'. This may take a while depending on the number of files.")
+        OsUtil.subproc_bash(cmd_chown, does_sudo=True, logger=self._logger)
+        cmd_chmod_mountpoint = f"chmod 744 {path_mountpoint}"
+        OsUtil.subproc_bash(cmd_chmod_mountpoint, does_sudo=True, logger=self._logger)
+       
+        return path_mountpoint
+        
+    def _setup_unreal_engine(self, path_rootdir_ue_storage: str):
+        """
+        @summary: Make sure the external SSD (named as `self._EXTERNAL_STORAGE_KUDU1` as of 2025/11) is accessible,
+          create a symlink to the Unreal Engine executable to /usr/local/bin IFF an executable is found there,
+          so that Unreal Engine can be used from there.
+        @param path_rootdir_ue_storage: Path to the root directory of the external SSD where UE binary is stored.
+        @raise RuntimeError: When a path at `path_rootdir_ue_storage` does not exist.
+        """
+        if not os.path.exists(path_rootdir_ue_storage):
+            raise RuntimeError(f"Mount point for UE binary '{path_rootdir_ue_storage}' does not exist.")
+
+        path_uexe_src = os.path.sep + os.path.join(path_rootdir_ue_storage,
+                                                   "pg",
+                                                   "unreal-engine",
+                                                   "prebuilt_UE",
+                                                   "unreal-engine-5.6.1_prebuilt",
+                                                   "Engine", "Binaries", "Linux", "UnrealEditor")
+        path_uexe_dest = os.path.sep + os.path.join("usr", "local", "bin", "UnrealEditor")
+        if os.path.exists(path_uexe_src):
+            cmd_ln_uexe = f"ln -sf {path_uexe_src} {path_uexe_dest}"
+            OsUtil.subproc_bash(cmd_ln_uexe, does_sudo=True, logger=self._logger)
+            self._logger.info(f"Created a symlink to Unreal Engine executable at '{path_uexe_dest}'")
+        else:
+            raise RuntimeError(f"Unreal Engine executable not found at '{path_uexe_src}'. "
+                               f"Make sure the external SSD '{self._EXTERNAL_STORAGE_KUDU1}' is mounted properly.")
 
     def generate_symlinks(self, rootpath_symlinks, path_user_home):
         pairs_symlinks = [

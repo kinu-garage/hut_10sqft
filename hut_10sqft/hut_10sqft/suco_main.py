@@ -45,8 +45,6 @@ treats the user ID tha is used to execute this tool as the main user."""
     _URL_CONFREPO = f"https://github.com/kinu-garage/{ShellCapableOsSetup._REPO_PERMANENT_CONFIG}.git"
     _PATH_VSCODE_INSTALLER = pathlib.Path("~/link/GoogleDrive/lifeinfra/computer/installer/vscode/code_1.103.2-1755709794_amd64.deb").expanduser()
 
-    ARG_USER_ID = "user_id"
-
     def __init__(self):
         self._logger = logging.getLogger(CompInitSetupConfig.LOGGER_NAME_CISC)
         log_handler = logging.StreamHandler()
@@ -68,7 +66,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_conf_dir", help=self._MSG_PATH_CONF_DIR, default=CompInitSetupConfig.PATH_DEFAULT_CONFIG_CONFDIR)
         parser.add_argument("--path_conf_private_dir", help=self._MSG_PATH_PRIVATE_CONF_DIR, default=ShellCapableOsSetup._PATH_DEFAULT_PRIVATE_CONFDIR)        
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=CompInitSetupConfig.PATH_SYMLINKS_DIR)
-        parser.add_argument(f"--{CompInitSetup.ARG_USER_ID}", required=False, help=self._MSG_ARG_USERID, default="")
+        parser.add_argument(f"--{CompInitSetupConfig.ARG_USER_ID}", required=False, help=self._MSG_ARG_USERID, default="")
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
         parser.add_argument("--skip_ssh", required=False, help="Skip setup for ssh server", action="store_true")
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
@@ -114,16 +112,6 @@ treats the user ID tha is used to execute this tool as the main user."""
             _os_builder = MacOsSetup(args_in=_args)
         else:
             raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
-
-        # User ID based on the type of OS
-        if not getattr(_args, f"{CompInitSetup.ARG_USER_ID}", None):
-            if _args.os_distro == ChromeOsSetup._OS_TYPE:
-                _args.user_id = "gm130s"
-            elif _args.os_distro == DebianSetup._OS_TYPE or _args.os_distro == UbuntuOsSetup._OS_TYPE or _args.os_distro == MacOsSetup._OS_TYPE:
-                _args.user_id = "n130s"
-            else:
-                _args.user_id if pwd.getpwuid(os.getuid()).pw_name else "host_set_by_suco"
-                self._logger.warning(f"'user_id' is not passed, set by SUCO = {_args.user_id}.")
 
         # Env vars per host: Bash, Emacs
         _host_cfg = None
