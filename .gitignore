@@ -52,7 +52,11 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
-# Emacs
+# Editor
+## Emacs
 *~
 *#
 *.#*
+
+## VSCode
+.vscode
