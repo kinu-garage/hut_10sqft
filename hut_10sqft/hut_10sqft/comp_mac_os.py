@@ -10,12 +10,13 @@ from hut_10sqft.host_config import HostConf
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.abst_comp_setup import AbstCompSetupFactory
 from hut_10sqft_lib.os_util import OsUtil
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 
 class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = OsUtil.TYPE_OS_MACOS
-    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
+        super().__init__(os_name, args_in, default_userid=default_userid)
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")

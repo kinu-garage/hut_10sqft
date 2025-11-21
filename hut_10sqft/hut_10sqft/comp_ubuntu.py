@@ -11,6 +11,7 @@ from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 
 class UbuntuOsSetup (DebianSetup):
@@ -30,8 +31,8 @@ class UbuntuOsSetup (DebianSetup):
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
     _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
-    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None):
-        super().__init__(os_name, args_in)
+    def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
+        super().__init__(os_name, args_in, default_userid=default_userid)
 
         self._path_mountpoint = ""
         # TODO This is not very nice design. Set up external SATA SSD first,

@@ -19,6 +19,7 @@ from typing import List
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
+from hut_10sqft.suco_installer import CompInitSetupConfig
 
 
 class AbstCompSetupFactory():
@@ -26,11 +27,21 @@ class AbstCompSetupFactory():
     @description: Applyig Abstract Factory pattern.
     """
     _DIR_DROXBOX_CONTAINER = "data"  # This is beyond programming, something that sticks with 130s' computer usage for decades.
+    VAL_USERID_DEFAULT = "host_set_by_suco"
 
-    def __init__(self, os_name="", args_in: argparse.Namespace=None):
+    def __init__(self, os_name="", args_in: argparse.Namespace=None, default_userid=VAL_USERID_DEFAULT):
+        """
+        @description: Some behaviors:
+          - If args_in.user_id is not set, `set_user_id` will be called to set it.
+        """
         self._os = os_name
+        self._args_in = args_in
+
         self.init_logger(logger_name=__name__)
         self._list_runtime_issues = []
+
+        if not getattr(args_in, f"{CompInitSetupConfig.ARG_USER_ID}", None):
+            self.set_user_id(args_in, default_user_id=default_userid)
 
         if not getattr(args_in, "hostname", None):
             args_in.hostname = os.uname()[1]
@@ -53,6 +64,16 @@ class AbstCompSetupFactory():
     def path_base_conf(self, value):
         self._path_base_conf = value
 
+    def set_user_id(self, args_in: argparse.Namespace, default_user_id=VAL_USERID_DEFAULT):
+        if not getattr(args_in, f"{CompInitSetupConfig.ARG_USER_ID}", None):
+            try:
+                args_in.user_id = pwd.getpwuid(os.getuid()).pw_name or default_user_id
+            except Exception:
+                args_in.user_id = default_user_id
+            self._logger.warning(f"'{CompInitSetupConfig.ARG_USER_ID}' is not passed, set by SUCO = {args_in.user_id}.")
+        else:
+            self._logger.info(f"'{CompInitSetupConfig.ARG_USER_ID}' is passed as '{args_in.user_id}.")
+        
     def add_runtime_issue(self, value):
         """
         @param value: Although the type of this not strictly enforced, recommended to be Exption type.
@@ -120,10 +141,8 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
     _PATH_DEFAULT_PRIVATE_CONFDIR = os.path.join(pathlib.Path.home(), "data", "Dropbox", "app")  # This has been used on all shell-enabled OSes so far but it'll be nice if user can designate.
     _PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     
-    def __init__(self, os_name="", args_in: argparse.Namespace=None):
+    def __init__(self, os_name="", args_in: argparse.Namespace=None, default_userid=AbstCompSetupFactory.VAL_USERID_DEFAULT):
         super().__init__(os_name, args_in)
-
-        self._args_in = args_in
 
         # Python security https://docs.python.org/3.10/library/subprocess.html#popen-constructor
         # for those executables that are (hopefully) available on any shell independent from the type of OS.
