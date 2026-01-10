@@ -164,9 +164,8 @@ class UbuntuOsSetup (DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "ROS"),
                 is_symlink=True),
             ConfigDispatch(
-                path_source=os.path.join(path_user_home, "link", "30y-130s", "schools_children", "GJLS"),
-                path_dest=os.path.join(rootpath_symlinks, "GJLS"),
-                is_symlink=True),
+                path_source=os.path.join(rootpath_symlinks, "30y-130s", "schools_children", "in-japan-school"),
+                path_dest=os.path.join(rootpath_symlinks, "japan-schools"), is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(path_user_home, "link", "git_repos", "ROS", "cws_utakata"),
                 path_dest=os.path.join(rootpath_symlinks, "cws_utakata"),

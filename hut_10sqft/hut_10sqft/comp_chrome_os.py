@@ -54,6 +54,9 @@ class ChromeOsSetup(DebianSetup):
             ConfigDispatch(
                 path_source=os.path.join(os.path.sep, "mnt" ,"chromeos", self._DIRNAME_LOCAL_DIR, self._DIRNAME_LOCAL_DOWNLOADS),
                 path_dest=os.path.join(rootpath_symlinks, "chrome-host_downloads"), is_symlink=True, necessary=True, hint_enable=self._HINT_ENABLE_MOUNT_LOCAL_DOWNLOADS),
+            ConfigDispatch(
+                path_source=os.path.join(rootpath_symlinks, "30y-130s", "schools_children", "in-japan-school"),
+                path_dest=os.path.join(rootpath_symlinks, "japan-schools"), is_symlink=True),
             ]
         self._logger.debug(f"pairs_symlinks: type: {type(pairs_symlinks)}, content: {pairs_symlinks}")
         return pairs_symlinks
