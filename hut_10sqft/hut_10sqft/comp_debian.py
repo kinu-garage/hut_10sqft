@@ -26,6 +26,7 @@ class DebianSetup(ShellCapableOsSetup):
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
                 "ibus",
                 "libavahi-compat-libdnssd1",
+                "libreoffice-draw"    # https://github.com/kinu-garage/hut_10sqft/issues/1357
                 "pdftk-java",
                 "pidgin",
                 "psensor",
