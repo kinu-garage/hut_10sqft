@@ -17,6 +17,8 @@ class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
+    _DEBS_VIRTUALBOX = ["virtualbox-guest-additions-iso", "virtualbox-qt"]
+
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
                 "colorized-logs",
@@ -24,18 +26,25 @@ class DebianSetup(ShellCapableOsSetup):
                 "evince",
                 "flameshot",
                 _DEB_CAPS_CTRL_UTIL,  # Primarily for swapping Caps and Ctrl keys
+                "gitk",
                 "ibus",
+                "kazam",              # https://github.com/kinu-garage/hut_10sqft/issues/1006 etc.
                 "libavahi-compat-libdnssd1",
+                "libreoffice-draw"    # https://github.com/kinu-garage/hut_10sqft/issues/1357
+                "locate",
+                "lvm2",               # https://github.com/kinu-garage/hut_10sqft/issues/1341
+                "mpv",                # https://github.com/kinu-garage/hut_10sqft/issues/1261
                 "pdftk-java",
-                "pidgin",
                 "psensor",
                 #"python3-rosdep",  # Without ROS' apt source, apt would install python3-rosdep2, which is NOT the officially maintained pkg. See https://discourse.ros.org/t/upstream-packages-increasingly-becoming-a-problem/10902/25
                 "ptex-base",
+                "smartmontools",      # https://github.com/kinu-garage/hut_10sqft/issues/871#issuecomment-2616691942, https://github.com/kinu-garage/hut_10sqft/issues/1135#issuecomment-2898229006, https://github.com/kinu-garage/hut_10sqft/issues/1341#issuecomment-3559791999
                 "synaptic",
                 "xbindkeys",
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
+                "vulkan-tools",       #https://github.com/kinu-garage/hut_10sqft/issues/1317#issuecomment-3531300663
                 "whois",
-                ] + _DEBS_MOZC
+                ] + _DEBS_MOZC + _DEBS_VIRTUALBOX
     _OS_TYPE = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
     _PIP_PKGS = ["pipx"]
 
