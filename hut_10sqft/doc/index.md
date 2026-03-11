@@ -20,7 +20,7 @@ Prerequisite:
      export GIT_CONFIG_GLOBAL=''; export GIT_CONFIG_SYSTEM=''; $SUCO_INSTALLER --git_branch $VERSION
    $ export PATH_TMP_WS=~/.local/share/tmp_suco/colconws &&  \
      export HOST_NAME=130s-p16s-4 &&  \
-     export OS_DiSTRO=Ubuntu &&  \
+     export OS_DISTRO=Ubuntu &&  \
      source $PATH_TMP_WS/install/setup.bash && \
      cd $PATH_TMP_WS/src/hut_10sqft/hut_10sqft && python -m pip install setuptools && python setup.py install && cd $PATH_TMP_WS
    $ suco --hostname $HOST_NAME --os_distro $OS_DISTRO --conf_repo_version $VERSION
