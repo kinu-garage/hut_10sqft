@@ -30,7 +30,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "ibus",
                 "kazam",              # https://github.com/kinu-garage/hut_10sqft/issues/1006 etc.
                 "libavahi-compat-libdnssd1",
-                "libreoffice-draw"    # https://github.com/kinu-garage/hut_10sqft/issues/1357
+                "libreoffice-draw",   # https://github.com/kinu-garage/hut_10sqft/issues/1357
                 "locate",
                 "lvm2",               # https://github.com/kinu-garage/hut_10sqft/issues/1341
                 "mpv",                # https://github.com/kinu-garage/hut_10sqft/issues/1261
