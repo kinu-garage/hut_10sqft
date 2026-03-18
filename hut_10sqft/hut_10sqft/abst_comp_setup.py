@@ -452,12 +452,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         # Skip synergy setting.
 
-        try:
-            self.setup_dropbox()
-        except RuntimeWarning as e:
-            self.add_runtime_issue(e)            
-        except Exception as e:
-            self.add_runtime_issue(e)
+        if not self._args_in.skip_dropbox:
+            try:
+                self.setup_dropbox()
+            except RuntimeWarning as e:
+                self.add_runtime_issue(e)
+            except Exception as e:
+                self.add_runtime_issue(e)
 
         self.create_data_dir(
             [os.path.join(self._user_home_dir, self._DIR_DROXBOX_CONTAINER),

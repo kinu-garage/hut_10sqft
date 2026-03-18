@@ -17,7 +17,8 @@ class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
-    _DEBS_VIRTUALBOX = ["virtualbox-guest-additions-iso", "virtualbox-qt"]
+    #_DEBS_VIRTUALBOX = ["virtualbox-guest-additions-iso", "virtualbox-qt"]
+    _DEBS_VIRTUALBOX = []  # Keep this blank before https://github.com/kinu-garage/hut_10sqft/issues/1401
 
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
@@ -30,7 +31,7 @@ class DebianSetup(ShellCapableOsSetup):
                 "ibus",
                 "kazam",              # https://github.com/kinu-garage/hut_10sqft/issues/1006 etc.
                 "libavahi-compat-libdnssd1",
-                "libreoffice-draw"    # https://github.com/kinu-garage/hut_10sqft/issues/1357
+                "libreoffice-draw",   # https://github.com/kinu-garage/hut_10sqft/issues/1357
                 "locate",
                 "lvm2",               # https://github.com/kinu-garage/hut_10sqft/issues/1341
                 "mpv",                # https://github.com/kinu-garage/hut_10sqft/issues/1261
