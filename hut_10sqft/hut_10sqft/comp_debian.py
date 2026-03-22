@@ -294,6 +294,15 @@ class DebianSetup(ShellCapableOsSetup):
         for c in pairs_conf_tools:
             self.setup_file(c)
 
+    def generate_symlinks(self, rootpath_symlinks, path_user_home):
+        pairs_symlinks = [
+            ConfigDispatch(
+                path_source=os.path.join(path_user_home, "link", "Career", "JobTaken", "closer-r.com"),
+                path_dest=os.path.join(rootpath_symlinks, "CLR"),
+                is_symlink=True),
+            ]
+        return pairs_symlinks
+    
     def verify_deb_installed(self, deb_pkg_name: str):
         """
         @summary: Verifies if `deb_pkg_name` package is installed.
