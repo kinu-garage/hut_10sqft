@@ -14,11 +14,17 @@
 # Always use ssh for github, even if the remote URL uses https or git
 [url "git@github.com:"]
         insteadOf = git://github.com/
-[url "git@github.com:"]
-        insteadOf = https://github.com/
+# 20260528 Re-enable https. See https://github.com/kinu-garage/hut_10sqft/issues/1444
+##[url "git@github.com:"]
+##        insteadOf = https://github.com/
 [fetch]
 	prune = true
 [url "git@gitlab.com:"]
 	insteadOf = https://gitlab.com/
 [init]
 	defaultBranch = develop
+[filter "lfs"]
+	clean = git-lfs clean -- %f
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
