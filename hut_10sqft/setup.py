@@ -2,6 +2,7 @@ import os
 from setuptools import setup
 
 exec_aptsrc = "apt-source_ros2.sh"
+exec_docker_utils = "docker_utils_cli.py"
 package_name = 'hut_10sqft'
 
 setup(
@@ -23,7 +24,10 @@ setup(
     maintainer_email='iisaac.saito@gmail.com',
     description="A package primarilly for setting up the maintainers' personal computers environment.",
     license='Apache-2.0',
-    scripts=[os.path.join("exec", exec_aptsrc)],
+    scripts=[
+        os.path.join("exec", exec_aptsrc),
+        os.path.join("exec", exec_docker_utils),
+    ],
     entry_points={
         "console_scripts": [
         "suco = hut_10sqft.suco_main:main",
