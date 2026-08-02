@@ -15,10 +15,12 @@
 # limitations under the License.
 
 import argparse
+import logging
 import os
 import pytest
 
 from hut_10sqft.abst_comp_setup import AbstCompSetupFactory
+from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
@@ -127,3 +129,36 @@ def test_setup_rosdep():
 
     output, error, ret_code = OsUtil.subproc_bash(f"rosdep update")
     assert ret_code == 0
+
+
+def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
+    """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
+    parser = argparse.ArgumentParser(description="")
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    called = {}
+
+    def fake_apt_install(deb_pkgs, logger=None):
+        called["apt"] = deb_pkgs
+
+    def fake_install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
+        called["pip"] = pip_pkgs
+
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        called["cmd"] = cmd
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+    monkeypatch.setattr(OsUtil, "install_pip_adhoc", fake_install_pip_adhoc)
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    with caplog.at_level(logging.INFO):
+        setup.setup_antigravity_cli()
+
+    assert called["apt"] == ["pipx"]
+    assert called["pip"] == ["antigravity-cli"]
+    assert "~/.local/bin" in called["cmd"]
+    assert os.path.exists(os.path.join(setup._user_home_dir, ".bashrc"))
+    with open(os.path.join(setup._user_home_dir, ".bashrc"), "r", encoding="utf-8") as fh:
+        assert "antigravity" in fh.read().lower()

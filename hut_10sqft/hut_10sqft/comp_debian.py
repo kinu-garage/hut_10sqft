@@ -16,12 +16,14 @@ from hut_10sqft.suco_installer import CompInitSetupConfig
 class DebianSetup(ShellCapableOsSetup):
     _APTPKG_ROSDEP2 = "python3-rosdep2"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
+    _PKG_ANTIGRAVITY_CLI = "antigravity-cli"
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
     #_DEBS_VIRTUALBOX = ["virtualbox-guest-additions-iso", "virtualbox-qt"]
     _DEBS_VIRTUALBOX = []  # Keep this blank before https://github.com/kinu-garage/hut_10sqft/issues/1401
 
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
+                "gh",
                 "colorized-logs",
                 "dconf-editor",
                 "evince",
@@ -136,6 +138,32 @@ class DebianSetup(ShellCapableOsSetup):
         self._logger.info(f"pip_pkgs: {pip_pkgs}")
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
+
+    def setup_antigravity_cli(self):
+        """
+        @summary: Install the Antigravity CLI and make sure its user-local binary path is available in shell startup files.
+        """
+        self.install_deps_adhoc(deb_pkgs=["pipx", "gh"], pip_pkgs=[self._PKG_ANTIGRAVITY_CLI])
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        path_antigravity_bin = os.path.join(path_user_home, ".local", "bin")
+        self._logger.info(f"Ensuring Antigravity CLI bin directory '{path_antigravity_bin}' is on PATH.")
+        if path_antigravity_bin not in os.environ.get("PATH", ""):
+            path_export = f'export PATH="{path_antigravity_bin}:$PATH"'
+            path_bashrc = os.path.join(path_user_home, ".bashrc")
+            with open(path_bashrc, "a+", encoding="utf-8") as fh:
+                fh.seek(0)
+                existing = fh.read()
+                if path_export not in existing:
+                    fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
+
+        try:
+            output, error, bash_return_code = OsUtil.subproc_bash("gh auth status", does_sudo=False, logger=self._logger)
+            if bash_return_code != 0:
+                raise RuntimeWarning(f"'gh auth status' did not succeed. Please run 'gh auth login' manually.\nOutput: {output}\nError: {error}")
+            self._logger.info("GitHub CLI authentication is already available.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"GitHub CLI authentication is not confirmed yet. Please run 'gh auth login'. Error: {str(e)}")
 
     def install_deps_adhoc(self, deb_pkgs, pip_pkgs="", allow_pip_break=False, snap_pkgs: list[str]=[]):
         """
