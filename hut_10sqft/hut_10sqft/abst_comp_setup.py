@@ -448,6 +448,13 @@ This is most notably ammendable by setting up local client executables of Dropbo
 
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
+        try:
+            self.setup_antigravity_cli()
+        except NotImplementedError:
+            self._logger.warning("'setup_antigravity_cli' is not implemented for this OS; skipping.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+
         # Skip Google Chrome specific setting as it might come bundled already on Ubuntu.
 
         # Skip synergy setting.
