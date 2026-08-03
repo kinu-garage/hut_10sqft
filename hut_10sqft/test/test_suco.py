@@ -155,6 +155,7 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
     parser = argparse.ArgumentParser(description="")
     args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    monkeypatch.setattr(DebianSetup, "apt_update", lambda self: None)
     setup = DebianSetup(args_in=args)
 
     called = {}
@@ -166,7 +167,13 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
         called["pip"] = pip_pkgs
 
     def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
-        called["cmd"] = cmd
+        called.setdefault("cmds", []).append(cmd)
+        if "install.sh" in cmd:
+            path_user_home = getattr(setup, "_user_home_dir", os.path.expanduser("~"))
+            path_bin = os.path.join(path_user_home, ".local", "bin")
+            os.makedirs(path_bin, exist_ok=True)
+            with open(os.path.join(path_bin, "agy"), "w", encoding="utf-8") as fh:
+                fh.write("#!/bin/sh\n")
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
@@ -176,9 +183,14 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     with caplog.at_level(logging.INFO):
         setup.setup_antigravity_cli()
 
-    assert called["apt"] == ["pipx"]
-    assert called["pip"] == ["antigravity-cli"]
-    assert "~/.local/bin" in called["cmd"]
-    assert os.path.exists(os.path.join(setup._user_home_dir, ".bashrc"))
-    with open(os.path.join(setup._user_home_dir, ".bashrc"), "r", encoding="utf-8") as fh:
+    assert called["apt"] == ["curl", "gh"]
+    assert called["pip"] == []
+    assert any("install.sh" in cmd for cmd in called["cmds"])
+    assert any("gh auth status" in cmd for cmd in called["cmds"])
+    path_user_home = getattr(setup, "_user_home_dir", os.path.expanduser("~"))
+    path_bashrc = os.path.join(path_user_home, ".bashrc")
+    if not os.path.exists(path_bashrc):
+        with open(path_bashrc, "w", encoding="utf-8") as fh:
+            fh.write("")
+    with open(path_bashrc, "r", encoding="utf-8") as fh:
         assert "antigravity" in fh.read().lower()
