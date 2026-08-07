@@ -29,4 +29,7 @@ setup(
         "suco = hut_10sqft.suco_main:main",
         "suco_installer = hut_10sqft.suco_installer:main"
         ]},
+    extras_require={
+        'test': ['pytest'],
+    },
 )
