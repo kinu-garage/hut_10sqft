@@ -288,11 +288,15 @@ class DebianSetup(ShellCapableOsSetup):
         pairs_conf_autostart = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "gnome-system-monitor.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".config", "autostart"),
+                path_dest=os.path.join(self._user_home_dir, ".config", "autostart", "indicator-multiload.desktop"),
+                is_symlink=True),
+            ConfigDispatch(
+                path_source=os.path.join(abs_path_confdir, "xhost-local-root.desktop"),
+                path_dest=os.path.join(self._user_home_dir, ".config", "autostart", "xhost-local-root.desktop"),
                 is_symlink=True),
             ]
         for conf in pairs_conf_autostart:
@@ -310,11 +314,11 @@ class DebianSetup(ShellCapableOsSetup):
         pairs_conf_tools = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "gnome-system-monitor.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "indicator-multiload.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
