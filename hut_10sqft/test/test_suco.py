@@ -110,6 +110,26 @@ def test_read_conf_os_release(cfgbuilder):
     assert os_release_data["ID"]  # Not empty
     assert os_release_data["VERSION_CODENAME"]  # Not empty
 
+def test_gitconfig_uses_separate_host_specific_file():
+    repo_root = os.path.dirname(os.path.dirname(__file__))
+    path_gitconfig = os.path.join(repo_root, "config", "dot_gitconfig")
+    path_gitconfig_local = os.path.join(repo_root, "config", "dot_gitconfig_local")
+    path_gitconfig_wsl2 = os.path.join(repo_root, "config", "dot_gitconfig_local_il80d4kk")
+
+    with open(path_gitconfig, "r", encoding="utf-8") as fh:
+        gitconfig = fh.read()
+    with open(path_gitconfig_local, "r", encoding="utf-8") as fh:
+        gitconfig_local = fh.read()
+    with open(path_gitconfig_wsl2, "r", encoding="utf-8") as fh:
+        gitconfig_wsl2 = fh.read()
+
+    assert "[include]" in gitconfig
+    assert "path = ~/.gitconfig_local" in gitconfig
+    assert "/mnt/" not in gitconfig
+    assert "Empty by default" in gitconfig_local
+    assert "directory = /mnt/" in gitconfig_wsl2
+
+
 def test_setup_rosdep():
     """
     @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315

@@ -205,12 +205,20 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             path_source=os.path.join(path_local_perm_conf, "dot_gitconfig"),
             path_dest=os.path.join(path_user_home, ".gitconfig",),
             is_symlink=True)
+        conf_gitconf_local = ConfigDispatch(
+            path_source=os.path.join(path_local_perm_conf, self._setup_git_config_local()),
+            path_dest=os.path.join(path_user_home, ".gitconfig_local"),
+            is_symlink=True)
         conf_gitignore = ConfigDispatch(
             path_source=os.path.join(path_local_perm_conf, "dot_gitignore_global"),
             path_dest=os.path.join(path_user_home, ".gitignore_global"),
             is_symlink=True)
         self.setup_file(conf_gitconf)
+        self.setup_file(conf_gitconf_local)
         self.setup_file(conf_gitignore)
+
+    def _setup_git_config_local(self):
+        return "dot_gitconfig_local"
 
     def _is_dropbox_setup(self):
         output, error, bash_return_code = OsUtil.subproc_bash("dropbox")

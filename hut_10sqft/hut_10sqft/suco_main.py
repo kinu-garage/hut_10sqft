@@ -15,6 +15,7 @@ from hut_10sqft_lib.os_util import OsUtil
 from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
+from hut_10sqft.comp_ubuntu_wsl2 import UbuntuOnWsl2Setup
 from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
 from hut_10sqft.suco_installer import CompInitSetupConfig, SucoInstaller
@@ -108,7 +109,10 @@ treats the user ID tha is used to execute this tool as the main user."""
         elif _args.os_distro == DebianSetup._OS_TYPE:
             _os_builder = DebianSetup(args_in=_args)
         elif _args.os_distro == UbuntuOsSetup._OS_TYPE:
-            _os_builder = UbuntuOsSetup(args_in=_args)
+            if _args.hostname == CompInitSetupConfig.HOSTNAME_IL80D4KK:
+                _os_builder = UbuntuOnWsl2Setup(args_in=_args)
+            else:
+                _os_builder = UbuntuOsSetup(args_in=_args)
         elif _args.os_distro == MacOsSetup._OS_TYPE:
             _os_builder = MacOsSetup(args_in=_args)
         else:

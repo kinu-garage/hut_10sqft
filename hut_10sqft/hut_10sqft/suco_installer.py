@@ -22,6 +22,7 @@ class CompInitSetupConfig():
     HOSTNAME_OPFYDE_RPI5 = "opfyde-rpi5"
     HOSTNAME_P16S = "130s-p16s-4"
     HOSTNAME_ZORK16 = "130s-zork16"
+    HOSTNAME_IL80D4KK = "130s-il80d4kk"  # Ubuntu 24.04 via WSL2 as of 202608
 
     PATH_SYMLINKS_DIR = "link"  # e.g. ~/link
     FOLDER_CONF_PERM_REPO = "config"
