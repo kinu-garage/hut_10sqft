@@ -1,0 +1,2 @@
+## Empty by default.
+## To customize host-specific gitconfig file, add `hut_10sqft/config/dot_gitconfig_local_HOSTNAME` file, then symlink at `~/.gitconfig_local` (SUCO should take care of that).
