@@ -179,29 +179,7 @@ class UbuntuOsSetup (DebianSetup):
         return pairs_symlinks
 
     def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
-        pairs_conf_bash = [
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
-                path_dest=os.path.join(self._user_home_dir, ".bashrc"),
-                is_symlink=True),
-            ]
-        for c in pairs_conf_bash:
-            self.setup_file(c, overwrite=True)
-
-        # TODO ssh config, path of which needs to be private.
-
-        pairs_conf_tools = [
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
-                path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
-                is_symlink=True),
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
-                path_dest=os.path.join(self._user_home_dir, ".emacs"),
-                is_symlink=True),
-            ]
-        for c in pairs_conf_tools:
-            self.setup_file(c)
+        self.setup_configs(self, host_config)
 
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",

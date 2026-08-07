@@ -281,7 +281,8 @@ class OsUtil:
         path_dir_dest = pathlib.Path(path_dest).parent
         logger.info(f"If the directory of the target for {path_dest} doesn't exist (i.e. {path_dir_dest}), create it.")
         if not os.path.exists(path_dir_dest):
-            os.mkdir(path_dir_dest)
+            # Ensure all intermediate parent directories are created
+            os.makedirs(path_dir_dest, exist_ok=True)
 
     @staticmethod
     def copy_a_file(path_source: str, path_dest: str, is_symlink=False, overwrite=False, backup_suffix=".org", logger=None):
