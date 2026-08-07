@@ -14,7 +14,7 @@ from hut_10sqft_lib.os_util import OsUtil
 from hut_10sqft.suco_installer import CompInitSetupConfig
 
 class DebianSetup(ShellCapableOsSetup):
-    _APTPKG_ROSDEP2 = "python3-rosdep2"
+    _PIP_PKG_ROSDEP = "rosdep"
     _DEB_CAPS_CTRL_UTIL = "gnome-tweaks"
     _PKG_ANTIGRAVITY_CLI = "antigravity-cli"
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
@@ -98,7 +98,7 @@ class DebianSetup(ShellCapableOsSetup):
     def setup_ros_installer_src(self):
         self._logger.warning(f"On '{self._OS_TYPE}' no prebuilt ROS installer pkgs are available so skipping.")
 
-    def exec_rosdep_update(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
+    def exec_rosdep_update(self, path_ws, pkg_rosdep=_PIP_PKG_ROSDEP, init_rosdep=False):
         """
         @summary: As of 202505 this method is only targetting Debian/Ubuntu OSes.
         @param init_rosdep: If `True`, then `rosdep init` also executes.
@@ -116,16 +116,15 @@ class DebianSetup(ShellCapableOsSetup):
         else:
             self.add_runtime_issue(f"'rosdep install' succeeded.\n\tOutput: {output}\n\tError: {error}")
         
-    def setup_rosdep_and_run(self, path_ws, pkg_rosdep=_APTPKG_ROSDEP2, init_rosdep=False):
+    def setup_rosdep_and_run(self, path_ws, pkg_rosdep=_PIP_PKG_ROSDEP, init_rosdep=False):
         """
-        @note: For Debian OS, no official prebuilt rosdep installer via apt is available,
-          but a community version 'python3-rosdep2' maintained by a long-term community member (Jochen S.) is avaialble
-          so using it for now. But for Ubuntu 'python3-rosdep' (without 2 at the end) is the official and should be used.
+        @note: For Debian OS, install rosdep via pip instead of the older apt package.
+          Ubuntu still uses its apt-based rosdep package path.
         """
         self.setup_ros_installer_src()
         # Install deb dependencies that cannot be installed in the batch
         # installation step that is planned later in this sequence.
-        self.install_deps_adhoc(deb_pkgs=["python3-pip", pkg_rosdep], pip_pkgs=self._PIP_PKGS)
+        self.install_deps_adhoc(deb_pkgs=["python3-pip"], pip_pkgs=[pkg_rosdep] + self._PIP_PKGS)
 
         self.exec_rosdep_update(path_ws, pkg_rosdep, init_rosdep)
 
