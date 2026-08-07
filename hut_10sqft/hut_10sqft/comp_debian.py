@@ -285,6 +285,11 @@ class DebianSetup(ShellCapableOsSetup):
             host_config: HostConf,
             abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
             abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
+        path_autostart = os.path.join(self._user_home_dir, ".config", "autostart")
+        if os.path.lexists(path_autostart) and os.path.islink(path_autostart) and os.path.isfile(path_autostart):
+            os.remove(path_autostart)
+            self._logger.info(f"Removed legacy autostart file symlink (likely created by SUCO) at '{path_autostart}' before setting up new configs under a dir of the same name.")
+
         pairs_conf_autostart = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
