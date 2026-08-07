@@ -143,18 +143,28 @@ class DebianSetup(ShellCapableOsSetup):
         """
         @summary: Install the Antigravity CLI and make sure its user-local binary path is available in shell startup files.
         """
-        self.install_deps_adhoc(deb_pkgs=["pipx", "gh"], pip_pkgs=[self._PKG_ANTIGRAVITY_CLI])
+        self.install_deps_adhoc(deb_pkgs=["curl", "gh"], pip_pkgs=[])
         path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
         path_antigravity_bin = os.path.join(path_user_home, ".local", "bin")
         self._logger.info(f"Ensuring Antigravity CLI bin directory '{path_antigravity_bin}' is on PATH.")
-        if path_antigravity_bin not in os.environ.get("PATH", ""):
-            path_export = f'export PATH="{path_antigravity_bin}:$PATH"'
-            path_bashrc = os.path.join(path_user_home, ".bashrc")
-            with open(path_bashrc, "a+", encoding="utf-8") as fh:
-                fh.seek(0)
-                existing = fh.read()
-                if path_export not in existing:
-                    fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
+        path_export = f'export PATH="{path_antigravity_bin}:$PATH"'
+        path_bashrc = os.path.join(path_user_home, ".bashrc")
+        if not os.path.exists(path_bashrc):
+            with open(path_bashrc, "w", encoding="utf-8") as fh:
+                fh.write("")
+        with open(path_bashrc, "a+", encoding="utf-8") as fh:
+            fh.seek(0)
+            existing = fh.read()
+            if path_export not in existing:
+                fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
+
+        cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
+        OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
+
+        path_agy = os.path.join(path_antigravity_bin, "agy")
+        if not os.path.exists(path_agy):
+            raise RuntimeError(f"Antigravity CLI installation did not create '{path_agy}'.")
 
         try:
             output, error, bash_return_code = OsUtil.subproc_bash("gh auth status", does_sudo=False, logger=self._logger)

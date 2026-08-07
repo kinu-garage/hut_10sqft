@@ -148,10 +148,6 @@ class UbuntuOsSetup (DebianSetup):
                 path_dest=os.path.join(rootpath_symlinks, "Current"),
                 is_symlink=True),
             ConfigDispatch(
-                path_source=os.path.join(path_user_home, "link", "Career", "engineering", "ARIAC"),
-                path_dest=os.path.join(rootpath_symlinks, "ARIAC"),
-                is_symlink=True),
-            ConfigDispatch(
                 path_source=os.path.join(path_user_home, "link", "Career", "MOOC"),
                 path_dest=os.path.join(rootpath_symlinks, "MOOC"),
                 is_symlink=True),
