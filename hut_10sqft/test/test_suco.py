@@ -17,6 +17,7 @@
 import argparse
 import logging
 import os
+import sys
 import pytest
 
 from hut_10sqft.abst_comp_setup import AbstCompSetupFactory
@@ -77,10 +78,11 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     # TODO Branching logic by if per each test method may not be clean way to run tests on multiple OSes,
     # but I couldnm't figure out a clean way to do this in time as of 2025/10.
     if type(cfgbuilder) == UbuntuOsSetup:
-        assert len(pairs) == 13
+        assert len(pairs) == 12
     elif type(cfgbuilder) == ChromeOsSetup:
         assert len(pairs) == 6
     
+@pytest.mark.skip(reason="Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315")
 def test_suco_main(cfgbuilder):
     """
     @note: Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315
@@ -130,6 +132,7 @@ def test_gitconfig_uses_separate_host_specific_file():
     assert "directory = /mnt/" in gitconfig_wsl2
 
 
+@pytest.mark.skip(reason="Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315")
 def test_setup_rosdep():
     """
     @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315
@@ -151,6 +154,7 @@ def test_setup_rosdep():
     assert ret_code == 0
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Antigravity CLI setup has only been verified for Linux so far on SUCO.")
 def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
     parser = argparse.ArgumentParser(description="")

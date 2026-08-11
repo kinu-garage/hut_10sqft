@@ -20,4 +20,7 @@ setup(
  description='A library package for generic utility for setting up computer environment.',
  license='Apache',
  entry_points={},
+ extras_require={
+  'test': ['pytest'],
+ },
 )

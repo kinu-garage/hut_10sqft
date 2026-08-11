@@ -219,28 +219,33 @@ class UbuntuOsSetup (DebianSetup):
         OsUtil.apt_install("curl", self._logger)
         _cmd_get_ros_apt_src = f"curl -s {_URL_ROS_APT_SRC}"
         _output_string, error, bash_return_code = OsUtil.subproc_bash(
-            _cmd_get_ros_apt_src, does_sudo=True, print_stdout_err=False, logger=self._logger)
+            _cmd_get_ros_apt_src, does_sudo=False, print_stdout_err=False, logger=self._logger)
 
+        _ros_apt_src_version = None
         for line in _output_string.splitlines():
             if "tag_name" in line:
                 _data_string = line
+                # Split the string by the colon. The second part will be e.g. "1.1.0"
+                _value_with_quotes = _data_string.split(":", 1)[1]
+                # Strip the leading/trailing whitespace and quotes
+                _ros_apt_src_version = _value_with_quotes.strip().strip('",')
                 break
-        # Split the string by the colon. The second part will be e.g. "1.1.0"
-        _value_with_quotes = _data_string.split(":", 1)[1]
-        # Strip the leading/trailing whitespace and quotes
-        _ros_apt_src_version = _value_with_quotes.strip().strip('"')
+
+        if not _ros_apt_src_version:
+            raise RuntimeError(f"Could not determine ROS apt source version from API response:\n{_output_string}")
+
         self._logger.info(f"Latest ROS apt source version: '{_ros_apt_src_version}'")
 
         # $(. /etc/os-release && echo ${UBUNTU_CODENAME:-${VERSION_CODENAME}})
         _env_vars_os_release = OsUtil.read_conf(path="/etc/os-release")
-        _ubu_codename = _env_vars_os_release["UBUNTU_CODENAME"]
-        _ver_codename = _env_vars_os_release["VERSION_CODENAME"]
-        _os_ver_dist_str = f"{_ubu_codename}-{_ver_codename}"
+        _ubu_codename = _env_vars_os_release.get("UBUNTU_CODENAME", "")
+        _ver_codename = _env_vars_os_release.get("VERSION_CODENAME", "")
+        _os_ver_dist_str = _ubu_codename or _ver_codename
 
         _URL_DEB_ROS_APT = f"https://github.com/ros-infrastructure/ros-apt-source/releases/download/{_ros_apt_src_version}/ros2-apt-source_{_ros_apt_src_version}.{_os_ver_dist_str}_all.deb"
         self._logger.info(f"'{_URL_DEB_ROS_APT=}', '{_ubu_codename=}', '{_ver_codename=}'")
 
-        _cmd_download_ros_apt_src_pkg = f"curl -L -o {_URL_DEB_ROS_APT}"
+        _cmd_download_ros_apt_src_pkg = f"curl -L -o {_path_deb} {_URL_DEB_ROS_APT}"
         OsUtil.subproc_bash(_cmd_download_ros_apt_src_pkg, does_sudo=False, print_stdout_err=False, logger=self._logger)
         cmd_install_ros_apt_src_pkg = f"dpkg -i {_path_deb}"
         OsUtil.subproc_bash(cmd_install_ros_apt_src_pkg, does_sudo=True, print_stdout_err=True, logger=self._logger)
