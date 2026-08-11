@@ -17,6 +17,7 @@
 import argparse
 import logging
 import os
+import sys
 import pytest
 
 from hut_10sqft.abst_comp_setup import AbstCompSetupFactory
@@ -153,6 +154,7 @@ def test_setup_rosdep():
     assert ret_code == 0
 
 
+@pytest.mark.skipif(sys.platform == "darwin", reason="Antigravity CLI setup has only been verified for Linux so far on SUCO.")
 def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
     parser = argparse.ArgumentParser(description="")
