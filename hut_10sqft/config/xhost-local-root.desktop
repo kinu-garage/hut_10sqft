@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=xhost local root
+Comment=Allow local root to access X server
+Exec=/usr/bin/xhost +local:root
+Terminal=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

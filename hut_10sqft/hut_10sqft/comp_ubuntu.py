@@ -7,6 +7,7 @@ import argparse
 import os
 import shutil
 
+from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.host_config import HostConf
@@ -67,11 +68,12 @@ class UbuntuOsSetup (DebianSetup):
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
         self._logger.warning("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
         for dir in dirs_tobe_removed:
             try:
-                shutil.rmtree(os.path.join(os.path.expanduser('~'), dir))
-            except FileNotFoundError as e:
-                self._logger.warning("File/Dir '{}' does not exist. Moving on without deleting it.".format(dir))
+                shutil.rmtree(os.path.join(path_user_home, dir))
+            except (FileNotFoundError, PermissionError, OSError) as e:
+                self._logger.warning("File/Dir '{}' could not be deleted ({}). Moving on.".format(dir, e))
                 self.add_runtime_issue(e)
 
     def _setup_sata_ssd(self) -> str:
@@ -178,30 +180,12 @@ class UbuntuOsSetup (DebianSetup):
             ]
         return pairs_symlinks
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
-        pairs_conf_bash = [
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "bash", host_config.bash_cfg),
-                path_dest=os.path.join(self._user_home_dir, ".bashrc"),
-                is_symlink=True),
-            ]
-        for c in pairs_conf_bash:
-            self.setup_file(c, overwrite=True)
-
-        # TODO ssh config, path of which needs to be private.
-
-        pairs_conf_tools = [
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
-                path_dest=os.path.join(self._user_home_dir, ".tmux.conf"),
-                is_symlink=True),
-            ConfigDispatch(
-                path_source=os.path.join(abs_path_confdir, "emacs", host_config.emacs_cfg),
-                path_dest=os.path.join(self._user_home_dir, ".emacs"),
-                is_symlink=True),
-            ]
-        for c in pairs_conf_tools:
-            self.setup_file(c)
+    def setup_configs(
+            self,
+            host_config: HostConf,
+            abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
+            abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
+        super().setup_configs(host_config, abs_path_confdir=abs_path_confdir, abs_path_private_confdir=abs_path_private_confdir)
 
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",

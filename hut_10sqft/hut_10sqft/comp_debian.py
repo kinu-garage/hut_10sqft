@@ -285,14 +285,23 @@ class DebianSetup(ShellCapableOsSetup):
             host_config: HostConf,
             abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
             abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
+        path_autostart = os.path.join(self._user_home_dir, ".config", "autostart")
+        if os.path.lexists(path_autostart) and os.path.islink(path_autostart) and os.path.isfile(path_autostart):
+            os.remove(path_autostart)
+            self._logger.info(f"Removed legacy autostart file symlink (likely created by SUCO) at '{path_autostart}' before setting up new configs under a dir of the same name.")
+
         pairs_conf_autostart = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "gnome-system-monitor.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".config", "autostart"),
+                path_dest=os.path.join(self._user_home_dir, ".config", "autostart", "indicator-multiload.desktop"),
+                is_symlink=True),
+            ConfigDispatch(
+                path_source=os.path.join(abs_path_confdir, "xhost-local-root.desktop"),
+                path_dest=os.path.join(self._user_home_dir, ".config", "autostart", "xhost-local-root.desktop"),
                 is_symlink=True),
             ]
         for conf in pairs_conf_autostart:
@@ -310,11 +319,11 @@ class DebianSetup(ShellCapableOsSetup):
         pairs_conf_tools = [
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "gnome-system-monitor.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "gnome-system-monitor.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "indicator-multiload.desktop"),
-                path_dest=os.path.join(self._user_home_dir, ".gconf/apps"),
+                path_dest=os.path.join(self._user_home_dir, ".gconf", "apps", "indicator-multiload.desktop"),
                 is_symlink=True),
             ConfigDispatch(
                 path_source=os.path.join(abs_path_confdir, "tmux_default.conf"),
