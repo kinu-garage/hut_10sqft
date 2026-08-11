@@ -7,6 +7,7 @@ import argparse
 import os
 import shutil
 
+from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
 from hut_10sqft.config_dispatch import ConfigDispatch
 from hut_10sqft.comp_debian import DebianSetup
 from hut_10sqft.host_config import HostConf
@@ -178,8 +179,12 @@ class UbuntuOsSetup (DebianSetup):
             ]
         return pairs_symlinks
 
-    def setup_configs(self, host_config: HostConf, abs_path_confdir: str):
-        self.setup_configs(self, host_config)
+    def setup_configs(
+            self,
+            host_config: HostConf,
+            abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
+            abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
+        super().setup_configs(host_config, abs_path_confdir=abs_path_confdir, abs_path_private_confdir=abs_path_private_confdir)
 
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",

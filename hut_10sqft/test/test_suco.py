@@ -158,6 +158,26 @@ def test_setup_configs_removes_old_autostart_symlink(tmp_path, monkeypatch):
     assert not path_autostart.exists()
     assert len(calls) > 0
 
+
+def test_ubuntu_setup_configs_no_recursion(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+    setup._os_name = "ubuntu"
+    setup._user_home_dir = str(tmp_path)
+
+    calls = []
+
+    def fake_setup_file(conf, overwrite=False):
+        calls.append((conf.path_source, conf.path_dest, overwrite))
+
+    monkeypatch.setattr(setup, "setup_file", fake_setup_file)
+
+    host_config = HostConf("test-host", "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+    setup.setup_configs(host_config=host_config, abs_path_confdir=str(tmp_path / "conf"), abs_path_private_confdir=str(tmp_path / "private"))
+
+    assert len(calls) > 0
+
 @pytest.mark.skip(reason="Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315")
 def test_setup_rosdep():
     """
