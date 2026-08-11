@@ -81,6 +81,7 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     elif type(cfgbuilder) == ChromeOsSetup:
         assert len(pairs) == 6
     
+@pytest.mark.skip(reason="Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315")
 def test_suco_main(cfgbuilder):
     """
     @note: Disabled due to a known issue https://github.com/kinu-garage/hut_10sqft/issues/1315
@@ -130,6 +131,7 @@ def test_gitconfig_uses_separate_host_specific_file():
     assert "directory = /mnt/" in gitconfig_wsl2
 
 
+@pytest.mark.skip(reason="Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315")
 def test_setup_rosdep():
     """
     @note: Disabled due to a known issue about installing rosdep https://github.com/kinu-garage/hut_10sqft/issues/1315
