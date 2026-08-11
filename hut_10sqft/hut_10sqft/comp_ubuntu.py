@@ -68,11 +68,12 @@ class UbuntuOsSetup (DebianSetup):
     def ubuntu_desktop_cleanup(self):
         dirs_tobe_removed = ["Documents", "Music", "Pictures", "Public", "Templates", "Videos"]
         self._logger.warning("Deleting Ubuntu's default directories: {}".format(dirs_tobe_removed))
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
         for dir in dirs_tobe_removed:
             try:
-                shutil.rmtree(os.path.join(os.path.expanduser('~'), dir))
-            except FileNotFoundError as e:
-                self._logger.warning("File/Dir '{}' does not exist. Moving on without deleting it.".format(dir))
+                shutil.rmtree(os.path.join(path_user_home, dir))
+            except (FileNotFoundError, PermissionError, OSError) as e:
+                self._logger.warning("File/Dir '{}' could not be deleted ({}). Moving on.".format(dir, e))
                 self.add_runtime_issue(e)
 
     def _setup_sata_ssd(self) -> str:

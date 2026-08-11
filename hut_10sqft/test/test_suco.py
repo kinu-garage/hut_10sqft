@@ -161,6 +161,7 @@ def test_setup_configs_removes_old_autostart_symlink(tmp_path, monkeypatch):
 
 def test_ubuntu_setup_configs_no_recursion(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
     args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
     setup = UbuntuOsSetup(args_in=args)
     setup._os_name = "ubuntu"
