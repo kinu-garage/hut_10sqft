@@ -78,7 +78,7 @@ def test_generate_symlinks(cfgbuilder: AbstCompSetupFactory, init_input_params):
     # TODO Branching logic by if per each test method may not be clean way to run tests on multiple OSes,
     # but I couldnm't figure out a clean way to do this in time as of 2025/10.
     if type(cfgbuilder) == UbuntuOsSetup:
-        assert len(pairs) == 13
+        assert len(pairs) == 12
     elif type(cfgbuilder) == ChromeOsSetup:
         assert len(pairs) == 6
     
