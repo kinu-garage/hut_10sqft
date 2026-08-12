@@ -69,7 +69,6 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_symlinks_dir", required=False, help=self._MSG_ARG_PATH_COMMON_SYMLINKS, default=CompInitSetupConfig.PATH_SYMLINKS_DIR)
         parser.add_argument(f"--{CompInitSetupConfig.ARG_USER_ID}", required=False, help=self._MSG_ARG_USERID, default="")
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
-        parser.add_argument("--skip_dropbox", required=False, help="Skip setup for Dropbox", action="store_true")
         parser.add_argument("--skip_ssh", required=False, help="Skip setup for ssh server", action="store_true")
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
         parser.add_argument("--remove_tmpws", required=False, help=self._MSG_REMOVE_TMP_COLCONWS, action="store_true")

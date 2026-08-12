@@ -64,6 +64,7 @@ class SucoInstaller():
         If not passed then the path will be the default '{CompInitSetupConfig.PATH_TEMP_COLCON_WS}'."
     _MSG_PIP_BREAK_SYSPKG = "If specified, install packages by pip even if the package is already installed by \
         the system package manager (e.g., apt). This may break the system packages."
+    _MSG_SKIP_DROPBOX = "If specified, skip installing and setting up Dropbox."
 
     _PKG_COLCON_PIP = "colcon-common-extensions colcon-core"
 
@@ -84,6 +85,7 @@ class SucoInstaller():
         parser.add_argument("--path_temp_colconws", required=False, help=SucoInstaller._MSG_ARG_PATH_COLCONWS, default=CompInitSetupConfig.PATH_TEMP_COLCON_WS)
         parser.add_argument("--pip_break_syspkg", required=False, help=SucoInstaller._MSG_PIP_BREAK_SYSPKG, action="store_true")
         parser.add_argument("--git_branch", required=False, help="Branch of SUCO repo", default=CompInitSetupConfig.BRANCH_DEFAULT_CONF_REPO)
+        parser.add_argument("--skip_dropbox", required=False, help=SucoInstaller._MSG_SKIP_DROPBOX, action="store_true")
         return parser
 
     def cli_args_install_suco(self, parser: argparse.Namespace) -> argparse.Namespace:
