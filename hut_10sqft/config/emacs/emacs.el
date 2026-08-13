@@ -205,7 +205,7 @@ Issue: https://github.com/kinu-garage/hut_10sqft/issues/591"
           (delete-region desc-beg url-end)
           (goto-char desc-beg)
           (insert replacement))
-      (message "No upcoming URL found in line/region.")))))
+      (message "No upcoming URL found in line/region."))))`
 
 ; 4/6/2012/emacs tex live config
 (server-start)
