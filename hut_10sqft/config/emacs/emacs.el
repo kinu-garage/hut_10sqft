@@ -141,7 +141,71 @@
 ; 2019/10/09 Macro to convert a Gitlab http URL of an issue on any POR repo to link format in .rst.
 ; e.g. https://gitlab.com/remote-org/git-group/sub-group/issues/999 -> `git-group/sub-group#999 <https://gitlab.com/remote-org/git-group/sub-group/issues/999>`_
 (fset 'rpl_url_rst
-   (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ([19 104 116 116 112 115 6 2 2 2 2 2 2 67108896 19 105 115 115 117 101 134217830 134217830 23 25 62 96 95 18 104 116 116 112 115 6 2 96 25 32 60 18 104 116 116 6 4 127 67108896 19 112 108 117 115 111 110 101 45 114 111 98 111 116 105 99 115 6 23 19 105 115 115 4 4 4 4 127 127 127 127 35 19 62 96 6 27 120 107 109 97 tab 101 110 100 tab 111 tab] 0 "%d")) arg)))
+   (lambda (&optional arg) "Keyboard macro." (interactive "p") (kmacro-exec-ring-item (quote ([19 104 116 116 112 115 6 2 2 2 2 2 2 67108896 19 105 115 115 117 101 134217830 134217830 23 25 62 96 95 18 104 116 116 115 6 2 96 25 32 60 18 104 116 116 6 4 127 67108896 19 112 108 117 115 111 110 101 45 114 111 98 111 116 105 99 115 6 23 19 105 115 115 4 4 4 4 127 127 127 127 35 19 62 96 6 27 120 107 109 97 tab 101 110 100 tab 111 tab] 0 "%d")) arg)))
+
+; 2021/10/09 Function to convert text and URL on line/region to markdown link with domain in label.
+; e.g. See this link https://abc.de.fg -> [See this link (de.fg)](https://abc.de.fg)
+; Issue: https://github.com/kinu-garage/hut_10sqft/issues/591
+(require 'subr-x)
+
+(defun rpl--extract-domain (url)
+  "Extract the domain (second-to-last and last components) from URL."
+  (let* ((clean-url (if (string-match "^https?://" url)
+                        (substring url (match-end 0))
+                      url))
+         (host (car (split-string clean-url "[/?:#]" t)))
+         (host-no-port (car (split-string (or host "") ":" t)))
+         (parts (split-string (or host-no-port "") "\\." t)))
+    (cond
+     ((>= (length parts) 2)
+      (let ((len (length parts)))
+        (concat (nth (- len 2) parts) "." (nth (- len 1) parts))))
+     ((= (length parts) 1)
+      (car parts))
+     (t url))))
+
+(defun rpl_url_md_domain (&optional arg)
+  "Convert a URL and preceding text on line or region to markdown format with domain.
+The beginning square bracket '[' is placed at current cursor position (or region start).
+Example: See this link in this link https://github.com/... (with cursor before second 'in')
+  -> See this link [in this link (github.com)](https://github.com/...)
+Issue: https://github.com/kinu-garage/hut_10sqft/issues/591"
+  (interactive "p")
+  (let* ((region-p (use-region-p))
+         (cur-pos (point))
+         (search-beg (if region-p (region-beginning) (line-beginning-position)))
+         (search-end (if region-p (region-end) (line-end-position)))
+         found-url)
+    (save-excursion
+      (goto-char search-beg)
+      (while (and (not found-url)
+                  (re-search-forward "https?://[^\s\t\n)]+" search-end t))
+        (let ((match-b (match-beginning 0))
+              (match-e (match-end 0))
+              (match-s (match-string 0)))
+          (if (or region-p (>= match-e cur-pos))
+              (setq found-url (list match-b match-e match-s))))))
+    (if found-url
+        (let* ((raw-url-beg (nth 0 found-url))
+               (raw-url-end (nth 1 found-url))
+               (raw-url (nth 2 found-url))
+               ;; Trim trailing punctuation from URL if any
+               (punct-match (string-match "[.,;:!?)]+$" raw-url))
+               (url-str (if punct-match (substring raw-url 0 punct-match) raw-url))
+               (url-beg raw-url-beg)
+               (url-end (- raw-url-end (if punct-match (- (length raw-url) punct-match) 0)))
+               (domain-str (rpl--extract-domain url-str))
+               (desc-beg (if region-p search-beg (min cur-pos url-beg)))
+               (raw-desc (buffer-substring-no-properties desc-beg url-beg))
+               (desc-str (string-trim raw-desc))
+               (formatted-label (if (string-empty-p desc-str)
+                                   (concat "(" domain-str ")")
+                                 (concat desc-str " (" domain-str ")")))
+               (replacement (concat "[" formatted-label "](" url-str ")")))
+          (delete-region desc-beg url-end)
+          (goto-char desc-beg)
+          (insert replacement))
+      (message "No upcoming URL found in line/region.")))))
 
 ; 4/6/2012/emacs tex live config
 (server-start)
