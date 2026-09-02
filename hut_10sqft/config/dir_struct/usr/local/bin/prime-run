@@ -1,0 +1,4 @@
+#!/bin/bash
+# Launch applications with NVIDIA PRIME render offload on the eGPU
+# See https://github.com/kinu-garage/hut_10sqft/issues/1317
+__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia __VK_LAYER_NV_optimus=NVIDIA_only "$@"

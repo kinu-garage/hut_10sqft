@@ -12,6 +12,7 @@
   <exec_depend>ca-certificates</exec_depend>
   <exec_depend>emacs</exec_depend>
   <exec_depend>emacs-mozc</exec_depend>
+  <exec_depend>ffmpeg</exec_depend>
   <exec_depend>freecad</exec_depend>
   <exec_depend>gimp</exec_depend>
   <exec_depend>git</exec_depend>
