@@ -22,6 +22,9 @@ var/
 .installed.cfg
 *.egg
 
+# Whitelist dir_struct configuration files
+!**/dir_struct/**
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

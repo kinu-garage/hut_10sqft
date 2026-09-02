@@ -180,12 +180,92 @@ class UbuntuOsSetup (DebianSetup):
             ]
         return pairs_symlinks
 
+    def is_host_p16s(self, host_config: HostConf = None) -> bool:
+        """
+        @summary: Check if the target host is p16s.
+        """
+        hostname = ""
+        if host_config and host_config.hostname:
+            hostname = host_config.hostname
+        elif getattr(self, "_args_in", None) and getattr(self._args_in, "hostname", None):
+            hostname = self._args_in.hostname
+        return hostname == CompInitSetupConfig.HOSTNAME_P16S or hostname.startswith("130s-p16s")
+
+    def setup_egpu(
+            self,
+            path_xorg_conf: str = "",
+            path_modprobe_conf: str = "",
+            path_prime_run: str = "",
+            path_udev_rules: str = "",
+            path_gdm_conf: str = ""):
+        """
+        @summary: Set up eGPU configurations by installing Xorg, modprobe, udev, GDM,
+          and prime-run configurations to system folders, updating initramfs, and reloading udev rules.
+        @param path_xorg_conf: Path to 10-nvidia.conf for Xorg (/etc/X11/xorg.conf.d/10-nvidia.conf).
+        @param path_modprobe_conf: Path to nvidia-runtimepm.conf (/etc/modprobe.d/nvidia-runtimepm.conf).
+        @param path_prime_run: Path to prime-run launcher script (/usr/local/bin/prime-run).
+        @param path_udev_rules: Path to udev rule (/etc/udev/rules.d/99-disable-internal-gpu.rules).
+        @param path_gdm_conf: Path to custom.conf for GDM (/etc/gdm3/custom.conf).
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/1120
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
+        """
+        configs = [
+            (path_xorg_conf, "/etc/X11/xorg.conf.d/10-nvidia.conf", "644"),
+            (path_modprobe_conf, "/etc/modprobe.d/nvidia-runtimepm.conf", "644"),
+            (path_prime_run, "/usr/local/bin/prime-run", "755"),
+            (path_udev_rules, "/etc/udev/rules.d/99-disable-internal-gpu.rules", "644"),
+            (path_gdm_conf, "/etc/gdm3/custom.conf", "644"),
+        ]
+
+        for src, dest, mode in configs:
+            if not src:
+                continue
+            try:
+                if os.path.exists(src):
+                    self._install_system_file(src, dest, mode=mode)
+                else:
+                    self._logger.warning(f"Config source file not found: '{src}'")
+            except Exception as e:
+                self._logger.warning(f"Failed to install '{src}' to '{dest}': {str(e)}")
+                self.add_runtime_issue(e)
+
+        try:
+            self._update_initramfs()
+        except Exception as e:
+            self._logger.warning(f"Updating initramfs failed: {str(e)}")
+            self.add_runtime_issue(e)
+
+        try:
+            self._reload_udev_rules()
+        except Exception as e:
+            self._logger.warning(f"Reloading udev rules failed: {str(e)}")
+            self.add_runtime_issue(e)
+
     def setup_configs(
             self,
             host_config: HostConf,
             abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
             abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
         super().setup_configs(host_config, abs_path_confdir=abs_path_confdir, abs_path_private_confdir=abs_path_private_confdir)
+        if self.is_host_p16s(host_config):
+            dir_struct = os.path.join(abs_path_confdir, "dir_struct")
+            if not os.path.exists(dir_struct):
+                dir_struct_sub = os.path.join(abs_path_confdir, "hut_10sqft", "config", "dir_struct")
+                if os.path.exists(dir_struct_sub):
+                    dir_struct = dir_struct_sub
+
+            path_xorg_conf = os.path.join(dir_struct, "etc", "X11", "xorg.conf.d", "10-nvidia.conf")
+            path_modprobe_conf = os.path.join(dir_struct, "etc", "modprobe.d", "nvidia-runtimepm.conf")
+            path_prime_run = os.path.join(dir_struct, "usr", "local", "bin", "prime-run")
+            path_udev_rules = os.path.join(dir_struct, "etc", "udev", "rules.d", "99-disable-internal-gpu.rules")
+            path_gdm_conf = os.path.join(dir_struct, "etc", "gdm3", "custom.conf")
+
+            self.setup_egpu(
+                path_xorg_conf=path_xorg_conf,
+                path_modprobe_conf=path_modprobe_conf,
+                path_prime_run=path_prime_run,
+                path_udev_rules=path_udev_rules,
+                path_gdm_conf=path_gdm_conf)
 
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",

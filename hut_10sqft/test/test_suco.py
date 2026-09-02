@@ -245,3 +245,76 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
             fh.write("")
     with open(path_bashrc, "r", encoding="utf-8") as fh:
         assert "antigravity" in fh.read().lower()
+
+
+def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname=CompInitSetupConfig.HOSTNAME_P16S, skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+
+    # Create dummy source files
+    xorg_file = tmp_path / "10-nvidia.conf"
+    xorg_file.write_text("Section OutputClass\nEndSection\n", encoding="utf-8")
+    modprobe_file = tmp_path / "nvidia-runtimepm.conf"
+    modprobe_file.write_text("options nvidia\n", encoding="utf-8")
+    prime_run_file = tmp_path / "prime-run"
+    prime_run_file.write_text("#!/bin/bash\n", encoding="utf-8")
+
+    installed_files = []
+    def fake_install(src, dest, mode="644"):
+        installed_files.append((src, dest, mode))
+
+    initramfs_called = []
+    def fake_initramfs():
+        initramfs_called.append(True)
+
+    udev_called = []
+    def fake_udev():
+        udev_called.append(True)
+
+    monkeypatch.setattr(setup, "_install_system_file", fake_install)
+    monkeypatch.setattr(setup, "_update_initramfs", fake_initramfs)
+    monkeypatch.setattr(setup, "_reload_udev_rules", fake_udev)
+
+    setup.setup_egpu(
+        path_xorg_conf=str(xorg_file),
+        path_modprobe_conf=str(modprobe_file),
+        path_prime_run=str(prime_run_file))
+
+    assert len(installed_files) == 3
+    assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
+    assert (str(modprobe_file), "/etc/modprobe.d/nvidia-runtimepm.conf", "644") in installed_files
+    assert (str(prime_run_file), "/usr/local/bin/prime-run", "755") in installed_files
+    assert len(initramfs_called) == 1
+    assert len(udev_called) == 1
+
+
+def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname=CompInitSetupConfig.HOSTNAME_P16S, skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+    setup._os_name = "ubuntu"
+    setup._user_home_dir = str(tmp_path)
+
+    monkeypatch.setattr(setup, "setup_file", lambda conf, overwrite=False: None)
+
+    called_egpu = []
+    def fake_setup_egpu(**kwargs):
+        called_egpu.append(kwargs)
+
+    monkeypatch.setattr(setup, "setup_egpu", fake_setup_egpu)
+
+    # Test non-p16s host
+    host_other = HostConf("other-host", "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+    setup.setup_configs(host_config=host_other, abs_path_confdir=str(tmp_path / "conf"), abs_path_private_confdir=str(tmp_path / "private"))
+    assert len(called_egpu) == 0
+
+    # Test p16s host
+    host_p16s = HostConf(CompInitSetupConfig.HOSTNAME_P16S, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
+    setup.setup_configs(host_config=host_p16s, abs_path_confdir=str(tmp_path / "conf"), abs_path_private_confdir=str(tmp_path / "private"))
+    assert len(called_egpu) == 1
+    assert "path_xorg_conf" in called_egpu[0]
+    assert "path_modprobe_conf" in called_egpu[0]
+    assert "path_prime_run" in called_egpu[0]

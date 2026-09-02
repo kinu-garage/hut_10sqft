@@ -359,3 +359,34 @@ class DebianSetup(ShellCapableOsSetup):
         self.verify_deb_installed(self._DEB_CAPS_CTRL_UTIL)
         _URL_INSTRUCTION_CAPS_CTRL = "https://github.com/kinu-garage/hut_10sqft/issues/1230#issuecomment-2994825273"
         self._logger.info(f"Following {_URL_INSTRUCTION_CAPS_CTRL}, setup manually the swap of Caps Lock and Ctrl keys.")
+
+    def _install_system_file(self, path_source: str, path_dest: str, mode: str = "644"):
+        """
+        @summary: Copy a configuration file to a system directory requiring sudo.
+        """
+        dest_dir = os.path.dirname(path_dest)
+        OsUtil.subproc_bash(f"mkdir -p {dest_dir}", does_sudo=True, logger=self._logger)
+        OsUtil.subproc_bash(f"cp {path_source} {path_dest}", does_sudo=True, logger=self._logger)
+        if mode:
+            OsUtil.subproc_bash(f"chmod {mode} {path_dest}", does_sudo=True, logger=self._logger)
+        self._logger.info(f"Installed system config file from '{path_source}' to '{path_dest}' with mode {mode}")
+
+    def _update_initramfs(self):
+        """
+        @summary: Update initramfs to ensure early modprobe settings take effect.
+        """
+        cmd = "update-initramfs -u"
+        self._logger.info(f"Updating initramfs: '{cmd}'")
+        output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
+        if return_code != 0:
+            raise RuntimeError(f"Failed to update initramfs.\n\tOutput: {output}\n\tError: {error}")
+
+    def _reload_udev_rules(self):
+        """
+        @summary: Reload and trigger udev rules.
+        """
+        cmd = "udevadm control --reload-rules && udevadm trigger"
+        self._logger.info(f"Reloading udev rules: '{cmd}'")
+        output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
+        if return_code != 0:
+            raise RuntimeError(f"Failed to reload udev rules.\n\tOutput: {output}\n\tError: {error}")
