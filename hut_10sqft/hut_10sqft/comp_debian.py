@@ -5,6 +5,7 @@
 
 import argparse
 import os
+import pwd
 import subprocess
 
 from hut_10sqft.host_config import HostConf
@@ -20,6 +21,14 @@ class DebianSetup(ShellCapableOsSetup):
     _DEBS_MOZC = ["emacs-mozc", "emacs-mozc-bin", "ibus-mozc", "mozc-utils-gui", "mozc-server"]
     #_DEBS_VIRTUALBOX = ["virtualbox-guest-additions-iso", "virtualbox-qt"]
     _DEBS_VIRTUALBOX = []  # Keep this blank before https://github.com/kinu-garage/hut_10sqft/issues/1401
+    _DEBS_DOCKER = [
+        "docker-ce",
+        "docker-ce-cli",
+        "containerd.io",
+        "docker-buildx-plugin",
+        "docker-compose-plugin",
+    ]
+    _DEBS_DOCKER_PREREQ = ["ca-certificates", "curl"]
 
     _DEBIAN_DEB_DEPS = [
                 "aptitude",
@@ -57,6 +66,10 @@ class DebianSetup(ShellCapableOsSetup):
         self._apt_updated = False
 
         super().__init__(os_name, args_in, default_userid=default_userid)
+        self._os_name = os_name
+        if hasattr(self, "_args_in") and self._args_in is not None:
+            if hasattr(self._args_in, "user_id") and not hasattr(self._args_in, "_user_id"):
+                self._args_in._user_id = self._args_in.user_id
 
     @property
     def apt_updated(self):
@@ -232,8 +245,8 @@ class DebianSetup(ShellCapableOsSetup):
         super().run(host_config, conf_repo_remote, conf_base_path)
         self.setup_oracle_java()
 
-    def apt_update(self):
-        if self.apt_updated:
+    def apt_update(self, force=False):
+        if self.apt_updated and not force:
             self._logger.warning("'apt update' was already done before. Skipping")
             return
         cmd = f"apt update"
@@ -245,34 +258,91 @@ class DebianSetup(ShellCapableOsSetup):
                 stderr = _err)
         self.apt_updated = True
 
-    def setup_docker(self, userid_os, skip=False):
-        try:
-            if skip or self._is_docker_setup():
-                self._logger.info(f"Looks like Docker setup is already completed.")
-                return
-        except RuntimeWarning as e:
-            self._logger.warning(f"Issue found in setting up Docker but continuing to do so. Source of the error: {str(e)}")
-            self.add_runtime_issue(e)
-        if not self._exec_docker:
-            self.add_runtime_issue("Not all necessary executables is found. Aborting setting up Docker.")
+    def setup_docker(self, userid_os="", skip=False):
+        """
+        @summary: Set up Docker CE via official Docker apt repository.
+        @see: https://docs.docker.com/engine/install/ubuntu/
+        @see: https://docs.docker.com/engine/install/debian/
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/1484
+        """
+        if skip:
+            self._logger.info("Skipping Docker setup as 'skip' is set to True.")
             return
 
-        OsUtil.subproc_bash("groupadd docker", does_sudo=True)
-        OsUtil.subproc_bash("usermod -aG docker {}".format(userid_os), does_sudo=True)
+        # Clean up conflicting Docker snap package if present (issue #1484)
+        if OsUtil.which("snap"):
+            _, _, ret_snap = OsUtil.subproc_bash("snap list docker")
+            if ret_snap == 0:
+                self._logger.warning("Conflicting Docker snap package detected. Removing docker snap to prioritize Docker CE APT.")
+                OsUtil.subproc_bash("snap remove docker", does_sudo=True)
 
-        # From https://docs.docker.com/engine/installation/linux/ubuntulinux/
-        OsUtil.subproc_bash(f"apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D", does_sudo=True)
-        OsUtil.subproc_bash(f'echo "deb https://apt.dockerproject.org/repo ubuntu-`lsb_release -sc` main" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
-        self.apt_update()
-        OsUtil.subproc_bash(f"apt purge lxc-docker", does_sudo=True)
-        OsUtil.subproc_bash(f"apt-cache policy docker-engine")
-        OsUtil.subproc_bash(f"apt install linux-image-extra-$(uname -r)", does_sudo=True)
-        # Workaround found at http://stackoverflow.com/questions/22957939/how-to-answer-an-apt-get-configuration-change-prompt-on-travis-ci-in-this-case
-        OsUtil.subproc_bash(f'apt -q -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install docker-engine',
-                            does_sudo=True, non_interactive=True)
-        OsUtil.subproc_bash(f"service docker start", does_sudo=True)
-        OsUtil.subproc_bash(f"unset $DEBIAN_FRONTEND")
-        OsUtil.subproc_bash(f'docker run hello-world && echo "docker seems to be installed successfully." || (echo "Something went wrong with docker installation."; RESULT=1', does_sudo=True)
+        try:
+            res = self._is_docker_setup()
+            if res is True or res == 0:
+                self._logger.info("Looks like Docker setup is already completed.")
+                return
+        except RuntimeWarning as e:
+            self._logger.info(f"Docker setup check: {str(e)}. Proceeding with Docker setup.")
+
+        # Determine target distro (ubuntu or debian)
+        os_identifier = (
+            getattr(self, "_os_name", "") or
+            getattr(self, "_os", "") or
+            getattr(getattr(self, "_args_in", None), "os_distro", "") or
+            ""
+        ).lower()
+        distro = "ubuntu" if "ubuntu" in os_identifier else "debian"
+
+        if not userid_os:
+            userid_os = getattr(getattr(self, "_args_in", None), "user_id", "") or pwd.getpwuid(os.getuid()).pw_name
+
+        # 1. Install prerequisites
+        OsUtil.apt_install(self._DEBS_DOCKER_PREREQ, logger=self._logger)
+
+        # 2. Add Docker's official GPG key
+        OsUtil.subproc_bash("install -m 0755 -d /etc/apt/keyrings", does_sudo=True)
+        OsUtil.subproc_bash(
+            f"curl -fsSL https://download.docker.com/linux/{distro}/gpg -o /etc/apt/keyrings/docker.asc",
+            does_sudo=True
+        )
+        OsUtil.subproc_bash("chmod a+r /etc/apt/keyrings/docker.asc", does_sudo=True)
+
+        # 3. Add Docker CE repository
+        repo_line = (
+            f"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] "
+            f"https://download.docker.com/linux/{distro} "
+            f"$(. /etc/os-release && echo \"${{UBUNTU_CODENAME:-$VERSION_CODENAME}}\") stable"
+        )
+        OsUtil.subproc_bash(f'echo "{repo_line}" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
+
+        # 4. Remove obsolete / conflicting packages if present
+        OsUtil.subproc_bash(
+            "apt remove -y docker-engine lxc-docker docker.io docker-doc docker-compose podman-docker runc 2>/dev/null || true",
+            does_sudo=True,
+            non_interactive=True
+        )
+
+        # 5. Update package index and install Docker CE packages
+        self.apt_update(force=True)
+        OsUtil.apt_install(self._DEBS_DOCKER, logger=self._logger)
+
+        # 6. Create docker group and add user
+        OsUtil.subproc_bash("groupadd -f docker", does_sudo=True)
+        if userid_os:
+            OsUtil.subproc_bash(f"usermod -aG docker {userid_os}", does_sudo=True)
+
+        # 7. Start and enable Docker service
+        OsUtil.subproc_bash("systemctl enable --now docker || service docker start", does_sudo=True)
+
+        # 8. Update cached docker executable
+        self._exec_docker = OsUtil.which("docker")
+
+        # 9. Verify installation
+        _out, _err, ret = OsUtil.subproc_bash("docker run --rm hello-world", does_sudo=True, logger=self._logger)
+        if ret == 0:
+            self._logger.info("Docker setup completed and verified successfully.")
+        else:
+            self._logger.warning(f"Docker setup completed, but 'docker run hello-world' check exited with code {ret}: {_err}")
     
     def _setup_git(self):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])
