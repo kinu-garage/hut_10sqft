@@ -245,3 +245,129 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
             fh.write("")
     with open(path_bashrc, "r", encoding="utf-8") as fh:
         assert "antigravity" in fh.read().lower()
+
+
+def test_ubuntu_snap_pkgs_excludes_docker():
+    """Verify that docker is removed from snap packages in UbuntuOsSetup."""
+    assert "docker" not in UbuntuOsSetup._PKGS_SNAP
+    assert UbuntuOsSetup._PKGS_SNAP == ["yt-dlp"]
+
+
+def test_setup_docker_skip(monkeypatch):
+    """Verify that setup_docker returns immediately when skip is True."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    cmds_run = []
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: (cmds_run.append(cmd), ("", "", 0))[1])
+    setup.setup_docker(userid_os="test-user", skip=True)
+    assert len(cmds_run) == 0
+
+
+def test_setup_docker_already_completed(monkeypatch):
+    """Verify that setup_docker returns early if docker is already setup."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) == 0
+
+
+def test_setup_docker_installs_docker_ce_apt(monkeypatch):
+    """Verify modern Docker CE repository and packages are installed."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    cmds_run = []
+
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert called_apt[0] == ["ca-certificates", "curl"]
+    assert called_apt[1] == ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin"]
+
+    assert any("https://download.docker.com/linux/ubuntu/gpg" in c for c in cmds_run)
+    assert any("/etc/apt/keyrings/docker.asc" in c for c in cmds_run)
+    assert any("https://download.docker.com/linux/ubuntu" in c for c in cmds_run)
+    assert any("groupadd -f docker" in c for c in cmds_run)
+    assert any("usermod -aG docker test-user" in c for c in cmds_run)
+    assert any("systemctl enable --now docker" in c for c in cmds_run)
+
+
+def test_setup_docker_removes_snap_docker(monkeypatch):
+    """Verify conflicting snap docker is removed if present."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/snap" if name == "snap" else None)
+
+    cmds_run = []
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        if cmd == "snap list docker":
+            return "Name Version Rev Tracking Publisher Notes\ndocker 27.2.0 2932 latest/stable canonical** -", "", 0
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert any("snap remove docker" in c for c in cmds_run)
+
+
+def test_setup_docker_installs_docker_ce_apt_debian(monkeypatch):
+    """Verify modern Docker CE repository and packages are installed on Debian."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "debian"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    cmds_run = []
+
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert any("https://download.docker.com/linux/debian/gpg" in c for c in cmds_run)
+    assert any("https://download.docker.com/linux/debian" in c for c in cmds_run)
+
+

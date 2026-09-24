@@ -30,7 +30,7 @@ class UbuntuOsSetup (DebianSetup):
         "sysinfo",        
     ]    
     _EXTERNAL_STORAGE_KUDU1 = "Evo840SSD"
-    _PKGS_SNAP = ["docker", "yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
+    _PKGS_SNAP = ["yt-dlp"]  # TODO Needs a better way specify this list of pkgs.
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
         super().__init__(os_name, args_in, default_userid=default_userid)
