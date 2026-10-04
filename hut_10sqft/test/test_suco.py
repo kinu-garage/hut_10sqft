@@ -15,8 +15,11 @@
 # limitations under the License.
 
 import argparse
+import glob
 import logging
 import os
+import shutil
+import subprocess
 import sys
 import pytest
 
@@ -318,3 +321,59 @@ def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     assert "path_xorg_conf" in called_egpu[0]
     assert "path_modprobe_conf" in called_egpu[0]
     assert "path_prime_run" in called_egpu[0]
+
+
+def test_emacs_lisp_syntax():
+    """Verify all Emacs Lisp configuration files have valid syntax and balanced parentheses."""
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    emacs_dir = os.path.normpath(os.path.join(test_dir, "..", "config", "emacs"))
+    el_files = glob.glob(os.path.join(emacs_dir, "**/*.el"), recursive=True)
+    assert len(el_files) > 0, f"No .el files found in {emacs_dir}"
+
+    for filepath in el_files:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        in_string = False
+        escape = False
+        in_comment = False
+        stack = []
+        for line_idx, line in enumerate(content.splitlines(), start=1):
+            in_comment = False
+            for col_idx, ch in enumerate(line, start=1):
+                if in_comment:
+                    continue
+                if escape:
+                    escape = False
+                    continue
+                if ch == "\\":
+                    escape = True
+                    continue
+                if ch == '"' and not in_comment:
+                    in_string = not in_string
+                    continue
+                if in_string:
+                    continue
+                if ch == ";":
+                    in_comment = True
+                    continue
+                if ch in "([{":
+                    stack.append((ch, line_idx, col_idx))
+                elif ch in ")]}":
+                    matching = {"(": ")", "[": "]", "{": "}"}
+                    assert stack, f"Unmatched closing '{ch}' at {filepath}:{line_idx}:{col_idx}"
+                    open_ch, o_line, o_col = stack.pop()
+                    assert matching[open_ch] == ch, (
+                        f"Mismatched bracket '{open_ch}' (line {o_line}:{o_col}) "
+                        f"closed by '{ch}' at {filepath}:{line_idx}:{col_idx}"
+                    )
+        assert not stack, f"Unclosed '{stack[-1][0]}' from line {stack[-1][1]}:{stack[-1][2]} in {filepath}"
+
+    if shutil.which("emacs"):
+        emacs_el = os.path.join(emacs_dir, "emacs.el")
+        res = subprocess.run(
+            ["emacs", "--batch", "--eval", f'(load-file "{emacs_el}")'],
+            capture_output=True,
+            text=True
+        )
+        assert res.returncode == 0, f"Emacs batch load failed: {res.stderr}"
+
