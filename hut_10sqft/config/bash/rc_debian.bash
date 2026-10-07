@@ -41,6 +41,14 @@ case ":$PATH:" in
   *) export PATH="$HOME/.local/bin:$PATH" ;;
 esac
 
+# https://github.com/kinu-garage/hut_10sqft/issues/1395#issuecomment-4044261017
+# NVM (Node Version Manager)
+if [ -d "$HOME/.nvm" ]; then
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+  [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+fi
+
 # 202401 Dumb solution to https://github.com/kinu-garage/hut_10sqft/issues/985#issuecomment-1911905752
 # This should mostly be for non-GUI environmental (primarilly motivated for Linux mode in ChromeOS), but this might also be useful on GUI-powered but language manager doesn't start e.g. p16s Weyland
 PATH="/usr/lib/mozc/:$PATH"
