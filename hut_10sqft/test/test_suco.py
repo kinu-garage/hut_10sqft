@@ -377,3 +377,34 @@ def test_emacs_lisp_syntax():
         )
         assert res.returncode == 0, f"Emacs batch load failed: {res.stderr}"
 
+
+def test_swap_caps_ctrl(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    verified_pkgs = []
+    monkeypatch.setattr(setup, "verify_deb_installed", lambda pkg: verified_pkgs.append(pkg))
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    setup.swap_caps_ctrl()
+    assert verified_pkgs == [DebianSetup._DEB_CAPS_CTRL_UTIL]
+    assert len(executed_cmds) == 1
+    assert "gsettings set org.gnome.desktop.input-sources xkb-options \"['ctrl:swapcaps']\"" in executed_cmds[0][0]
+    assert executed_cmds[0][1] is False
+
+    # Verify failure raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "dconf error", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to configure Caps/Ctrl swap"):
+        setup.swap_caps_ctrl()
+

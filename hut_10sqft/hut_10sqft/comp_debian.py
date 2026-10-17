@@ -354,11 +354,19 @@ class DebianSetup(ShellCapableOsSetup):
 
     def swap_caps_ctrl(self):
         """
-        @summary: Installs S/Ws that are needed to swap Caps Lock and Ctrl keys, BUT configuring it needs to be done manually.
+        @summary: Installs S/Ws that are needed to swap Caps Lock and Ctrl keys, and configures the swap via gsettings.
+        @raise RuntimeError: If configuring Caps/Ctrl swap via gsettings fails.
         """
         self.verify_deb_installed(self._DEB_CAPS_CTRL_UTIL)
-        _URL_INSTRUCTION_CAPS_CTRL = "https://github.com/kinu-garage/hut_10sqft/issues/1230#issuecomment-2994825273"
-        self._logger.info(f"Following {_URL_INSTRUCTION_CAPS_CTRL}, setup manually the swap of Caps Lock and Ctrl keys.")
+        cmd = "gsettings set org.gnome.desktop.input-sources xkb-options \"['ctrl:swapcaps']\""
+        output, error, bash_return_code = OsUtil.subproc_bash(cmd, does_sudo=False, logger=self._logger)
+        if bash_return_code != 0:
+            _URL_INSTRUCTION_CAPS_CTRL = "https://github.com/kinu-garage/hut_10sqft/issues/1230#issuecomment-2994825273"
+            self._logger.warning(
+                f"Failed to automatically set Caps/Ctrl swap via '{cmd}'.\n\tOutput: {output}\n\tError: {error}\n"
+                f"Following {_URL_INSTRUCTION_CAPS_CTRL}, setup manually the swap of Caps Lock and Ctrl keys.")
+            raise RuntimeError(f"Failed to configure Caps/Ctrl swap via gsettings: {error}")
+        self._logger.info(f"Configured Caps Lock and Ctrl swap via gsettings: '{cmd}'")
 
     def _install_system_file(self, path_source: str, path_dest: str, mode: str = "644"):
         """
