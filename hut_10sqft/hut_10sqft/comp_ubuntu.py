@@ -270,12 +270,67 @@ class UbuntuOsSetup (DebianSetup):
             self._logger.warning(msg)
             self.add_runtime_issue(RuntimeError(msg))
 
+    def setup_dropbox_swap_watchdog(self, path_service_src: str = "", path_timer_src: str = ""):
+        """
+        @summary: Set up and enable the dropbox-swap-watchdog systemd user service and timer.
+        @param path_service_src: Path to dropbox-swap-watchdog.service source file.
+        @param path_timer_src: Path to dropbox-swap-watchdog.timer source file.
+        """
+        if not path_service_src or not path_timer_src:
+            return
+        if not os.path.exists(path_service_src):
+            self._logger.warning(f"Dropbox swap watchdog service file not found: '{path_service_src}'")
+            return
+        if not os.path.exists(path_timer_src):
+            self._logger.warning(f"Dropbox swap watchdog timer file not found: '{path_timer_src}'")
+            return
+
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        path_systemd_user_dir = os.path.join(path_user_home, ".config", "systemd", "user")
+        os.makedirs(path_systemd_user_dir, exist_ok=True)
+
+        for src, unit_name in [
+            (path_service_src, "dropbox-swap-watchdog.service"),
+            (path_timer_src, "dropbox-swap-watchdog.timer"),
+        ]:
+            conf_unit = ConfigDispatch(
+                path_source=src,
+                path_dest=os.path.join(path_systemd_user_dir, unit_name),
+                is_symlink=True)
+            self.setup_file(conf_unit, overwrite=True)
+
+        cmd_enable = "systemctl --user daemon-reload && systemctl --user enable --now dropbox-swap-watchdog.timer"
+        output, error, retcode = OsUtil.subproc_bash(cmd_enable, does_sudo=False, logger=self._logger)
+        if retcode != 0:
+            msg = f"Failed to enable dropbox-swap-watchdog.timer.\n\tOutput: {output}\n\tError: {error}"
+            self._logger.warning(msg)
+            self.add_runtime_issue(RuntimeError(msg))
+
     def setup_configs(
             self,
             host_config: HostConf,
             abs_path_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_CONFIG_CONFDIR,
             abs_path_private_confdir: str=ShellCapableOsSetup._PATH_DEFAULT_PERMANENT_CONF_REPO):
         super().setup_configs(host_config, abs_path_confdir=abs_path_confdir, abs_path_private_confdir=abs_path_private_confdir)
+        if not getattr(self._args_in, "skip_dropbox", False):
+            path_dropbox_service = os.path.join(abs_path_confdir, "systemd", "user", "dropbox-swap-watchdog.service")
+            if not os.path.exists(path_dropbox_service):
+                path_dropbox_service_sub = os.path.join(
+                    abs_path_confdir, "hut_10sqft", "config", "systemd", "user", "dropbox-swap-watchdog.service")
+                if os.path.exists(path_dropbox_service_sub):
+                    path_dropbox_service = path_dropbox_service_sub
+
+            path_dropbox_timer = os.path.join(abs_path_confdir, "systemd", "user", "dropbox-swap-watchdog.timer")
+            if not os.path.exists(path_dropbox_timer):
+                path_dropbox_timer_sub = os.path.join(
+                    abs_path_confdir, "hut_10sqft", "config", "systemd", "user", "dropbox-swap-watchdog.timer")
+                if os.path.exists(path_dropbox_timer_sub):
+                    path_dropbox_timer = path_dropbox_timer_sub
+
+            self.setup_dropbox_swap_watchdog(
+                path_service_src=path_dropbox_service,
+                path_timer_src=path_dropbox_timer)
+
         if self.is_host_p16s(host_config):
             dir_struct = os.path.join(abs_path_confdir, "dir_struct")
             if not os.path.exists(dir_struct):

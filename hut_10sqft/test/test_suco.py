@@ -364,6 +364,103 @@ def test_ubuntu_setup_wake_monitors_service(tmp_path, monkeypatch):
     assert cmds[0][1] is False
 
 
+def test_ubuntu_setup_dropbox_swap_watchdog(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname=CompInitSetupConfig.HOSTNAME_P16S, skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path)
+
+    service_src = tmp_path / "dropbox-swap-watchdog.service"
+    service_src.write_text("[Unit]\nDescription=Test Service\n", encoding="utf-8")
+    timer_src = tmp_path / "dropbox-swap-watchdog.timer"
+    timer_src.write_text("[Unit]\nDescription=Test Timer\n", encoding="utf-8")
+
+    dispatched = []
+    monkeypatch.setattr(setup, "setup_file", lambda conf, overwrite=False: dispatched.append((conf, overwrite)))
+
+    cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    setup.setup_dropbox_swap_watchdog(path_service_src=str(service_src), path_timer_src=str(timer_src))
+
+    assert len(dispatched) == 2
+    conf_svc, overwrite_svc = dispatched[0]
+    assert conf_svc.path_source == str(service_src)
+    assert conf_svc.path_dest == str(tmp_path / ".config" / "systemd" / "user" / "dropbox-swap-watchdog.service")
+    assert conf_svc.is_symlink is True
+    assert overwrite_svc is True
+
+    conf_tmr, overwrite_tmr = dispatched[1]
+    assert conf_tmr.path_source == str(timer_src)
+    assert conf_tmr.path_dest == str(tmp_path / ".config" / "systemd" / "user" / "dropbox-swap-watchdog.timer")
+    assert conf_tmr.is_symlink is True
+    assert overwrite_tmr is True
+
+    assert len(cmds) == 1
+    assert "systemctl --user enable --now dropbox-swap-watchdog.timer" in cmds[0][0]
+    assert cmds[0][1] is False
+
+
+def test_dropbox_swap_watchdog_script(tmp_path):
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.normpath(os.path.join(test_dir, "..", "exec", "dropbox-swap-watchdog.sh"))
+
+    fake_pid = "999999"
+    proc_dir = tmp_path / "proc" / fake_pid
+    proc_dir.mkdir(parents=True)
+    status_file = proc_dir / "status"
+
+    log_file = tmp_path / "dropbox_cli.log"
+    fake_cli = tmp_path / "fake_dropbox"
+    state_file = tmp_path / "dropbox_status.txt"
+
+    fake_cli.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"echo \"$1\" >> \"{log_file}\"\n"
+        f"if [[ \"$1\" == \"status\" ]]; then\n"
+        f"  cat \"{state_file}\"\n"
+        f"fi\n",
+        encoding="utf-8",
+    )
+    fake_cli.chmod(0o755)
+
+    env = os.environ.copy()
+    env["DROPBOX_PID_OVERRIDE"] = fake_pid
+    env["DROPBOX_PROC_ROOT"] = str(tmp_path / "proc")
+    env["DROPBOX_CLI"] = str(fake_cli)
+
+    # 1. Below 1 GB limit (500 MB) -> no CLI calls
+    status_file.write_text("VmRSS:\t 1200000 kB\nVmSwap:\t  512000 kB\n", encoding="utf-8")
+    state_file.write_text("Up to date\n", encoding="utf-8")
+    res = subprocess.run([script_path], env=env, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "within limit (1048576 kB)" in res.stdout
+    assert not log_file.exists()
+
+    # 2. Above 1 GB limit (1.2 GB) but currently syncing -> checks status, defers restart
+    status_file.write_text("VmRSS:\t 1200000 kB\nVmSwap:\t 1258291 kB\n", encoding="utf-8")
+    state_file.write_text("Syncing 42 files...\n", encoding="utf-8")
+    res = subprocess.run([script_path], env=env, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "Deferring restart" in res.stdout
+    assert log_file.read_text(encoding="utf-8").splitlines() == ["status"]
+
+    # 3. Above 1 GB limit (1.2 GB) and "Up to date" -> checks status, stops, and starts
+    log_file.unlink()
+    state_file.write_text("Up to date\n", encoding="utf-8")
+    res = subprocess.run([script_path], env=env, capture_output=True, text=True)
+    assert res.returncode == 0
+    assert "Dropbox restarted successfully" in res.stdout
+    assert log_file.read_text(encoding="utf-8").splitlines() == ["status", "stop", "start"]
+
+
+
+
 def test_emacs_lisp_syntax():
     """Verify all Emacs Lisp configuration files have valid syntax and balanced parentheses."""
     test_dir = os.path.dirname(os.path.abspath(__file__))
