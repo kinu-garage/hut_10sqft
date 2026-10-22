@@ -241,6 +241,35 @@ class UbuntuOsSetup (DebianSetup):
             self._logger.warning(f"Reloading udev rules failed: {str(e)}")
             self.add_runtime_issue(e)
 
+    def setup_wake_monitors_service(self, path_service_src: str = ""):
+        """
+        @summary: Set up and enable the wake-all-monitors systemd user service on p16s.
+        @param path_service_src: Path to wake-all-monitors.service source file.
+        """
+        if not path_service_src:
+            return
+        if not os.path.exists(path_service_src):
+            self._logger.warning(f"Wake monitors service file not found: '{path_service_src}'")
+            return
+
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        path_systemd_user_dir = os.path.join(path_user_home, ".config", "systemd", "user")
+        os.makedirs(path_systemd_user_dir, exist_ok=True)
+        path_service_dest = os.path.join(path_systemd_user_dir, "wake-all-monitors.service")
+
+        conf_service = ConfigDispatch(
+            path_source=path_service_src,
+            path_dest=path_service_dest,
+            is_symlink=True)
+        self.setup_file(conf_service, overwrite=True)
+
+        cmd_enable = "systemctl --user daemon-reload && systemctl --user enable --now wake-all-monitors.service"
+        output, error, retcode = OsUtil.subproc_bash(cmd_enable, does_sudo=False, logger=self._logger)
+        if retcode != 0:
+            msg = f"Failed to enable wake-all-monitors.service.\n\tOutput: {output}\n\tError: {error}"
+            self._logger.warning(msg)
+            self.add_runtime_issue(RuntimeError(msg))
+
     def setup_configs(
             self,
             host_config: HostConf,
@@ -266,6 +295,15 @@ class UbuntuOsSetup (DebianSetup):
                 path_prime_run=path_prime_run,
                 path_udev_rules=path_udev_rules,
                 path_gdm_conf=path_gdm_conf)
+
+            path_wake_service = os.path.join(abs_path_confdir, "systemd", "user", "wake-all-monitors.service")
+            if not os.path.exists(path_wake_service):
+                path_wake_service_sub = os.path.join(
+                    abs_path_confdir, "hut_10sqft", "config", "systemd", "user", "wake-all-monitors.service")
+                if os.path.exists(path_wake_service_sub):
+                    path_wake_service = path_wake_service_sub
+
+            self.setup_wake_monitors_service(path_service_src=path_wake_service)
 
     def set_ros_apt_source(self, 
                            path_aptsrc_file="/etc/apt/sources.list.d/ros2.list",
