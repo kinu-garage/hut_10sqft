@@ -307,12 +307,18 @@ def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     def fake_setup_egpu(**kwargs):
         called_egpu.append(kwargs)
 
+    called_wake = []
+    def fake_setup_wake(**kwargs):
+        called_wake.append(kwargs)
+
     monkeypatch.setattr(setup, "setup_egpu", fake_setup_egpu)
+    monkeypatch.setattr(setup, "setup_wake_monitors_service", fake_setup_wake)
 
     # Test non-p16s host
     host_other = HostConf("other-host", "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
     setup.setup_configs(host_config=host_other, abs_path_confdir=str(tmp_path / "conf"), abs_path_private_confdir=str(tmp_path / "private"))
     assert len(called_egpu) == 0
+    assert len(called_wake) == 0
 
     # Test p16s host
     host_p16s = HostConf(CompInitSetupConfig.HOSTNAME_P16S, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
@@ -321,6 +327,41 @@ def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     assert "path_xorg_conf" in called_egpu[0]
     assert "path_modprobe_conf" in called_egpu[0]
     assert "path_prime_run" in called_egpu[0]
+    assert len(called_wake) == 1
+    assert "path_service_src" in called_wake[0]
+
+
+def test_ubuntu_setup_wake_monitors_service(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname=CompInitSetupConfig.HOSTNAME_P16S, skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path)
+
+    service_src = tmp_path / "wake-all-monitors.service"
+    service_src.write_text("[Unit]\nDescription=Test\n", encoding="utf-8")
+
+    dispatched = []
+    monkeypatch.setattr(setup, "setup_file", lambda conf, overwrite=False: dispatched.append((conf, overwrite)))
+
+    cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    setup.setup_wake_monitors_service(path_service_src=str(service_src))
+
+    assert len(dispatched) == 1
+    conf, overwrite = dispatched[0]
+    assert conf.path_source == str(service_src)
+    assert conf.path_dest == str(tmp_path / ".config" / "systemd" / "user" / "wake-all-monitors.service")
+    assert conf.is_symlink is True
+    assert overwrite is True
+    assert len(cmds) == 1
+    assert "systemctl --user enable --now wake-all-monitors.service" in cmds[0][0]
+    assert cmds[0][1] is False
 
 
 def test_emacs_lisp_syntax():
