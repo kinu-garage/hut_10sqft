@@ -1,0 +1,10 @@
+[Unit]
+Description=Periodically check Dropbox swap usage
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

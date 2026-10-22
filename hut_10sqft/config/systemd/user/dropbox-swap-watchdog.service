@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Dropbox swap usage and restart Dropbox when idle if usage exceeds limit
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+KillMode=process
+Environment="DROPBOX_MAX_SWAP_KB=1048576"
+ExecStart=%h/.config/hut_10sqft/hut_10sqft/exec/dropbox-swap-watchdog.sh
