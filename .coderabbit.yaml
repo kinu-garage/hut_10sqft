@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+enable_free_tier: true
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "develop"
+      - "master"
+
+  path_filters:
+    - "!**/*.lock"
+    - "!**/.pytest_cache/**"
+    - "!**/build/**"
+    - "!**/install/**"
+    - "!**/log/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.svg"
+    - "!**/*.stl"
+    - "!**/*.dae"
+    - "!**/*.step"
+
+  path_instructions:
+    - path: "**/*.py"
+      instructions: |
+        - Follow PEP 8 guidelines and maintain compatibility with Python 3.10+.
+        - Ensure robust exception handling and appropriate logging.
+        - Verify unit test coverage for new or modified functions in test/ directories.
+    - path: "exec/**/*.sh"
+      instructions: |
+        - Follow ShellCheck best practices (quote variables, check return codes).
+        - Ensure portability across supported target platforms (Ubuntu / macOS).
+
+  tools:
+    shellcheck:
+      enabled: true
+    flake8:
+      enabled: true
+    ruff:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    actionlint:
+      enabled: true
+
+chat:
+  auto_reply: true
