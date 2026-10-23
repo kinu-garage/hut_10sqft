@@ -37,7 +37,7 @@ reviews:
         - Follow PEP 8 guidelines and maintain compatibility with Python 3.10+.
         - Ensure robust exception handling and appropriate logging.
         - Verify unit test coverage for new or modified functions in test/ directories.
-    - path: "exec/**/*.sh"
+    - path: "**/*.sh"
       instructions: |
         - Follow ShellCheck best practices (quote variables, check return codes).
         - Ensure portability across supported target platforms (Ubuntu / macOS).
