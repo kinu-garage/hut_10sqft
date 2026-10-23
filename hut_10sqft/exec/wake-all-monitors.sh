@@ -39,9 +39,60 @@ is_screen_locked() {
 are_monitors_configured() {
     local xr_cur
     xr_cur=$(xrandr --current 2>/dev/null || true)
-    echo "$xr_cur" | grep -q "^DP-1-2\.1 connected primary 3840x2160+0+400 " && \
-    echo "$xr_cur" | grep -q "^DP-1-2\.8 connected 1440x2560+3840+0 left " && \
-    echo "$xr_cur" | grep -q "^HDMI-1 connected 3440x1440+5280+1120 "
+    # Check if primary 4K monitor, portrait 4K monitor (left rotation), and ultrawide HDMI are active
+    echo "$xr_cur" | grep -qE " connected primary 3840x2160\+[0-9]+\+[0-9]+ " && \
+    echo "$xr_cur" | grep -qE " connected 2160x3840\+[0-9]+\+[0-9]+ left " && \
+    echo "$xr_cur" | grep -qE " connected 3440x1440\+[0-9]+\+[0-9]+ "
+}
+
+apply_layout_by_edid() {
+    python3 -c "
+import subprocess
+import sys
+
+try:
+    out = subprocess.check_output(['xrandr', '--verbose'], timeout=5).decode('utf-8', errors='ignore')
+except Exception:
+    sys.exit(1)
+
+conn_map = {}
+curr = None
+edid_hex = ''
+for line in out.splitlines():
+    if ' connected' in line:
+        if curr and edid_hex:
+            ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
+            conn_map[curr] = ascii_text
+        curr = line.split()[0]
+        edid_hex = ''
+    elif ' disconnected' in line:
+        if curr and edid_hex:
+            ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
+            conn_map[curr] = ascii_text
+        curr = None
+        edid_hex = ''
+    elif curr and line.startswith('\t\t') and len(line.strip()) == 32:
+        edid_hex += line.strip()
+
+if curr and edid_hex:
+    ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
+    conn_map[curr] = ascii_text
+
+dell = next((c for c, txt in conn_map.items() if 'DELL' in txt), None)
+sceptre = next((c for c, txt in conn_map.items() if 'Sceptre' in txt), None)
+asus = next((c for c, txt in conn_map.items() if 'ASUS' in txt), None)
+
+if dell and sceptre and asus:
+    cmd = [
+        'xrandr',
+        '--output', sceptre, '--primary', '--mode', '3840x2160', '--pos', '0x1680', '--rotate', 'normal',
+        '--output', dell, '--mode', '3840x2160', '--pos', '3840x0', '--rotate', 'left',
+        '--output', asus, '--mode', '3440x1440', '--pos', '6000x2400', '--rotate', 'normal'
+    ]
+    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    sys.exit(0)
+sys.exit(1)
+" >/dev/null 2>&1
 }
 
 LOCK_FILE="/tmp/wake-all-monitors-${UID}.lock"
@@ -77,20 +128,27 @@ wake_and_restore() {
             break
         fi
 
-        # Query xrandr only when a monitor actually lost its mode/CRTC after sleep.
-        local xr_state
-        xr_state=$(xrandr --query 2>/dev/null || true)
-
-        if echo "$xr_state" | grep -q "^DP-1-2.1 connected" && \
-           echo "$xr_state" | grep -q "^DP-1-2.8 connected" && \
-           echo "$xr_state" | grep -q "^HDMI-1 connected"; then
-            xrandr \
-                --output DP-1-2.1 --primary --mode 3840x2160 --pos 0x400 --rotate normal \
-                --output DP-1-2.8 --mode 2560x1440 --pos 3840x0 --rotate left \
-                --output HDMI-1 --mode 3440x1440 --pos 5280x1120 --rotate normal >/dev/null 2>&1 || true
+        # Dynamically map and restore monitors by EDID vendor/model
+        if apply_layout_by_edid; then
             xset dpms force on >/dev/null 2>&1 || true
             if are_monitors_configured; then
                 break
+            fi
+        else
+            # Fallback for known static connector names if dynamic EDID lookup had not completed
+            local xr_state
+            xr_state=$(xrandr --query 2>/dev/null || true)
+            if echo "$xr_state" | grep -q "^DP-1-2 connected" && \
+               echo "$xr_state" | grep -q "^DP-1-0 connected" && \
+               echo "$xr_state" | grep -q "^HDMI-1 connected"; then
+                xrandr \
+                    --output DP-1-2 --primary --mode 3840x2160 --pos 0x1680 --rotate normal \
+                    --output DP-1-0 --mode 3840x2160 --pos 3840x0 --rotate left \
+                    --output HDMI-1 --mode 3440x1440 --pos 6000x2400 --rotate normal >/dev/null 2>&1 || true
+                xset dpms force on >/dev/null 2>&1 || true
+                if are_monitors_configured; then
+                    break
+                fi
             fi
         fi
     done
