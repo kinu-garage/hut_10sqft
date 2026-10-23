@@ -217,6 +217,42 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf_local)
         self.setup_file(conf_gitignore)
 
+    def setup_agent_skills(self, path_local_perm_conf: str = ""):
+        """
+        @summary: Set up AI agent skills (e.g., Antigravity and Claude Code) on POSIX OSes.
+        @param path_local_perm_conf: Path to configuration directory containing 'skills/'.
+        """
+        if not path_local_perm_conf:
+            return
+        path_skills_src = os.path.join(path_local_perm_conf, "skills")
+        if not os.path.exists(path_skills_src):
+            path_skills_src_sub = os.path.join(path_local_perm_conf, "hut_10sqft", "config", "skills")
+            if os.path.exists(path_skills_src_sub):
+                path_skills_src = path_skills_src_sub
+            else:
+                self._logger.info(f"No skills directory found at '{path_skills_src}'; skipping agent skills setup.")
+                return
+
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        # Target agent skills directories for Antigravity and Claude Code
+        target_dirs = [
+            os.path.join(path_user_home, ".gemini", "antigravity", "skills"),
+            os.path.join(path_user_home, ".claude", "skills"),
+        ]
+        for skill_name in os.listdir(path_skills_src):
+            src_skill_dir = os.path.join(path_skills_src, skill_name)
+            if not os.path.isdir(src_skill_dir):
+                continue
+            for target_base in target_dirs:
+                os.makedirs(target_base, exist_ok=True)
+                dest_skill_dir = os.path.join(target_base, skill_name)
+                conf_skill = ConfigDispatch(
+                    path_source=src_skill_dir,
+                    path_dest=dest_skill_dir,
+                    is_symlink=True)
+                self.setup_file(conf_skill, overwrite=True)
+                self._logger.info(f"Configured agent skill '{skill_name}' at '{dest_skill_dir}'.")
+
     def _setup_git_config_local(self):
         return "dot_gitconfig_local"
 
@@ -455,6 +491,11 @@ This is most notably ammendable by setting up local client executables of Dropbo
             self.add_runtime_issue(e)
 
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
+
+        try:
+            self.setup_agent_skills(path_local_perm_conf=_abs_path_confdir)
+        except Exception as e:
+            self.add_runtime_issue(e)
 
         try:
             self.setup_antigravity_cli()

@@ -546,3 +546,29 @@ def test_swap_caps_ctrl(monkeypatch):
     with pytest.raises(RuntimeError, match="Failed to configure Caps/Ctrl swap"):
         setup.swap_caps_ctrl()
 
+
+
+def test_setup_agent_skills(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path / "home")
+
+    conf_dir = tmp_path / "conf"
+    skills_dir = conf_dir / "skills" / "test-skill"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("---\nname: test-skill\n---\n", encoding="utf-8")
+
+    dispatched = []
+    monkeypatch.setattr(setup, "setup_file", lambda conf, overwrite=False: dispatched.append((conf, overwrite)))
+
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+
+    # Should dispatch symlink to both ~/.gemini/antigravity/skills and ~/.claude/skills
+    assert len(dispatched) == 2
+    paths_dest = [conf.path_dest for conf, overwrite in dispatched]
+    assert str(tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill") in paths_dest
+    assert str(tmp_path / "home" / ".claude" / "skills" / "test-skill") in paths_dest
+    for conf, overwrite in dispatched:
+        assert conf.is_symlink is True
+        assert overwrite is True
