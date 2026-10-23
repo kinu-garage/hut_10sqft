@@ -14,11 +14,42 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Helper script to post formatted AI agent interaction transaction to a GitHub issue
-# with security & privacy redaction.
+# SUMMARY:
+#   Helper script to sanitize and post formatted AI agent interaction transactions
+#   (prompt + response) as comments to a GitHub issue. Sensitive tokens, private IP
+#   addresses, and credentials are automatically redacted before posting.
 #
-# Usage:
+# REFERENCE:
+#   https://github.com/kinu-garage/hut_10sqft/issues/1509
+#
+# USAGE:
 #   post_transaction.sh <ISSUE_TARGET> <AGENT_NAME> <MODEL_NAME> <USER_PROMPT_FILE> <AGENT_RESP_FILE>
+#
+# INPUTS:
+#   Positional Arguments:
+#     1. ISSUE_TARGET      GitHub issue identifier. Accepts:
+#                          - Full URL: https://github.com/<owner>/<repo>/issues/<num>
+#                          - Shorthand: <owner>/<repo>#<num>
+#                          - Issue number: #<num> or <num>
+#     2. AGENT_NAME        Name of AI agent (e.g. "Antigravity", "Claude Code").
+#                          Default: "Antigravity".
+#     3. MODEL_NAME        Name of model used (e.g. "Gemini 3.8", "Sonnet 5.5 Medium").
+#                          Default: "Gemini 3.8".
+#     4. USER_PROMPT_FILE  Path to readable file containing the user's prompt text.
+#     5. AGENT_RESP_FILE   Path to readable file containing the agent's response text.
+#   Prerequisites:
+#     - GitHub CLI ('gh') installed and authenticated with issue write permissions.
+#
+# OUTPUTS:
+#   Side Effects:
+#     - Appends a sanitized, collapsible markdown comment to the target GitHub issue.
+#   Stdout:
+#     - Status confirmation message upon successful comment creation.
+#   Stderr:
+#     - Descriptive error message on invalid arguments, missing files, or CLI failure.
+#   Exit Codes:
+#     - 0: Successfully sanitized and posted to the GitHub issue.
+#     - 1: Invalid arguments, missing files, or execution failure.
 
 set -euo pipefail
 
@@ -60,10 +91,19 @@ fi
 # Sanitize function for security and privacy
 sanitize_text() {
     local input="$1"
+    # Redact SSH and TLS private key blocks
+    input=$(echo "$input" | sed -E '/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/,/-----END [A-Z0-9 ]*PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]')
     # Redact common tokens and secrets
     input=$(echo "$input" | sed -E 's/gh[opsu]_[A-Za-z0-9_]{36,}/[REDACTED_GITHUB_TOKEN]/g')
     input=$(echo "$input" | sed -E 's/sk-[A-Za-z0-9_-]{20,}/[REDACTED_API_KEY]/g')
     input=$(echo "$input" | sed -E 's/Bearer [A-Za-z0-9._~+/-]{20,}/Bearer [REDACTED_TOKEN]/g')
+    # Redact password values in key-value assignments
+    input=$(echo "$input" | sed -E "
+        s/(password|passwd|pwd)([[:space:]]*[:=][[:space:]]*[\"'])[^\r\n\"']+([\"'])/\1\2[REDACTED_PASSWORD]\3/gi;
+        s/(password|passwd|pwd)([[:space:]]*[:=][[:space:]]*)([^[({[:space:]][^[:space:]]*)/\1\2[REDACTED_PASSWORD]/gi
+    ")
+    # Redact email addresses
+    input=$(echo "$input" | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[REDACTED_EMAIL]/g')
     # Redact private IPv4 addresses (10.x.x.x, 192.168.x.x, 172.16-31.x.x, 100.64-127.x.x)
     # Using portable boundary matching preserving surrounding non-digit characters on BSD & GNU sed
     input=$(echo "$input" | sed -E "
@@ -79,11 +119,37 @@ sanitize_text() {
     echo "$input"
 }
 
+# Safety screening: verify content is safe to post before sending
+screen_content_safety() {
+    local text="$1"
+    local source_name="$2"
+
+    if echo "$text" | grep -qE -- '-----BEGIN [A-Z0-9 ]*PRIVATE KEY'; then
+        echo "Error: Safety screening failed in $source_name: unredacted private key block detected. Aborting post to GitHub." >&2
+        return 1
+    fi
+
+    if echo "$text" | grep -qE -- 'gh[opsu]_[A-Za-z0-9_]{36,}'; then
+        echo "Error: Safety screening failed in $source_name: unredacted GitHub token detected. Aborting post to GitHub." >&2
+        return 1
+    fi
+
+    if echo "$text" | grep -qE -- 'sk-[A-Za-z0-9_-]{20,}'; then
+        echo "Error: Safety screening failed in $source_name: unredacted API key detected. Aborting post to GitHub." >&2
+        return 1
+    fi
+
+    return 0
+}
+
 TMP_COMMENT=$(mktemp /tmp/gh_comment_XXXXXX)
 trap 'rm -f "$TMP_COMMENT"' EXIT
 
 USER_PROMPT=$(sanitize_text "$(cat "$USER_PROMPT_FILE")")
 AGENT_RESP=$(sanitize_text "$(cat "$AGENT_RESP_FILE")")
+
+screen_content_safety "$USER_PROMPT" "USER_PROMPT_FILE" || exit 1
+screen_content_safety "$AGENT_RESP" "AGENT_RESP_FILE" || exit 1
 
 FIRST_LINE=$(echo "$USER_PROMPT" | head -n 1 | cut -c 1-120)
 LINE_COUNT=$(echo "$USER_PROMPT" | wc -l)
