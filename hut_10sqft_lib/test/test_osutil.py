@@ -27,8 +27,8 @@ class TestOsUtil():
     TEST_FILE_CONTENT_TEXT = "Test content-a"
     _os_type, _distro_type = OsUtil.get_os_type()
 
-    @pytest.fixture
-    def timestamp(self, scope="session"):
+    @pytest.fixture(scope="class")
+    def timestamp(self):
         return datetime.today().strftime("%Y%m%d-%H%M%S")
 
     @staticmethod
