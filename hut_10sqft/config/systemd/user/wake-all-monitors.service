@@ -1,10 +1,10 @@
 [Unit]
-Description=Automatically wake all 3 external monitors (DP MST daisy-chain + HDMI) after idle
+Description=Automatically wake all 3 external monitors (DP MST daisy-chain + HDMI) after idle on p16s
 After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/.config/hut_10sqft/hut_10sqft/exec/wake-all-monitors.sh
+ExecStart=%h/.config/hut_10sqft/hut_10sqft/exec/wake-all-monitors_p16s.sh
 Restart=always
 RestartSec=3
 
