@@ -247,12 +247,23 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             for target_base in target_dirs:
                 os.makedirs(target_base, exist_ok=True)
                 dest_skill_dir = os.path.join(target_base, skill_name)
-                conf_skill = ConfigDispatch(
-                    path_source=src_skill_dir,
-                    path_dest=dest_skill_dir,
-                    is_symlink=True)
-                self.setup_file(conf_skill, overwrite=True)
-                self._logger.info(f"Configured agent skill '{skill_name}' at '{dest_skill_dir}'.")
+                if os.path.islink(dest_skill_dir):
+                    try:
+                        if os.path.realpath(dest_skill_dir) == os.path.realpath(src_skill_dir):
+                            self._logger.info(f"Skill '{skill_name}' already linked at '{dest_skill_dir}'; leaving unchanged.")
+                            continue
+                    except OSError:
+                        pass
+                    os.unlink(dest_skill_dir)
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Updated skill symlink '{dest_skill_dir}' -> '{src_skill_dir}'.")
+                elif os.path.exists(dest_skill_dir):
+                    self._logger.warning(
+                        f"Preserving existing non-symlink destination at '{dest_skill_dir}'; skipping skill link for '{skill_name}'."
+                    )
+                else:
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Configured agent skill '{skill_name}' at '{dest_skill_dir}'.")
 
     def setup_agent_remote_control(self):
         """

@@ -560,19 +560,36 @@ def test_setup_agent_skills(tmp_path, monkeypatch):
     skills_dir.mkdir(parents=True)
     (skills_dir / "SKILL.md").write_text("---\nname: test-skill\n---\n", encoding="utf-8")
 
-    dispatched = []
-    monkeypatch.setattr(setup, "setup_file", lambda conf, overwrite=False: dispatched.append((conf, overwrite)))
-
+    # 1. Initial creation of directory symlinks
     setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
 
-    # Should dispatch symlink to both ~/.gemini/antigravity/skills and ~/.claude/skills
-    assert len(dispatched) == 2
-    paths_dest = [conf.path_dest for conf, overwrite in dispatched]
-    assert str(tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill") in paths_dest
-    assert str(tmp_path / "home" / ".claude" / "skills" / "test-skill") in paths_dest
-    for conf, overwrite in dispatched:
-        assert conf.is_symlink is True
-        assert overwrite is True
+    dest_gemini = tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill"
+    dest_claude = tmp_path / "home" / ".claude" / "skills" / "test-skill"
+    assert dest_gemini.is_symlink()
+    assert dest_claude.is_symlink()
+    assert dest_gemini.resolve() == skills_dir.resolve()
+    assert dest_claude.resolve() == skills_dir.resolve()
+
+    # 2. Idempotent re-run leaves existing symlinks unchanged
+    mtime_before = dest_gemini.lstat().st_mtime_ns
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert dest_gemini.is_symlink()
+    assert dest_gemini.lstat().st_mtime_ns == mtime_before
+
+    # 3. Preserves unrelated existing non-symlink destination
+    unrelated_skill = conf_dir / "skills" / "custom-skill"
+    unrelated_skill.mkdir(parents=True)
+    (unrelated_skill / "SKILL.md").write_text("---\nname: custom-skill\n---\n", encoding="utf-8")
+
+    existing_custom_dir = tmp_path / "home" / ".claude" / "skills" / "custom-skill"
+    existing_custom_dir.mkdir(parents=True)
+    custom_marker = existing_custom_dir / "local_file.txt"
+    custom_marker.write_text("user content", encoding="utf-8")
+
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert not existing_custom_dir.is_symlink()
+    assert custom_marker.exists()
+    assert custom_marker.read_text(encoding="utf-8") == "user content"
 
 
 def test_setup_agent_remote_control(tmp_path, monkeypatch):
