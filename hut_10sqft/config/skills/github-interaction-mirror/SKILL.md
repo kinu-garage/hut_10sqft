@@ -1,16 +1,17 @@
 ---
 name: github-interaction-mirror
 description: >-
-  Mirror user-agent prompt transactions and conversation steps to a specified
+  Mirror high-value user-agent prompt transactions and technical analyses to a specified
   GitHub issue with automated screening for security and privacy, prompting the
-  user for a ticket URL if not yet provided. Use this skill whenever a GitHub
+  user for a ticket URL if not yet provided. Filters out routine operational chores
+  (e.g., git commits, pushes) that lack substantive analysis. Use this skill whenever a GitHub
   issue URL or issue reference is supplied for tracking, or when requested to
   mirror/log interactions to GitHub.
 ---
 
 # GitHub Interaction Mirror
 
-Mirror every transaction (user prompt + agent response) to the targeted GitHub issue using `gh issue comment`, with strict security and privacy redaction.
+Mirror high-value transactions (containing technical analysis, investigations, design decisions, or solutions) to the targeted GitHub issue using `gh issue comment`, with strict security and privacy redaction. Exclude routine operational chores (e.g., git commits, pushes) that lack substantive analysis.
 
 ## 1. Cloud Ticket / GitHub Issue Prompting & Detection
 
@@ -21,9 +22,24 @@ Mirror every transaction (user prompt + agent response) to the targeted GitHub i
        > *"Please provide the target GitHub issue URL (e.g., `https://github.com/owner/repo/issues/123`) if you would like this interaction to be mirrored to a ticket."*
      - If the user has not provided a ticket, **do NOT post to GitHub**. Mention at the end of the response:
        > *Note: No cloud ticket / GitHub issue supplied; skipping post to GitHub.*
-   - **If a ticket URL/ID is provided:** Use it as the destination for mirroring all transactions in the session.
+   - **If a ticket URL/ID is provided:** Use it as the destination for mirroring all qualifying transactions in the session.
 
-## 2. Security & Privacy Screening (MANDATORY BEFORE POSTING)
+## 2. Transaction Significance & Content Filtering (Substantive Analysis Threshold)
+
+To prevent cluttering the GitHub issue with routine operational noise, filter transactions before posting:
+
+### Do POST (Substantive Analysis):
+- **Technical Investigations & Root Causes:** Explanations of why a bug occurred, system behavior analysis, or debugging conclusions.
+- **Architectural & Design Decisions:** Comparisons of implementation alternatives, trade-offs, or configuration strategies.
+- **Structured Guides & Solutions:** Concrete how-to solutions, troubleshooting steps, or design explanations.
+- Any transaction with enduring reference value for collaborators or for reviewing later across different machines.
+
+### Do NOT POST (Exclude Operational Noise):
+- **Routine Operational Commands:** Purely operational actions such as "commit the changes", "push to remote branch", "run tests", or "format files".
+- **Action Confirmations Without Analysis:** Short responses that only report that a command, script, or git operation was executed (e.g., "Committed and pushed df1750d to remote").
+- **Trivial Exchanges or Simple Acknowledgments:** Turns lacking technical reasoning, code analysis, or problem-solving insights.
+
+## 3. Security & Privacy Screening (MANDATORY BEFORE POSTING)
 
 Before posting any content to a public or team GitHub issue, **screen and redact all sensitive information** from both the user prompt and agent response:
 
@@ -43,7 +59,7 @@ Before posting any content to a public or team GitHub issue, **screen and redact
 Replace sensitive strings with clear placeholders:
 `[REDACTED_TOKEN]`, `[REDACTED_IP]`, `[REDACTED_PASSWORD]`, `[REDACTED_SECRET]`.
 
-## 3. Agent & Model Identifiers
+## 4. Agent & Model Identifiers
 
 Determine the agent runtime and model being used:
 - **Agent name:**
@@ -61,7 +77,7 @@ Example prefix:
 Antigravity. Gemini 3.8.
 ```
 
-## 4. Formatting Contract
+## 5. Formatting Contract
 
 Each transaction posted as a comment to the GitHub issue MUST follow this exact structure:
 
@@ -88,7 +104,7 @@ Each transaction posted as a comment to the GitHub issue MUST follow this exact 
    - Place the screened text/logs directly beneath `</summary>`, followed by a separator line (`----` or 4 consecutive `-`).
    - Follow with the agent's identification header and screened response inside the `</details>` block.
 
-## 5. Posting via GitHub CLI (`gh`)
+## 6. Posting via GitHub CLI (`gh`)
 
 Use `gh issue comment` with a temporary file or standard input to avoid shell escaping issues with backticks, quotes, and newlines:
 
@@ -101,12 +117,14 @@ Or execute via the companion script (which automatically normalizes `owner/repo#
 ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
 ```
 
-## 6. Workflow Execution Steps
+## 7. Workflow Execution Steps
 
 1. Check if the target GitHub ticket URL is known. If not, prompt the user at the start of the response.
 2. Formulate your technical solution / answer.
-3. If an issue is present:
+3. Check the **Substantive Analysis Threshold**:
+   - If the user prompt is a routine operational instruction (e.g., asking to commit, push, run commands) or the response lacks substantive technical analysis/investigation, **do NOT post to GitHub**.
+4. If an issue is present AND the transaction meets the substantive analysis criteria:
    - Run the security/privacy screening process on both user prompt and agent response.
    - Post the screened and formatted transaction using `gh issue comment` or `post_transaction.sh`.
-4. Deliver the final response to the user.
-5. If no issue was specified, omit posting and state so at the end of the prompt's response.
+5. Deliver the final response to the user.
+6. If no issue was specified, omit posting and state so at the end of the prompt's response.
