@@ -16,6 +16,7 @@
 
 import argparse
 import glob
+import json
 import logging
 import os
 import shutil
@@ -572,3 +573,29 @@ def test_setup_agent_skills(tmp_path, monkeypatch):
     for conf, overwrite in dispatched:
         assert conf.is_symlink is True
         assert overwrite is True
+
+
+def test_setup_agent_remote_control(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path / "home")
+
+    executed_cmds = []
+    def fake_subproc(cmd, does_sudo=False, logger=None):
+        executed_cmds.append(cmd)
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    monkeypatch.setattr(shutil, "which", lambda cmd: "/usr/local/bin/agy" if cmd == "agy" else None)
+
+    setup.setup_agent_remote_control()
+
+    # Claude Code settings.json
+    path_claude_settings = tmp_path / "home" / ".claude" / "settings.json"
+    assert path_claude_settings.exists()
+    data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
+    assert data.get("remoteControlAtStartup") is True
+
+    # Antigravity remote-control command
+    assert any("remote-control start" in cmd for cmd in executed_cmds)
