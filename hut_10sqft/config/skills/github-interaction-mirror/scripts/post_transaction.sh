@@ -65,10 +65,17 @@ sanitize_text() {
     input=$(echo "$input" | sed -E 's/sk-[A-Za-z0-9_-]{20,}/[REDACTED_API_KEY]/g')
     input=$(echo "$input" | sed -E 's/Bearer [A-Za-z0-9._~+/-]{20,}/Bearer [REDACTED_TOKEN]/g')
     # Redact private IPv4 addresses (10.x.x.x, 192.168.x.x, 172.16-31.x.x, 100.64-127.x.x)
-    input=$(echo "$input" | sed -E 's/\b192\.168\.[0-9]{1,3}\.[0-9]{1,3}\b/[REDACTED_IP]/g')
-    input=$(echo "$input" | sed -E 's/\b10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b/[REDACTED_IP]/g')
-    input=$(echo "$input" | sed -E 's/\b172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}\b/[REDACTED_IP]/g')
-    input=$(echo "$input" | sed -E 's/\b100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}\b/[REDACTED_IP]/g')
+    # Using portable boundary matching preserving surrounding non-digit characters on BSD & GNU sed
+    input=$(echo "$input" | sed -E "
+        s/(^|[^0-9])192\.168\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\2/g;
+        s/(^|[^0-9])192\.168\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\2/g;
+        s/(^|[^0-9])10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\2/g;
+        s/(^|[^0-9])10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\2/g;
+        s/(^|[^0-9])172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\3/g;
+        s/(^|[^0-9])172\.(1[6-9]|2[0-9]|3[0-1])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\3/g;
+        s/(^|[^0-9])100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\3/g;
+        s/(^|[^0-9])100\.(6[4-9]|[7-9][0-9]|1[0-1][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)/\1[REDACTED_IP]\3/g
+    ")
     echo "$input"
 }
 
