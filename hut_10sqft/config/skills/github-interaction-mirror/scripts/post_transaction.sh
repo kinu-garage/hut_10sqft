@@ -79,7 +79,7 @@ sanitize_text() {
     echo "$input"
 }
 
-TMP_COMMENT=$(mktemp /tmp/gh_comment_XXXXXX.md)
+TMP_COMMENT=$(mktemp /tmp/gh_comment_XXXXXX)
 trap 'rm -f "$TMP_COMMENT"' EXIT
 
 USER_PROMPT=$(sanitize_text "$(cat "$USER_PROMPT_FILE")")
