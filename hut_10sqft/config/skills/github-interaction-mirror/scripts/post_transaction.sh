@@ -105,7 +105,7 @@ sanitize_text() {
     # Redact password values in key-value assignments
     input=$(echo "$input" | sed -E "
         s/(password|passwd|pwd)([[:space:]]*[:=][[:space:]]*[\"'])[^\r\n\"']+([\"'])/\1\2[REDACTED_PASSWORD]\3/gi;
-        s/(password|passwd|pwd)([[:space:]]*[:=][[:space:]]*)([^[({[:space:]][^[:space:]]*)/\1\2[REDACTED_PASSWORD]/gi
+        s/(password|passwd|pwd)([[:space:]]*[:=][[:space:]]*)([^\"'({[:space:]][^[:space:]]*)/\1\2[REDACTED_PASSWORD]/gi
     ")
     # Redact email addresses
     input=$(echo "$input" | sed -E 's/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/[REDACTED_EMAIL]/g')
@@ -154,20 +154,16 @@ screen_content_safety() {
     fi
 
     # Screen for unredacted password values
-    local pw_matches
-    pw_matches=$(echo "$text" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=]' || true)
-    if [ -n "$pw_matches" ]; then
-        while IFS= read -r line; do
-            [ -z "$line" ] && continue
-            if echo "$line" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*[^[:space:]["'\''`]' | grep -qvE '\[REDACTED_PASSWORD\]'; then
+    local assignments
+    assignments=$(echo "$text" | grep -oiE -- "(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*(\"[^\"]*\"|'[^']*'|[^[:space:]]+)" || true)
+    if [ -n "$assignments" ]; then
+        while IFS= read -r assign; do
+            [ -z "$assign" ] && continue
+            if ! echo "$assign" | grep -qiE -- "^(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*(\"\\[REDACTED_PASSWORD\\]\"|'\\[REDACTED_PASSWORD\\]'|\\[REDACTED_PASSWORD\\]|\"\"|'')$"; then
                 echo "Error: Safety screening failed in $source_name: unredacted password value detected. Aborting post to GitHub." >&2
                 return 1
             fi
-            if echo "$line" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+["'\'']' | grep -qvE '\[REDACTED_PASSWORD\]'; then
-                echo "Error: Safety screening failed in $source_name: unredacted password value detected. Aborting post to GitHub." >&2
-                return 1
-            fi
-        done <<< "$pw_matches"
+        done <<< "$assignments"
     fi
 
     return 0
