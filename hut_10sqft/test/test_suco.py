@@ -639,7 +639,7 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
-    monkeypatch.setattr(shutil, "which", lambda cmd: "/usr/local/bin/agy" if cmd == "agy" else None)
+    monkeypatch.setattr(shutil, "which", lambda cmd: "/custom path with spaces/bin/agy" if cmd == "agy" else None)
 
     setup.setup_agent_remote_control()
 
@@ -649,5 +649,11 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
     assert data.get("remoteControlAtStartup") is True
 
-    # Antigravity remote-control command
-    assert any("remote-control start" in cmd for cmd in executed_cmds)
+    # Antigravity remote-control command safely quoted
+    assert any("'/custom path with spaces/bin/agy' remote-control start" in cmd for cmd in executed_cmds)
+
+    # Verify malformed Claude settings.json is preserved and not overwritten
+    path_claude_settings.write_text("{malformed json content: [", encoding="utf-8")
+    setup.setup_agent_remote_control()
+    assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["
+    assert len(setup._list_runtime_issues) > 0

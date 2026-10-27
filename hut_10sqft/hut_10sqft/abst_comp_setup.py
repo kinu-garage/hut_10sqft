@@ -14,6 +14,7 @@ import logging
 import os
 import pathlib
 import pwd
+import shlex
 import shutil
 from typing import List
 
@@ -277,13 +278,14 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         path_claude_settings = os.path.join(path_claude_dir, "settings.json")
         try:
             os.makedirs(path_claude_dir, exist_ok=True)
-            claude_settings = {}
             if os.path.exists(path_claude_settings):
                 with open(path_claude_settings, "r", encoding="utf-8") as fh:
                     try:
                         claude_settings = json.load(fh)
-                    except json.JSONDecodeError:
-                        claude_settings = {}
+                    except json.JSONDecodeError as jde:
+                        raise ValueError(f"Malformed JSON in existing settings file '{path_claude_settings}': {jde}") from jde
+            else:
+                claude_settings = {}
             claude_settings["remoteControlAtStartup"] = True
             with open(path_claude_settings, "w", encoding="utf-8") as fh:
                 json.dump(claude_settings, fh, indent=2)
@@ -296,7 +298,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         path_agy = shutil.which("agy") or os.path.join(path_user_home, ".local", "bin", "agy")
         agy_exists = shutil.which("agy") is not None or os.path.exists(path_agy)
         if agy_exists:
-            cmd_agy_rc = f"{path_agy} remote-control start"
+            cmd_agy_rc = f"{shlex.quote(path_agy)} remote-control start"
             try:
                 output, error, code = OsUtil.subproc_bash(cmd_agy_rc, does_sudo=False, logger=self._logger)
                 if code == 0:
