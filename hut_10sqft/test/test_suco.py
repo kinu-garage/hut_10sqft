@@ -277,21 +277,48 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     def fake_udev():
         udev_called.append(True)
 
+    daemon_reload_called = []
+    def fake_daemon_reload():
+        daemon_reload_called.append(True)
+
     monkeypatch.setattr(setup, "_install_system_file", fake_install)
     monkeypatch.setattr(setup, "_update_initramfs", fake_initramfs)
     monkeypatch.setattr(setup, "_reload_udev_rules", fake_udev)
+    monkeypatch.setattr(setup, "_systemctl_daemon_reload", fake_daemon_reload)
+
+    sleep_custom_file = tmp_path / "nvidia-sleep-custom.sh"
+    sleep_custom_file.write_text("#!/bin/bash\n", encoding="utf-8")
+    suspend_override_file = tmp_path / "suspend_override.conf"
+    suspend_override_file.write_text("[Service]\n", encoding="utf-8")
+    resume_override_file = tmp_path / "resume_override.conf"
+    resume_override_file.write_text("[Service]\n", encoding="utf-8")
+    hibernate_override_file = tmp_path / "hibernate_override.conf"
+    hibernate_override_file.write_text("[Service]\n", encoding="utf-8")
+    apt_hook_file = tmp_path / "99-nvidia-sleep-no-chvt"
+    apt_hook_file.write_text("DPkg::Post-Invoke {};\n", encoding="utf-8")
 
     setup.setup_egpu(
         path_xorg_conf=str(xorg_file),
         path_modprobe_conf=str(modprobe_file),
-        path_prime_run=str(prime_run_file))
+        path_prime_run=str(prime_run_file),
+        path_nvidia_sleep_custom=str(sleep_custom_file),
+        path_suspend_override=str(suspend_override_file),
+        path_resume_override=str(resume_override_file),
+        path_hibernate_override=str(hibernate_override_file),
+        path_apt_hook=str(apt_hook_file))
 
-    assert len(installed_files) == 3
+    assert len(installed_files) == 8
     assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
     assert (str(modprobe_file), "/etc/modprobe.d/nvidia-runtimepm.conf", "644") in installed_files
     assert (str(prime_run_file), "/usr/local/bin/prime-run", "755") in installed_files
+    assert (str(sleep_custom_file), "/usr/local/bin/nvidia-sleep-custom.sh", "755") in installed_files
+    assert (str(suspend_override_file), "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644") in installed_files
+    assert (str(resume_override_file), "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644") in installed_files
+    assert (str(hibernate_override_file), "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644") in installed_files
+    assert (str(apt_hook_file), "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644") in installed_files
     assert len(initramfs_called) == 1
     assert len(udev_called) == 1
+    assert len(daemon_reload_called) == 1
 
 
 def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
@@ -328,6 +355,11 @@ def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     assert "path_xorg_conf" in called_egpu[0]
     assert "path_modprobe_conf" in called_egpu[0]
     assert "path_prime_run" in called_egpu[0]
+    assert "path_nvidia_sleep_custom" in called_egpu[0]
+    assert "path_suspend_override" in called_egpu[0]
+    assert "path_resume_override" in called_egpu[0]
+    assert "path_hibernate_override" in called_egpu[0]
+    assert "path_apt_hook" in called_egpu[0]
     assert len(called_wake) == 1
     assert "path_service_src" in called_wake[0]
 

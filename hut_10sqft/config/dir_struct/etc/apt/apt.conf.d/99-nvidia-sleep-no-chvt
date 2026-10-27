@@ -1,0 +1,6 @@
+// Automatically patch /usr/bin/nvidia-sleep.sh after driver packages install/upgrade
+// to disable chvt calls that cause Xorg EnterVT crashes on eGPU resume.
+// See https://github.com/kinu-garage/hut_10sqft/issues/1317
+DPkg::Post-Invoke {
+    "if [ -f /usr/bin/nvidia-sleep.sh ] && grep -q '^[[:space:]]*chvt' /usr/bin/nvidia-sleep.sh; then sed -i -E 's/^([[:space:]]*)(chvt[[:space:]]+.*)$/\\1# \\2 # disabled for eGPU by hut_10sqft/' /usr/bin/nvidia-sleep.sh; fi";
+};

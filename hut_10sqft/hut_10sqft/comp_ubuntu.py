@@ -197,15 +197,26 @@ class UbuntuOsSetup (DebianSetup):
             path_modprobe_conf: str = "",
             path_prime_run: str = "",
             path_udev_rules: str = "",
-            path_gdm_conf: str = ""):
+            path_gdm_conf: str = "",
+            path_nvidia_sleep_custom: str = "",
+            path_suspend_override: str = "",
+            path_resume_override: str = "",
+            path_hibernate_override: str = "",
+            path_apt_hook: str = ""):
         """
         @summary: Set up eGPU configurations by installing Xorg, modprobe, udev, GDM,
-          and prime-run configurations to system folders, updating initramfs, and reloading udev rules.
+          prime-run, systemd sleep overrides, and apt hook configurations to system folders,
+          updating initramfs, reloading udev rules, and reloading systemd daemon.
         @param path_xorg_conf: Path to 10-nvidia.conf for Xorg (/etc/X11/xorg.conf.d/10-nvidia.conf).
         @param path_modprobe_conf: Path to nvidia-runtimepm.conf (/etc/modprobe.d/nvidia-runtimepm.conf).
         @param path_prime_run: Path to prime-run launcher script (/usr/local/bin/prime-run).
         @param path_udev_rules: Path to udev rule (/etc/udev/rules.d/99-disable-internal-gpu.rules).
         @param path_gdm_conf: Path to custom.conf for GDM (/etc/gdm3/custom.conf).
+        @param path_nvidia_sleep_custom: Path to custom sleep script (/usr/local/bin/nvidia-sleep-custom.sh).
+        @param path_suspend_override: Path to systemd suspend override (/etc/systemd/system/nvidia-suspend.service.d/override.conf).
+        @param path_resume_override: Path to systemd resume override (/etc/systemd/system/nvidia-resume.service.d/override.conf).
+        @param path_hibernate_override: Path to systemd hibernate override (/etc/systemd/system/nvidia-hibernate.service.d/override.conf).
+        @param path_apt_hook: Path to apt hook (/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt).
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1120
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
         """
@@ -215,6 +226,11 @@ class UbuntuOsSetup (DebianSetup):
             (path_prime_run, "/usr/local/bin/prime-run", "755"),
             (path_udev_rules, "/etc/udev/rules.d/99-disable-internal-gpu.rules", "644"),
             (path_gdm_conf, "/etc/gdm3/custom.conf", "644"),
+            (path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"),
+            (path_suspend_override, "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644"),
+            (path_resume_override, "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644"),
+            (path_hibernate_override, "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644"),
+            (path_apt_hook, "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644"),
         ]
 
         for src, dest, mode in configs:
@@ -239,6 +255,12 @@ class UbuntuOsSetup (DebianSetup):
             self._reload_udev_rules()
         except Exception as e:
             self._logger.warning(f"Reloading udev rules failed: {str(e)}")
+            self.add_runtime_issue(e)
+
+        try:
+            self._systemctl_daemon_reload()
+        except Exception as e:
+            self._logger.warning(f"Reloading systemd daemon failed: {str(e)}")
             self.add_runtime_issue(e)
 
     def setup_wake_monitors_service(self, path_service_src: str = ""):
@@ -343,13 +365,23 @@ class UbuntuOsSetup (DebianSetup):
             path_prime_run = os.path.join(dir_struct, "usr", "local", "bin", "prime-run")
             path_udev_rules = os.path.join(dir_struct, "etc", "udev", "rules.d", "99-disable-internal-gpu.rules")
             path_gdm_conf = os.path.join(dir_struct, "etc", "gdm3", "custom.conf")
+            path_nvidia_sleep_custom = os.path.join(dir_struct, "usr", "local", "bin", "nvidia-sleep-custom.sh")
+            path_suspend_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-suspend.service.d", "override.conf")
+            path_resume_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-resume.service.d", "override.conf")
+            path_hibernate_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-hibernate.service.d", "override.conf")
+            path_apt_hook = os.path.join(dir_struct, "etc", "apt", "apt.conf.d", "99-nvidia-sleep-no-chvt")
 
             self.setup_egpu(
                 path_xorg_conf=path_xorg_conf,
                 path_modprobe_conf=path_modprobe_conf,
                 path_prime_run=path_prime_run,
                 path_udev_rules=path_udev_rules,
-                path_gdm_conf=path_gdm_conf)
+                path_gdm_conf=path_gdm_conf,
+                path_nvidia_sleep_custom=path_nvidia_sleep_custom,
+                path_suspend_override=path_suspend_override,
+                path_resume_override=path_resume_override,
+                path_hibernate_override=path_hibernate_override,
+                path_apt_hook=path_apt_hook)
 
             path_wake_service = os.path.join(abs_path_confdir, "systemd", "user", "wake-all-monitors.service")
             if not os.path.exists(path_wake_service):
