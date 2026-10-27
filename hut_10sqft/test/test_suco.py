@@ -16,6 +16,7 @@
 
 import argparse
 import glob
+import json
 import logging
 import os
 import shutil
@@ -546,3 +547,72 @@ def test_swap_caps_ctrl(monkeypatch):
     with pytest.raises(RuntimeError, match="Failed to configure Caps/Ctrl swap"):
         setup.swap_caps_ctrl()
 
+
+
+def test_setup_agent_skills(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path / "home")
+
+    conf_dir = tmp_path / "conf"
+    skills_dir = conf_dir / "skills" / "test-skill"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("---\nname: test-skill\n---\n", encoding="utf-8")
+
+    # 1. Initial creation of directory symlinks
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+
+    dest_gemini = tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill"
+    dest_claude = tmp_path / "home" / ".claude" / "skills" / "test-skill"
+    assert dest_gemini.is_symlink()
+    assert dest_claude.is_symlink()
+    assert dest_gemini.resolve() == skills_dir.resolve()
+    assert dest_claude.resolve() == skills_dir.resolve()
+
+    # 2. Idempotent re-run leaves existing symlinks unchanged
+    mtime_before = dest_gemini.lstat().st_mtime_ns
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert dest_gemini.is_symlink()
+    assert dest_gemini.lstat().st_mtime_ns == mtime_before
+
+    # 3. Preserves unrelated existing non-symlink destination
+    unrelated_skill = conf_dir / "skills" / "custom-skill"
+    unrelated_skill.mkdir(parents=True)
+    (unrelated_skill / "SKILL.md").write_text("---\nname: custom-skill\n---\n", encoding="utf-8")
+
+    existing_custom_dir = tmp_path / "home" / ".claude" / "skills" / "custom-skill"
+    existing_custom_dir.mkdir(parents=True)
+    custom_marker = existing_custom_dir / "local_file.txt"
+    custom_marker.write_text("user content", encoding="utf-8")
+
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert not existing_custom_dir.is_symlink()
+    assert custom_marker.exists()
+    assert custom_marker.read_text(encoding="utf-8") == "user content"
+
+
+def test_setup_agent_remote_control(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path / "home")
+
+    executed_cmds = []
+    def fake_subproc(cmd, does_sudo=False, logger=None):
+        executed_cmds.append(cmd)
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    monkeypatch.setattr(shutil, "which", lambda cmd: "/usr/local/bin/agy" if cmd == "agy" else None)
+
+    setup.setup_agent_remote_control()
+
+    # Claude Code settings.json
+    path_claude_settings = tmp_path / "home" / ".claude" / "settings.json"
+    assert path_claude_settings.exists()
+    data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
+    assert data.get("remoteControlAtStartup") is True
+
+    # Antigravity remote-control command
+    assert any("remote-control start" in cmd for cmd in executed_cmds)

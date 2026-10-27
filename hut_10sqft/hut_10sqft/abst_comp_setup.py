@@ -9,6 +9,7 @@ try:
 except ModuleNotFoundError as e:
     print(f"This module isn't available at the moment but will be installed later.\n{str(e)}")
 import importlib
+import json
 import logging
 import os
 import pathlib
@@ -216,6 +217,94 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf)
         self.setup_file(conf_gitconf_local)
         self.setup_file(conf_gitignore)
+
+    def setup_agent_skills(self, path_local_perm_conf: str = ""):
+        """
+        @summary: Set up AI agent skills (e.g., Antigravity and Claude Code) on POSIX OSes.
+        @param path_local_perm_conf: Path to configuration directory containing 'skills/'.
+        """
+        if not path_local_perm_conf:
+            return
+        path_skills_src = os.path.join(path_local_perm_conf, "skills")
+        if not os.path.exists(path_skills_src):
+            path_skills_src_sub = os.path.join(path_local_perm_conf, "hut_10sqft", "config", "skills")
+            if os.path.exists(path_skills_src_sub):
+                path_skills_src = path_skills_src_sub
+            else:
+                self._logger.info(f"No skills directory found at '{path_skills_src}'; skipping agent skills setup.")
+                return
+
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        # Target agent skills directories for Antigravity and Claude Code
+        target_dirs = [
+            os.path.join(path_user_home, ".gemini", "antigravity", "skills"),
+            os.path.join(path_user_home, ".claude", "skills"),
+        ]
+        for skill_name in os.listdir(path_skills_src):
+            src_skill_dir = os.path.join(path_skills_src, skill_name)
+            if not os.path.isdir(src_skill_dir):
+                continue
+            for target_base in target_dirs:
+                os.makedirs(target_base, exist_ok=True)
+                dest_skill_dir = os.path.join(target_base, skill_name)
+                if os.path.islink(dest_skill_dir):
+                    try:
+                        if os.path.realpath(dest_skill_dir) == os.path.realpath(src_skill_dir):
+                            self._logger.info(f"Skill '{skill_name}' already linked at '{dest_skill_dir}'; leaving unchanged.")
+                            continue
+                    except OSError:
+                        pass
+                    os.unlink(dest_skill_dir)
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Updated skill symlink '{dest_skill_dir}' -> '{src_skill_dir}'.")
+                elif os.path.exists(dest_skill_dir):
+                    self._logger.warning(
+                        f"Preserving existing non-symlink destination at '{dest_skill_dir}'; skipping skill link for '{skill_name}'."
+                    )
+                else:
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Configured agent skill '{skill_name}' at '{dest_skill_dir}'.")
+
+    def setup_agent_remote_control(self):
+        """
+        @summary: Configure local AI agents (Claude Code and Antigravity) to enable remote-control by default.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+
+        # 1. Claude Code: set remoteControlAtStartup to True in ~/.claude/settings.json
+        path_claude_dir = os.path.join(path_user_home, ".claude")
+        path_claude_settings = os.path.join(path_claude_dir, "settings.json")
+        try:
+            os.makedirs(path_claude_dir, exist_ok=True)
+            claude_settings = {}
+            if os.path.exists(path_claude_settings):
+                with open(path_claude_settings, "r", encoding="utf-8") as fh:
+                    try:
+                        claude_settings = json.load(fh)
+                    except json.JSONDecodeError:
+                        claude_settings = {}
+            claude_settings["remoteControlAtStartup"] = True
+            with open(path_claude_settings, "w", encoding="utf-8") as fh:
+                json.dump(claude_settings, fh, indent=2)
+            self._logger.info(f"Configured 'remoteControlAtStartup: true' in '{path_claude_settings}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to configure Claude Code remote control at '{path_claude_settings}': {e}")
+
+        # 2. Antigravity CLI: ensure the remote-control background daemon is running
+        path_agy = shutil.which("agy") or os.path.join(path_user_home, ".local", "bin", "agy")
+        agy_exists = shutil.which("agy") is not None or os.path.exists(path_agy)
+        if agy_exists:
+            cmd_agy_rc = f"{path_agy} remote-control start"
+            try:
+                output, error, code = OsUtil.subproc_bash(cmd_agy_rc, does_sudo=False, logger=self._logger)
+                if code == 0:
+                    self._logger.info("Antigravity remote-control daemon registered and started.")
+                else:
+                    self._logger.warning(f"Failed to start Antigravity remote-control daemon (code {code}): {error or output}")
+            except Exception as e:
+                self.add_runtime_issue(e)
+                self._logger.warning(f"Error starting Antigravity remote-control: {e}")
 
     def _setup_git_config_local(self):
         return "dot_gitconfig_local"
@@ -457,9 +546,19 @@ This is most notably ammendable by setting up local client executables of Dropbo
         self.setup_git_config(path_local_perm_conf=_abs_path_confdir)
 
         try:
+            self.setup_agent_skills(path_local_perm_conf=_abs_path_confdir)
+        except Exception as e:
+            self.add_runtime_issue(e)
+
+        try:
             self.setup_antigravity_cli()
         except NotImplementedError:
             self._logger.warning("'setup_antigravity_cli' is not implemented for this OS; skipping.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+
+        try:
+            self.setup_agent_remote_control()
         except Exception as e:
             self.add_runtime_issue(e)
 
