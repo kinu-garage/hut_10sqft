@@ -727,7 +727,18 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
     setup = DebianSetup(args_in=args)
-    setup._user_home_dir = str(tmp_path / "home")
+    home_dir = tmp_path / "home"
+    setup._user_home_dir = str(home_dir)
+
+    # Pre-create bashrc and VS Code User dir
+    bashrc_file = home_dir / ".bashrc"
+    home_dir.mkdir(parents=True)
+    bashrc_file.write_text("# existing bashrc\n", encoding="utf-8")
+
+    vscode_user_dir = home_dir / ".config" / "Code" / "User"
+    vscode_user_dir.mkdir(parents=True)
+    vscode_settings = vscode_user_dir / "settings.json"
+    vscode_settings.write_text("{\n  \"editor.fontSize\": 14\n}\n", encoding="utf-8")
 
     executed_cmds = []
     def fake_subproc(cmd, does_sudo=False, logger=None):
@@ -739,16 +750,23 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
 
     setup.setup_agent_remote_control()
 
-    # Claude Code settings.json
-    path_claude_settings = tmp_path / "home" / ".claude" / "settings.json"
+    # 1. Claude Code settings.json
+    path_claude_settings = home_dir / ".claude" / "settings.json"
     assert path_claude_settings.exists()
     data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
     assert data.get("remoteControlAtStartup") is True
 
-    # Antigravity remote-control command safely quoted
+    # 2. Antigravity remote-control command safely quoted
     assert any("'/custom path with spaces/bin/agy' remote-control start" in cmd for cmd in executed_cmds)
 
-    # Verify malformed Claude settings.json is preserved and not overwritten
+    # 3. Antigravity CLI alias in .bashrc
+    assert 'alias agy="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+
+    # 4. Antigravity extension serverArgs in VS Code settings.json
+    data_vscode = json.loads(vscode_settings.read_text(encoding="utf-8"))
+    assert "--remote-control" in data_vscode.get("antigravity.serverArgs", [])
+
+    # 5. Verify malformed Claude settings.json is preserved and not overwritten
     path_claude_settings.write_text("{malformed json content: [", encoding="utf-8")
     setup.setup_agent_remote_control()
     assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["

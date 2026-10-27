@@ -309,6 +309,46 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 self.add_runtime_issue(e)
                 self._logger.warning(f"Error starting Antigravity remote-control: {e}")
 
+        # 3. Antigravity CLI alias: alias agy="agy --remote-control" in ~/.bashrc
+        path_bashrc = os.path.join(path_user_home, ".bashrc")
+        try:
+            if os.path.exists(path_bashrc):
+                with open(path_bashrc, "r", encoding="utf-8") as fh:
+                    bashrc_content = fh.read()
+                alias_line = 'alias agy="agy --remote-control"'
+                if alias_line not in bashrc_content:
+                    with open(path_bashrc, "a", encoding="utf-8") as fh:
+                        fh.write(f"\n# Enable remote control by default for Antigravity CLI\n{alias_line}\n")
+                    self._logger.info(f"Added '{alias_line}' to '{path_bashrc}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to add agy alias to '{path_bashrc}': {e}")
+
+        # 4. VS Code Antigravity extension: set "antigravity.serverArgs": ["--remote-control"] in ~/.config/Code/User/settings.json
+        path_vscode_dir = os.path.join(path_user_home, ".config", "Code", "User")
+        path_vscode_settings = os.path.join(path_vscode_dir, "settings.json")
+        try:
+            if os.path.exists(path_vscode_dir):
+                vscode_settings = {}
+                if os.path.exists(path_vscode_settings):
+                    with open(path_vscode_settings, "r", encoding="utf-8") as fh:
+                        try:
+                            vscode_settings = json.load(fh)
+                        except json.JSONDecodeError as jde:
+                            self._logger.warning(f"Preserving malformed VS Code settings at '{path_vscode_settings}': {jde}")
+                            vscode_settings = None
+                if vscode_settings is not None:
+                    server_args = vscode_settings.get("antigravity.serverArgs", [])
+                    if "--remote-control" not in server_args:
+                        server_args.append("--remote-control")
+                        vscode_settings["antigravity.serverArgs"] = server_args
+                        with open(path_vscode_settings, "w", encoding="utf-8") as fh:
+                            json.dump(vscode_settings, fh, indent=4)
+                        self._logger.info(f"Configured 'antigravity.serverArgs: [\"--remote-control\"]' in '{path_vscode_settings}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to configure VS Code Antigravity settings at '{path_vscode_settings}': {e}")
+
     def _setup_git_config_local(self):
         return "dot_gitconfig_local"
 
