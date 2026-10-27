@@ -5,6 +5,7 @@
 
 import argparse
 import os
+import shlex
 import shutil
 
 from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
@@ -202,11 +203,13 @@ class UbuntuOsSetup (DebianSetup):
             path_suspend_override: str = "",
             path_resume_override: str = "",
             path_hibernate_override: str = "",
-            path_apt_hook: str = ""):
+            path_apt_hook: str = "",
+            path_nvidia_sleep_sh: str = "/usr/bin/nvidia-sleep.sh"):
         """
         @summary: Set up eGPU configurations by installing Xorg, modprobe, udev, GDM,
           prime-run, systemd sleep overrides, and apt hook configurations to system folders,
-          updating initramfs, reloading udev rules, and reloading systemd daemon.
+          disabling chvt in nvidia-sleep.sh, updating initramfs, reloading udev rules,
+          and reloading systemd daemon.
         @param path_xorg_conf: Path to 10-nvidia.conf for Xorg (/etc/X11/xorg.conf.d/10-nvidia.conf).
         @param path_modprobe_conf: Path to nvidia-runtimepm.conf (/etc/modprobe.d/nvidia-runtimepm.conf).
         @param path_prime_run: Path to prime-run launcher script (/usr/local/bin/prime-run).
@@ -217,6 +220,7 @@ class UbuntuOsSetup (DebianSetup):
         @param path_resume_override: Path to systemd resume override (/etc/systemd/system/nvidia-resume.service.d/override.conf).
         @param path_hibernate_override: Path to systemd hibernate override (/etc/systemd/system/nvidia-hibernate.service.d/override.conf).
         @param path_apt_hook: Path to apt hook (/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt).
+        @param path_nvidia_sleep_sh: Path to nvidia-sleep.sh script to patch (/usr/bin/nvidia-sleep.sh).
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1120
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
         """
@@ -263,6 +267,12 @@ class UbuntuOsSetup (DebianSetup):
                 self.add_runtime_issue(e)
 
         try:
+            self._patch_nvidia_sleep_script(path_nvidia_sleep_sh)
+        except Exception as e:
+            self._logger.warning(f"Patching nvidia-sleep.sh failed: {str(e)}")
+            self.add_runtime_issue(e)
+
+        try:
             self._update_initramfs()
         except Exception as e:
             self._logger.warning(f"Updating initramfs failed: {str(e)}")
@@ -279,6 +289,25 @@ class UbuntuOsSetup (DebianSetup):
         except Exception as e:
             self._logger.warning(f"Reloading systemd daemon failed: {str(e)}")
             self.add_runtime_issue(e)
+
+    def _patch_nvidia_sleep_script(self, path_target: str = "/usr/bin/nvidia-sleep.sh"):
+        """
+        @summary: Disable chvt calls in nvidia-sleep.sh that cause Xorg EnterVT crashes on eGPU resume.
+        @param path_target: Path to nvidia-sleep.sh script to patch.
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
+        """
+        if not path_target or not os.path.exists(path_target):
+            return
+        quoted_target = shlex.quote(path_target)
+        cmd = (
+            f"if grep -q '^[[:space:]]*chvt' {quoted_target}; then "
+            f"sed -i -E 's/^([[:space:]]*)(chvt[[:space:]]+.*)$/\\1# \\2 # disabled for eGPU by hut_10sqft/' {quoted_target}; "
+            f"fi"
+        )
+        self._logger.info(f"Patching chvt calls in '{path_target}': '{cmd}'")
+        output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
+        if return_code != 0:
+            raise RuntimeError(f"Failed to patch '{path_target}'.\n\tOutput: {output}\n\tError: {error}")
 
     def setup_wake_monitors_service(self, path_service_src: str = ""):
         """

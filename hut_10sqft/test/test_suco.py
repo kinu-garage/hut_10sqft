@@ -281,10 +281,15 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     def fake_daemon_reload():
         daemon_reload_called.append(True)
 
+    patch_sleep_called = []
+    def fake_patch(target="/usr/bin/nvidia-sleep.sh"):
+        patch_sleep_called.append(target)
+
     monkeypatch.setattr(setup, "_install_system_file", fake_install)
     monkeypatch.setattr(setup, "_update_initramfs", fake_initramfs)
     monkeypatch.setattr(setup, "_reload_udev_rules", fake_udev)
     monkeypatch.setattr(setup, "_systemctl_daemon_reload", fake_daemon_reload)
+    monkeypatch.setattr(setup, "_patch_nvidia_sleep_script", fake_patch)
 
     sleep_custom_file = tmp_path / "nvidia-sleep-custom.sh"
     sleep_custom_file.write_text("#!/bin/bash\n", encoding="utf-8")
@@ -319,10 +324,12 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     assert len(initramfs_called) == 1
     assert len(udev_called) == 1
     assert len(daemon_reload_called) == 1
+    assert len(patch_sleep_called) == 1
 
     # Verify that missing sleep script source skips sleep script and overrides
     installed_files.clear()
     setup._list_runtime_issues.clear()
+    patch_sleep_called.clear()
     setup.setup_egpu(
         path_xorg_conf=str(xorg_file),
         path_modprobe_conf=str(modprobe_file),
@@ -341,8 +348,46 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     # Base configs and apt hook are still installed
     assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
     assert (str(apt_hook_file), "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644") in installed_files
+    assert len(patch_sleep_called) == 1
     # Runtime issue recorded
     assert any("Sleep-file set is incomplete" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_patch_nvidia_sleep_script(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # 1. Target script does not exist -> returns cleanly without running command
+    setup._patch_nvidia_sleep_script(str(tmp_path / "nonexistent.sh"))
+    assert len(executed_cmds) == 0
+
+    # 2. Target script exists -> executes patch command with sudo
+    target_sh = tmp_path / "nvidia-sleep.sh"
+    target_sh.write_text("#!/bin/sh\nchvt 63\n", encoding="utf-8")
+    setup._patch_nvidia_sleep_script(str(target_sh))
+    assert len(executed_cmds) == 1
+    cmd, does_sudo = executed_cmds[0]
+    assert does_sudo is True
+    assert "chvt" in cmd
+    assert str(target_sh) in cmd
+
+    # 3. Nonzero return code raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "sed error", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to patch"):
+        setup._patch_nvidia_sleep_script(str(target_sh))
 
 
 def test_systemctl_daemon_reload(monkeypatch):
