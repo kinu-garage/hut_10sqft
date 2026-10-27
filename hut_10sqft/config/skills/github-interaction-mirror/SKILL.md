@@ -113,9 +113,15 @@ gh issue comment "<ISSUE_URL_OR_NUMBER>" --body-file /path/to/comment.md
 ```
 
 Or execute via the companion script (which automatically normalizes `owner/repo#123` to full issue URLs and `#123` to plain numbers):
-```bash
-./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
-```
+
+- **From repository root:**
+  ```bash
+  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+  ```
+- **From within the skill directory** (or installed skill location):
+  ```bash
+  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+  ```
 
 ## 7. Workflow Execution Steps
 
