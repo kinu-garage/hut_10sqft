@@ -226,12 +226,29 @@ class UbuntuOsSetup (DebianSetup):
             (path_prime_run, "/usr/local/bin/prime-run", "755"),
             (path_udev_rules, "/etc/udev/rules.d/99-disable-internal-gpu.rules", "644"),
             (path_gdm_conf, "/etc/gdm3/custom.conf", "644"),
-            (path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"),
+            (path_apt_hook, "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644"),
+        ]
+
+        sleep_overrides = [
             (path_suspend_override, "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644"),
             (path_resume_override, "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644"),
             (path_hibernate_override, "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644"),
-            (path_apt_hook, "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644"),
         ]
+
+        # Overrides invoke nvidia-sleep-custom.sh; require the script source to exist before installing any override.
+        if any(bool(src) for src, _, _ in sleep_overrides):
+            if not path_nvidia_sleep_custom or not os.path.exists(path_nvidia_sleep_custom):
+                msg = (
+                    f"Sleep-file set is incomplete: custom sleep script source '{path_nvidia_sleep_custom}' "
+                    "not found. Skipping installation of sleep script and systemd overrides."
+                )
+                self._logger.warning(msg)
+                self.add_runtime_issue(RuntimeError(msg))
+            else:
+                configs.append((path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"))
+                configs.extend(sleep_overrides)
+        elif path_nvidia_sleep_custom:
+            configs.append((path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"))
 
         for src, dest, mode in configs:
             if not src:

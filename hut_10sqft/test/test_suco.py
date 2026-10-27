@@ -320,6 +320,30 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     assert len(udev_called) == 1
     assert len(daemon_reload_called) == 1
 
+    # Verify that missing sleep script source skips sleep script and overrides
+    installed_files.clear()
+    setup._list_runtime_issues.clear()
+    setup.setup_egpu(
+        path_xorg_conf=str(xorg_file),
+        path_modprobe_conf=str(modprobe_file),
+        path_prime_run=str(prime_run_file),
+        path_nvidia_sleep_custom=str(tmp_path / "nonexistent-sleep-custom.sh"),
+        path_suspend_override=str(suspend_override_file),
+        path_resume_override=str(resume_override_file),
+        path_hibernate_override=str(hibernate_override_file),
+        path_apt_hook=str(apt_hook_file))
+
+    # Overrides and sleep custom script should NOT be installed
+    assert (str(sleep_custom_file), "/usr/local/bin/nvidia-sleep-custom.sh", "755") not in installed_files
+    assert (str(suspend_override_file), "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644") not in installed_files
+    assert (str(resume_override_file), "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644") not in installed_files
+    assert (str(hibernate_override_file), "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644") not in installed_files
+    # Base configs and apt hook are still installed
+    assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
+    assert (str(apt_hook_file), "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644") in installed_files
+    # Runtime issue recorded
+    assert any("Sleep-file set is incomplete" in str(issue) for issue in setup._list_runtime_issues)
+
 
 def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
