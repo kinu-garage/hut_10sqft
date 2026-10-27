@@ -43,16 +43,87 @@ is_screen_locked() {
     echo "$out" | grep -q "true"
 }
 
-# @summary: Check whether the 3 target monitors are currently configured with expected modes and orientations.
-# @param: None.
-# @return: 0 if primary 4K landscape, secondary 4K portrait left, and ultrawide are active; 1 otherwise.
+# @summary: Fast-path check verifying the 3 target monitors (EDID-matched Sceptre, Dell, and Asus) are active with expected modes and orientations.
+# @param: None (queries cached Xorg state via xrandr --current --verbose without mutating display state).
+# @return: 0 if primary 4K landscape (Sceptre), portrait-left 4K (Dell), and ultrawide (Asus) are active; 1 otherwise.
 are_monitors_configured() {
-    local xr_cur
-    xr_cur=$(xrandr --current 2>/dev/null || true)
-    # Check if primary 4K monitor, portrait 4K monitor (left rotation), and ultrawide HDMI are active
-    echo "$xr_cur" | grep -qE " connected primary 3840x2160\+[0-9]+\+[0-9]+ " && \
-    echo "$xr_cur" | grep -qE " connected 2160x3840\+[0-9]+\+[0-9]+ left " && \
-    echo "$xr_cur" | grep -qE " connected 3440x1440\+[0-9]+\+[0-9]+ "
+    python3 -c "
+import re
+import subprocess
+import sys
+
+try:
+    out = subprocess.check_output(['xrandr', '--current', '--verbose'], timeout=2).decode('utf-8', errors='ignore')
+except Exception:
+    sys.exit(1)
+
+def parse_edid(hex_str):
+    try:
+        raw = bytes.fromhex(hex_str)
+        if len(raw) >= 12:
+            m = int.from_bytes(raw[8:10], 'big')
+            c1 = chr(((m >> 10) & 0x1f) + 64)
+            c2 = chr(((m >> 5) & 0x1f) + 64)
+            c3 = chr((m & 0x1f) + 64)
+            mfg = f'{c1}{c2}{c3}'
+            prod = int.from_bytes(raw[10:12], 'little')
+        else:
+            mfg, prod = '', 0
+        txt = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in raw)
+        return {'mfg': mfg, 'prod': prod, 'txt': txt}
+    except Exception:
+        return {'mfg': '', 'prod': 0, 'txt': ''}
+
+edid_map = {}
+line_map = {}
+curr = None
+edid_hex = ''
+for line in out.splitlines():
+    if ' connected' in line:
+        if curr and edid_hex:
+            edid_map[curr] = parse_edid(edid_hex)
+        curr = line.split()[0]
+        line_map[curr] = line
+        edid_hex = ''
+    elif ' disconnected' in line:
+        if curr and edid_hex:
+            edid_map[curr] = parse_edid(edid_hex)
+        curr = None
+        edid_hex = ''
+    elif curr and line.startswith('\t\t') and len(line.strip()) == 32:
+        edid_hex += line.strip()
+
+if curr and edid_hex:
+    edid_map[curr] = parse_edid(edid_hex)
+
+dell = next(
+    (c for c, d in edid_map.items()
+     if (d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']))
+     or ('U3225QE' in d['txt'] or ('DELL' in d['txt'] and '32' in d['txt']))),
+    None
+)
+sceptre = next(
+    (c for c, d in edid_map.items()
+     if (d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']))
+     or ('Sceptre' in d['txt'] or 'Z32' in d['txt'])),
+    None
+)
+asus = next(
+    (c for c, d in edid_map.items()
+     if (d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']))
+     or ('VG34V' in d['txt'] or 'ASUS' in d['txt'])),
+    None
+)
+
+if not (dell and sceptre and asus):
+    sys.exit(1)
+
+sceptre_ok = bool(re.search(r' connected primary 3840x2160\+[0-9]+\+[0-9]+ ', line_map.get(sceptre, '')))
+dell_ok = bool(re.search(r' connected 2160x3840\+[0-9]+\+[0-9]+ .*?\bleft\b', line_map.get(dell, '')))
+asus_ok = bool(re.search(r' connected 3440x1440\+[0-9]+\+[0-9]+ ', line_map.get(asus, '')))
+
+sys.exit(0 if (sceptre_ok and dell_ok and asus_ok) else 1)
+" >/dev/null 2>&1
 }
 
 # @summary: Parse EDID from xrandr and apply multi-monitor layout matching specific monitors.
