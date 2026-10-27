@@ -203,7 +203,8 @@ print(content)
 
 generate_summary_title() {
     local text="$1"
-    python3 -c '
+    local title
+    title=$(python3 -c '
 import sys
 
 lines = [l.strip() for l in sys.stdin.read().splitlines() if l.strip()]
@@ -215,7 +216,14 @@ first = lines[0]
 if first.startswith("Review comment at") and len(lines) > 1 and (lines[1].endswith(":") or (lines[1].split() and lines[1].split()[0].isdigit())):
     first = f"{first} {lines[1]}"
 print(first[:120])
-' <<< "$text" 2>/dev/null || echo "${text%%$'\n'*}"
+' <<< "$text" 2>/dev/null || true)
+
+    if [ -n "$title" ]; then
+        echo "$title"
+    else
+        local first_line="${text%%$'\n'*}"
+        echo "${first_line:0:120}"
+    fi
 }
 
 TMP_COMMENT=$(mktemp /tmp/gh_comment_XXXXXX)
