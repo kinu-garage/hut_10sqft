@@ -398,3 +398,14 @@ class DebianSetup(ShellCapableOsSetup):
         output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
         if return_code != 0:
             raise RuntimeError(f"Failed to reload udev rules.\n\tOutput: {output}\n\tError: {error}")
+
+    def _systemctl_daemon_reload(self):
+        """
+        @summary: Reload systemd manager configuration.
+        """
+        cmd = "systemctl daemon-reload"
+        self._logger.info(f"Reloading systemd daemon: '{cmd}'")
+        output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
+        if return_code != 0:
+            raise RuntimeError(f"Failed to reload systemd daemon.\n\tOutput: {output}\n\tError: {error}")
+

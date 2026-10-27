@@ -5,6 +5,7 @@
 
 import argparse
 import os
+import shlex
 import shutil
 
 from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
@@ -197,15 +198,29 @@ class UbuntuOsSetup (DebianSetup):
             path_modprobe_conf: str = "",
             path_prime_run: str = "",
             path_udev_rules: str = "",
-            path_gdm_conf: str = ""):
+            path_gdm_conf: str = "",
+            path_nvidia_sleep_custom: str = "",
+            path_suspend_override: str = "",
+            path_resume_override: str = "",
+            path_hibernate_override: str = "",
+            path_apt_hook: str = "",
+            path_nvidia_sleep_sh: str = "/usr/bin/nvidia-sleep.sh"):
         """
         @summary: Set up eGPU configurations by installing Xorg, modprobe, udev, GDM,
-          and prime-run configurations to system folders, updating initramfs, and reloading udev rules.
+          prime-run, systemd sleep overrides, and apt hook configurations to system folders,
+          disabling chvt in nvidia-sleep.sh, updating initramfs, reloading udev rules,
+          and reloading systemd daemon.
         @param path_xorg_conf: Path to 10-nvidia.conf for Xorg (/etc/X11/xorg.conf.d/10-nvidia.conf).
         @param path_modprobe_conf: Path to nvidia-runtimepm.conf (/etc/modprobe.d/nvidia-runtimepm.conf).
         @param path_prime_run: Path to prime-run launcher script (/usr/local/bin/prime-run).
         @param path_udev_rules: Path to udev rule (/etc/udev/rules.d/99-disable-internal-gpu.rules).
         @param path_gdm_conf: Path to custom.conf for GDM (/etc/gdm3/custom.conf).
+        @param path_nvidia_sleep_custom: Path to custom sleep script (/usr/local/bin/nvidia-sleep-custom.sh).
+        @param path_suspend_override: Path to systemd suspend override (/etc/systemd/system/nvidia-suspend.service.d/override.conf).
+        @param path_resume_override: Path to systemd resume override (/etc/systemd/system/nvidia-resume.service.d/override.conf).
+        @param path_hibernate_override: Path to systemd hibernate override (/etc/systemd/system/nvidia-hibernate.service.d/override.conf).
+        @param path_apt_hook: Path to apt hook (/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt).
+        @param path_nvidia_sleep_sh: Path to nvidia-sleep.sh script to patch (/usr/bin/nvidia-sleep.sh).
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1120
         @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
         """
@@ -215,7 +230,29 @@ class UbuntuOsSetup (DebianSetup):
             (path_prime_run, "/usr/local/bin/prime-run", "755"),
             (path_udev_rules, "/etc/udev/rules.d/99-disable-internal-gpu.rules", "644"),
             (path_gdm_conf, "/etc/gdm3/custom.conf", "644"),
+            (path_apt_hook, "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644"),
         ]
+
+        sleep_overrides = [
+            (path_suspend_override, "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644"),
+            (path_resume_override, "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644"),
+            (path_hibernate_override, "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644"),
+        ]
+
+        # Overrides invoke nvidia-sleep-custom.sh; require the script source to exist before installing any override.
+        if any(bool(src) for src, _, _ in sleep_overrides):
+            if not path_nvidia_sleep_custom or not os.path.exists(path_nvidia_sleep_custom):
+                msg = (
+                    f"Sleep-file set is incomplete: custom sleep script source '{path_nvidia_sleep_custom}' "
+                    "not found. Skipping installation of sleep script and systemd overrides."
+                )
+                self._logger.warning(msg)
+                self.add_runtime_issue(RuntimeError(msg))
+            else:
+                configs.append((path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"))
+                configs.extend(sleep_overrides)
+        elif path_nvidia_sleep_custom:
+            configs.append((path_nvidia_sleep_custom, "/usr/local/bin/nvidia-sleep-custom.sh", "755"))
 
         for src, dest, mode in configs:
             if not src:
@@ -230,6 +267,12 @@ class UbuntuOsSetup (DebianSetup):
                 self.add_runtime_issue(e)
 
         try:
+            self._patch_nvidia_sleep_script(path_nvidia_sleep_sh)
+        except Exception as e:
+            self._logger.warning(f"Patching nvidia-sleep.sh failed: {str(e)}")
+            self.add_runtime_issue(e)
+
+        try:
             self._update_initramfs()
         except Exception as e:
             self._logger.warning(f"Updating initramfs failed: {str(e)}")
@@ -240,6 +283,31 @@ class UbuntuOsSetup (DebianSetup):
         except Exception as e:
             self._logger.warning(f"Reloading udev rules failed: {str(e)}")
             self.add_runtime_issue(e)
+
+        try:
+            self._systemctl_daemon_reload()
+        except Exception as e:
+            self._logger.warning(f"Reloading systemd daemon failed: {str(e)}")
+            self.add_runtime_issue(e)
+
+    def _patch_nvidia_sleep_script(self, path_target: str = "/usr/bin/nvidia-sleep.sh"):
+        """
+        @summary: Disable chvt calls in nvidia-sleep.sh that cause Xorg EnterVT crashes on eGPU resume.
+        @param path_target: Path to nvidia-sleep.sh script to patch.
+        @see: https://github.com/kinu-garage/hut_10sqft/issues/1317
+        """
+        if not path_target or not os.path.exists(path_target):
+            return
+        quoted_target = shlex.quote(path_target)
+        cmd = (
+            f"if grep -q '^[[:space:]]*chvt' {quoted_target}; then "
+            f"sed -i -E 's/^([[:space:]]*)(chvt[[:space:]]+.*)$/\\1# \\2 # disabled for eGPU by hut_10sqft/' {quoted_target}; "
+            f"fi"
+        )
+        self._logger.info(f"Patching chvt calls in '{path_target}': '{cmd}'")
+        output, error, return_code = OsUtil.subproc_bash(cmd, does_sudo=True, logger=self._logger)
+        if return_code != 0:
+            raise RuntimeError(f"Failed to patch '{path_target}'.\n\tOutput: {output}\n\tError: {error}")
 
     def setup_wake_monitors_service(self, path_service_src: str = ""):
         """
@@ -343,13 +411,23 @@ class UbuntuOsSetup (DebianSetup):
             path_prime_run = os.path.join(dir_struct, "usr", "local", "bin", "prime-run")
             path_udev_rules = os.path.join(dir_struct, "etc", "udev", "rules.d", "99-disable-internal-gpu.rules")
             path_gdm_conf = os.path.join(dir_struct, "etc", "gdm3", "custom.conf")
+            path_nvidia_sleep_custom = os.path.join(dir_struct, "usr", "local", "bin", "nvidia-sleep-custom.sh")
+            path_suspend_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-suspend.service.d", "override.conf")
+            path_resume_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-resume.service.d", "override.conf")
+            path_hibernate_override = os.path.join(dir_struct, "etc", "systemd", "system", "nvidia-hibernate.service.d", "override.conf")
+            path_apt_hook = os.path.join(dir_struct, "etc", "apt", "apt.conf.d", "99-nvidia-sleep-no-chvt")
 
             self.setup_egpu(
                 path_xorg_conf=path_xorg_conf,
                 path_modprobe_conf=path_modprobe_conf,
                 path_prime_run=path_prime_run,
                 path_udev_rules=path_udev_rules,
-                path_gdm_conf=path_gdm_conf)
+                path_gdm_conf=path_gdm_conf,
+                path_nvidia_sleep_custom=path_nvidia_sleep_custom,
+                path_suspend_override=path_suspend_override,
+                path_resume_override=path_resume_override,
+                path_hibernate_override=path_hibernate_override,
+                path_apt_hook=path_apt_hook)
 
             path_wake_service = os.path.join(abs_path_confdir, "systemd", "user", "wake-all-monitors.service")
             if not os.path.exists(path_wake_service):

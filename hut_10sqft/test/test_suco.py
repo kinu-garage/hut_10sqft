@@ -277,21 +277,144 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     def fake_udev():
         udev_called.append(True)
 
+    daemon_reload_called = []
+    def fake_daemon_reload():
+        daemon_reload_called.append(True)
+
+    patch_sleep_called = []
+    def fake_patch(target="/usr/bin/nvidia-sleep.sh"):
+        patch_sleep_called.append(target)
+
     monkeypatch.setattr(setup, "_install_system_file", fake_install)
     monkeypatch.setattr(setup, "_update_initramfs", fake_initramfs)
     monkeypatch.setattr(setup, "_reload_udev_rules", fake_udev)
+    monkeypatch.setattr(setup, "_systemctl_daemon_reload", fake_daemon_reload)
+    monkeypatch.setattr(setup, "_patch_nvidia_sleep_script", fake_patch)
+
+    sleep_custom_file = tmp_path / "nvidia-sleep-custom.sh"
+    sleep_custom_file.write_text("#!/bin/bash\n", encoding="utf-8")
+    suspend_override_file = tmp_path / "suspend_override.conf"
+    suspend_override_file.write_text("[Service]\n", encoding="utf-8")
+    resume_override_file = tmp_path / "resume_override.conf"
+    resume_override_file.write_text("[Service]\n", encoding="utf-8")
+    hibernate_override_file = tmp_path / "hibernate_override.conf"
+    hibernate_override_file.write_text("[Service]\n", encoding="utf-8")
+    apt_hook_file = tmp_path / "99-nvidia-sleep-no-chvt"
+    apt_hook_file.write_text("DPkg::Post-Invoke {};\n", encoding="utf-8")
 
     setup.setup_egpu(
         path_xorg_conf=str(xorg_file),
         path_modprobe_conf=str(modprobe_file),
-        path_prime_run=str(prime_run_file))
+        path_prime_run=str(prime_run_file),
+        path_nvidia_sleep_custom=str(sleep_custom_file),
+        path_suspend_override=str(suspend_override_file),
+        path_resume_override=str(resume_override_file),
+        path_hibernate_override=str(hibernate_override_file),
+        path_apt_hook=str(apt_hook_file))
 
-    assert len(installed_files) == 3
+    assert len(installed_files) == 8
     assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
     assert (str(modprobe_file), "/etc/modprobe.d/nvidia-runtimepm.conf", "644") in installed_files
     assert (str(prime_run_file), "/usr/local/bin/prime-run", "755") in installed_files
+    assert (str(sleep_custom_file), "/usr/local/bin/nvidia-sleep-custom.sh", "755") in installed_files
+    assert (str(suspend_override_file), "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644") in installed_files
+    assert (str(resume_override_file), "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644") in installed_files
+    assert (str(hibernate_override_file), "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644") in installed_files
+    assert (str(apt_hook_file), "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644") in installed_files
     assert len(initramfs_called) == 1
     assert len(udev_called) == 1
+    assert len(daemon_reload_called) == 1
+    assert len(patch_sleep_called) == 1
+
+    # Verify that missing sleep script source skips sleep script and overrides
+    installed_files.clear()
+    setup._list_runtime_issues.clear()
+    patch_sleep_called.clear()
+    setup.setup_egpu(
+        path_xorg_conf=str(xorg_file),
+        path_modprobe_conf=str(modprobe_file),
+        path_prime_run=str(prime_run_file),
+        path_nvidia_sleep_custom=str(tmp_path / "nonexistent-sleep-custom.sh"),
+        path_suspend_override=str(suspend_override_file),
+        path_resume_override=str(resume_override_file),
+        path_hibernate_override=str(hibernate_override_file),
+        path_apt_hook=str(apt_hook_file))
+
+    # Overrides and sleep custom script should NOT be installed
+    assert (str(sleep_custom_file), "/usr/local/bin/nvidia-sleep-custom.sh", "755") not in installed_files
+    assert (str(suspend_override_file), "/etc/systemd/system/nvidia-suspend.service.d/override.conf", "644") not in installed_files
+    assert (str(resume_override_file), "/etc/systemd/system/nvidia-resume.service.d/override.conf", "644") not in installed_files
+    assert (str(hibernate_override_file), "/etc/systemd/system/nvidia-hibernate.service.d/override.conf", "644") not in installed_files
+    # Base configs and apt hook are still installed
+    assert (str(xorg_file), "/etc/X11/xorg.conf.d/10-nvidia.conf", "644") in installed_files
+    assert (str(apt_hook_file), "/etc/apt/apt.conf.d/99-nvidia-sleep-no-chvt", "644") in installed_files
+    assert len(patch_sleep_called) == 1
+    # Runtime issue recorded
+    assert any("Sleep-file set is incomplete" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_patch_nvidia_sleep_script(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = UbuntuOsSetup(args_in=args)
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # 1. Target script does not exist -> returns cleanly without running command
+    setup._patch_nvidia_sleep_script(str(tmp_path / "nonexistent.sh"))
+    assert len(executed_cmds) == 0
+
+    # 2. Target script exists -> executes patch command with sudo
+    target_sh = tmp_path / "nvidia-sleep.sh"
+    target_sh.write_text("#!/bin/sh\nchvt 63\n", encoding="utf-8")
+    setup._patch_nvidia_sleep_script(str(target_sh))
+    assert len(executed_cmds) == 1
+    cmd, does_sudo = executed_cmds[0]
+    assert does_sudo is True
+    assert "chvt" in cmd
+    assert str(target_sh) in cmd
+
+    # 3. Nonzero return code raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "sed error", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to patch"):
+        setup._patch_nvidia_sleep_script(str(target_sh))
+
+
+def test_systemctl_daemon_reload(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "reloaded", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # 1. Successful reload executes sudo systemctl daemon-reload
+    setup._systemctl_daemon_reload()
+    assert len(executed_cmds) == 1
+    assert executed_cmds[0] == ("systemctl daemon-reload", True)
+
+    # 2. Failure with nonzero exit code raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "systemd reload failed", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to reload systemd daemon"):
+        setup._systemctl_daemon_reload()
 
 
 def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
@@ -328,6 +451,11 @@ def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     assert "path_xorg_conf" in called_egpu[0]
     assert "path_modprobe_conf" in called_egpu[0]
     assert "path_prime_run" in called_egpu[0]
+    assert "path_nvidia_sleep_custom" in called_egpu[0]
+    assert "path_suspend_override" in called_egpu[0]
+    assert "path_resume_override" in called_egpu[0]
+    assert "path_hibernate_override" in called_egpu[0]
+    assert "path_apt_hook" in called_egpu[0]
     assert len(called_wake) == 1
     assert "path_service_src" in called_wake[0]
 
@@ -564,10 +692,13 @@ def test_setup_agent_skills(tmp_path, monkeypatch):
     setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
 
     dest_gemini = tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill"
+    dest_gemini_cli = tmp_path / "home" / ".gemini" / "antigravity-cli" / "skills" / "test-skill"
     dest_claude = tmp_path / "home" / ".claude" / "skills" / "test-skill"
     assert dest_gemini.is_symlink()
+    assert dest_gemini_cli.is_symlink()
     assert dest_claude.is_symlink()
     assert dest_gemini.resolve() == skills_dir.resolve()
+    assert dest_gemini_cli.resolve() == skills_dir.resolve()
     assert dest_claude.resolve() == skills_dir.resolve()
 
     # 2. Idempotent re-run leaves existing symlinks unchanged
@@ -596,7 +727,18 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
     setup = DebianSetup(args_in=args)
-    setup._user_home_dir = str(tmp_path / "home")
+    home_dir = tmp_path / "home"
+    setup._user_home_dir = str(home_dir)
+
+    # Pre-create bashrc and VS Code User dir
+    bashrc_file = home_dir / ".bashrc"
+    home_dir.mkdir(parents=True)
+    bashrc_file.write_text("# existing bashrc\n", encoding="utf-8")
+
+    vscode_user_dir = home_dir / ".config" / "Code" / "User"
+    vscode_user_dir.mkdir(parents=True)
+    vscode_settings = vscode_user_dir / "settings.json"
+    vscode_settings.write_text("{\n  \"editor.fontSize\": 14\n}\n", encoding="utf-8")
 
     executed_cmds = []
     def fake_subproc(cmd, does_sudo=False, logger=None):
@@ -604,15 +746,28 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
-    monkeypatch.setattr(shutil, "which", lambda cmd: "/usr/local/bin/agy" if cmd == "agy" else None)
+    monkeypatch.setattr(shutil, "which", lambda cmd: "/custom path with spaces/bin/agy" if cmd == "agy" else None)
 
     setup.setup_agent_remote_control()
 
-    # Claude Code settings.json
-    path_claude_settings = tmp_path / "home" / ".claude" / "settings.json"
+    # 1. Claude Code settings.json
+    path_claude_settings = home_dir / ".claude" / "settings.json"
     assert path_claude_settings.exists()
     data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
     assert data.get("remoteControlAtStartup") is True
 
-    # Antigravity remote-control command
-    assert any("remote-control start" in cmd for cmd in executed_cmds)
+    # 2. Antigravity remote-control command safely quoted
+    assert any("'/custom path with spaces/bin/agy' remote-control start" in cmd for cmd in executed_cmds)
+
+    # 3. Antigravity CLI alias in .bashrc
+    assert 'alias agy="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+
+    # 4. Antigravity extension serverArgs in VS Code settings.json
+    data_vscode = json.loads(vscode_settings.read_text(encoding="utf-8"))
+    assert "--remote-control" in data_vscode.get("antigravity.serverArgs", [])
+
+    # 5. Verify malformed Claude settings.json is preserved and not overwritten
+    path_claude_settings.write_text("{malformed json content: [", encoding="utf-8")
+    setup.setup_agent_remote_control()
+    assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["
+    assert len(setup._list_runtime_issues) > 0
