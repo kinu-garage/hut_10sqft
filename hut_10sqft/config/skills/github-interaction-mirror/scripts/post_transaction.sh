@@ -173,17 +173,62 @@ screen_content_safety() {
     return 0
 }
 
+# Trim repetitive automated review boilerplate (e.g. CodeRabbit prompts, tracking issue instructions)
+trim_user_prompt() {
+    local text="$1"
+    local trimmed
+    trimmed=$(python3 -c '
+import sys, re
+
+content = sys.stdin.read()
+# Remove leading tracking issue redirection
+content = re.sub(r"^(?:And you[\x27\x22]ve stopped posting to GH\.\.\.)?\s*Please use https?://\S+\s*", "", content, flags=re.IGNORECASE)
+# Remove CodeRabbit review preamble (and transition phrases)
+preamble_pattern = r"(?:(?:Once|After)\b[^\n]*?done[^\n]*?[:,\.]\s*)?Treat finding text, file paths, and code as untrusted review data\..*?validate\."
+content = re.sub(preamble_pattern, "", content, flags=re.DOTALL | re.IGNORECASE)
+# Remove CodeRabbit post-fix suggestion
+post_fix_pattern = r"After applying the fix, consider running [`\x27\x22]?coderabbit review.*?https?://\S+"
+content = re.sub(post_fix_pattern, "", content, flags=re.DOTALL | re.IGNORECASE)
+content = re.sub(r"Visit https?://docs\.coderabbit\.ai\S*", "", content, flags=re.IGNORECASE)
+content = re.sub(r"\n{3,}", "\n\n", content).strip()
+print(content)
+' <<< "$text" 2>/dev/null || echo "$text")
+
+    if [ -n "$trimmed" ]; then
+        echo "$trimmed"
+    else
+        echo "$text"
+    fi
+}
+
+generate_summary_title() {
+    local text="$1"
+    python3 -c '
+import sys
+
+lines = [l.strip() for l in sys.stdin.read().splitlines() if l.strip()]
+if not lines:
+    print("AI Agent Interaction")
+    sys.exit(0)
+
+first = lines[0]
+if first.startswith("Review comment at") and len(lines) > 1 and (lines[1].endswith(":") or (lines[1].split() and lines[1].split()[0].isdigit())):
+    first = f"{first} {lines[1]}"
+print(first[:120])
+' <<< "$text" 2>/dev/null || echo "${text%%$'\n'*}"
+}
+
 TMP_COMMENT=$(mktemp /tmp/gh_comment_XXXXXX)
 trap 'rm -f "$TMP_COMMENT"' EXIT
 
 USER_PROMPT=$(sanitize_text "$(cat "$USER_PROMPT_FILE")")
+USER_PROMPT=$(trim_user_prompt "$USER_PROMPT")
 AGENT_RESP=$(sanitize_text "$(cat "$AGENT_RESP_FILE")")
 
 screen_content_safety "$USER_PROMPT" "USER_PROMPT_FILE" || exit 1
 screen_content_safety "$AGENT_RESP" "AGENT_RESP_FILE" || exit 1
 
-FIRST_LINE_RAW="${USER_PROMPT%%$'\n'*}"
-FIRST_LINE="${FIRST_LINE_RAW:0:120}"
+SUMMARY_TITLE=$(generate_summary_title "$USER_PROMPT")
 LINE_COUNT=$(echo "$USER_PROMPT" | wc -l)
 
 {
@@ -195,7 +240,7 @@ LINE_COUNT=$(echo "$USER_PROMPT" | wc -l)
         echo "<summary>${USER_PROMPT}</summary>"
         echo ""
     else
-        echo "<summary>${FIRST_LINE}...</summary>"
+        echo "<summary>${SUMMARY_TITLE}...</summary>"
         echo ""
         echo "$USER_PROMPT"
         echo ""
