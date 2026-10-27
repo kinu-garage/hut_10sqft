@@ -73,7 +73,8 @@ elif [[ "$ISSUE_TARGET" =~ ^#([0-9]+)$ ]]; then
 fi
 
 DISPLAY_AGENT="${AGENT_NAME#A-}"
-case "${DISPLAY_AGENT,,}" in
+DISPLAY_AGENT_LOWER=$(echo "$DISPLAY_AGENT" | tr '[:upper:]' '[:lower:]')
+case "$DISPLAY_AGENT_LOWER" in
     antigravity) DISPLAY_AGENT="Antigravity" ;;
     "claude code"|claude) DISPLAY_AGENT="Claude Code" ;;
 esac
@@ -92,7 +93,11 @@ fi
 sanitize_text() {
     local input="$1"
     # Redact SSH and TLS private key blocks
-    input=$(echo "$input" | sed -E '/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/,/-----END [A-Z0-9 ]*PRIVATE KEY/c\[REDACTED_PRIVATE_KEY]')
+    input=$(echo "$input" | awk '
+        /-----BEGIN [A-Z0-9 _-]*PRIVATE KEY/ { in_key=1; print "[REDACTED_PRIVATE_KEY]"; next }
+        /-----END [A-Z0-9 _-]*PRIVATE KEY/ { in_key=0; next }
+        !in_key { print }
+    ')
     # Redact common tokens and secrets
     input=$(echo "$input" | sed -E 's/gh[opsu]_[A-Za-z0-9_]{36,}/[REDACTED_GITHUB_TOKEN]/g')
     input=$(echo "$input" | sed -E 's/sk-[A-Za-z0-9_-]{20,}/[REDACTED_API_KEY]/g')
@@ -124,19 +129,45 @@ screen_content_safety() {
     local text="$1"
     local source_name="$2"
 
-    if echo "$text" | grep -qE -- '-----BEGIN [A-Z0-9 ]*PRIVATE KEY'; then
+    # Screen for SSH and TLS private key blocks
+    if echo "$text" | grep -qE -- '-----(BEGIN|END) [A-Z0-9 _-]*PRIVATE KEY'; then
         echo "Error: Safety screening failed in $source_name: unredacted private key block detected. Aborting post to GitHub." >&2
         return 1
     fi
 
+    # Screen for GitHub tokens
     if echo "$text" | grep -qE -- 'gh[opsu]_[A-Za-z0-9_]{36,}'; then
         echo "Error: Safety screening failed in $source_name: unredacted GitHub token detected. Aborting post to GitHub." >&2
         return 1
     fi
 
+    # Screen for API keys
     if echo "$text" | grep -qE -- 'sk-[A-Za-z0-9_-]{20,}'; then
         echo "Error: Safety screening failed in $source_name: unredacted API key detected. Aborting post to GitHub." >&2
         return 1
+    fi
+
+    # Screen for personal email addresses
+    if echo "$text" | grep -qE -- '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'; then
+        echo "Error: Safety screening failed in $source_name: unredacted email address detected. Aborting post to GitHub." >&2
+        return 1
+    fi
+
+    # Screen for unredacted password values
+    local pw_matches
+    pw_matches=$(echo "$text" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=]' || true)
+    if [ -n "$pw_matches" ]; then
+        while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            if echo "$line" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*[^[:space:]["'\''`]' | grep -qvE '\[REDACTED_PASSWORD\]'; then
+                echo "Error: Safety screening failed in $source_name: unredacted password value detected. Aborting post to GitHub." >&2
+                return 1
+            fi
+            if echo "$line" | grep -iE -- '(password|passwd|pwd)[[:space:]]*[:=][[:space:]]*["'\''][^"'\'']+["'\'']' | grep -qvE '\[REDACTED_PASSWORD\]'; then
+                echo "Error: Safety screening failed in $source_name: unredacted password value detected. Aborting post to GitHub." >&2
+                return 1
+            fi
+        done <<< "$pw_matches"
     fi
 
     return 0
@@ -151,7 +182,8 @@ AGENT_RESP=$(sanitize_text "$(cat "$AGENT_RESP_FILE")")
 screen_content_safety "$USER_PROMPT" "USER_PROMPT_FILE" || exit 1
 screen_content_safety "$AGENT_RESP" "AGENT_RESP_FILE" || exit 1
 
-FIRST_LINE=$(echo "$USER_PROMPT" | head -n 1 | cut -c 1-120)
+FIRST_LINE_RAW="${USER_PROMPT%%$'\n'*}"
+FIRST_LINE="${FIRST_LINE_RAW:0:120}"
 LINE_COUNT=$(echo "$USER_PROMPT" | wc -l)
 
 {
