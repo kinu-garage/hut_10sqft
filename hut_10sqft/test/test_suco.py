@@ -345,6 +345,33 @@ def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     assert any("Sleep-file set is incomplete" in str(issue) for issue in setup._list_runtime_issues)
 
 
+def test_systemctl_daemon_reload(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "reloaded", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # 1. Successful reload executes sudo systemctl daemon-reload
+    setup._systemctl_daemon_reload()
+    assert len(executed_cmds) == 1
+    assert executed_cmds[0] == ("systemctl daemon-reload", True)
+
+    # 2. Failure with nonzero exit code raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "systemd reload failed", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to reload systemd daemon"):
+        setup._systemctl_daemon_reload()
+
+
 def test_ubuntu_setup_configs_p16s_egpu(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     monkeypatch.setattr(UbuntuOsSetup, "ubuntu_desktop_cleanup", lambda self: None)
