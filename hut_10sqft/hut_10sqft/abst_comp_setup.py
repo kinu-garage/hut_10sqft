@@ -235,9 +235,10 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 return
 
         path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
-        # Target agent skills directories for Antigravity and Claude Code
+        # Target agent skills directories for Antigravity (IDE and CLI) and Claude Code
         target_dirs = [
             os.path.join(path_user_home, ".gemini", "antigravity", "skills"),
+            os.path.join(path_user_home, ".gemini", "antigravity-cli", "skills"),
             os.path.join(path_user_home, ".claude", "skills"),
         ]
         for skill_name in os.listdir(path_skills_src):

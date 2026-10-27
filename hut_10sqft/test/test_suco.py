@@ -596,10 +596,13 @@ def test_setup_agent_skills(tmp_path, monkeypatch):
     setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
 
     dest_gemini = tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill"
+    dest_gemini_cli = tmp_path / "home" / ".gemini" / "antigravity-cli" / "skills" / "test-skill"
     dest_claude = tmp_path / "home" / ".claude" / "skills" / "test-skill"
     assert dest_gemini.is_symlink()
+    assert dest_gemini_cli.is_symlink()
     assert dest_claude.is_symlink()
     assert dest_gemini.resolve() == skills_dir.resolve()
+    assert dest_gemini_cli.resolve() == skills_dir.resolve()
     assert dest_claude.resolve() == skills_dir.resolve()
 
     # 2. Idempotent re-run leaves existing symlinks unchanged
