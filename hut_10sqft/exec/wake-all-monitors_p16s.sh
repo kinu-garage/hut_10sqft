@@ -96,23 +96,26 @@ for line in out.splitlines():
 if curr and edid_hex:
     edid_map[curr] = parse_edid(edid_hex)
 
-dell = next(
-    (c for c, d in edid_map.items()
-     if (d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']))
-     or ('U3225QE' in d['txt'] or ('DELL' in d['txt'] and '32' in d['txt']))),
-    None
+def find_display(displays, strict_fn, fallback_fn=None):
+    match = next((c for c, d in displays.items() if strict_fn(d)), None)
+    if not match and fallback_fn:
+        match = next((c for c, d in displays.items() if fallback_fn(d)), None)
+    return match
+
+dell = find_display(
+    edid_map,
+    lambda d: d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']),
+    lambda d: 'U3225QE' in d['txt']
 )
-sceptre = next(
-    (c for c, d in edid_map.items()
-     if (d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']))
-     or ('Sceptre' in d['txt'] or 'Z32' in d['txt'])),
-    None
+sceptre = find_display(
+    edid_map,
+    lambda d: d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']),
+    lambda d: 'Sceptre' in d['txt'] or 'Z32' in d['txt']
 )
-asus = next(
-    (c for c, d in edid_map.items()
-     if (d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']))
-     or ('VG34V' in d['txt'] or 'ASUS' in d['txt'])),
-    None
+asus = find_display(
+    edid_map,
+    lambda d: d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']),
+    lambda d: 'VG34V' in d['txt'] or 'ASUS' in d['txt']
 )
 
 if not (dell and sceptre and asus):
@@ -181,23 +184,26 @@ if curr and edid_hex:
 # - Dell U3225QE: mfg DEL (0x10ac), prod_id 17262 (0x436e), model U3225QE
 # - Sceptre Z32:   mfg SPT (0x4e14), prod_id 3240 (0x0ca8), model Z32
 # - ASUS VG34V:    mfg AUS (0x06b3), prod_id 13365 (0x3435), model VG34V
-dell = next(
-    (c for c, d in conn_map.items()
-     if (d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']))
-     or ('U3225QE' in d['txt'] or ('DELL' in d['txt'] and '32' in d['txt']))),
-    None
+def find_display(displays, strict_fn, fallback_fn=None):
+    match = next((c for c, d in displays.items() if strict_fn(d)), None)
+    if not match and fallback_fn:
+        match = next((c for c, d in displays.items() if fallback_fn(d)), None)
+    return match
+
+dell = find_display(
+    conn_map,
+    lambda d: d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']),
+    lambda d: 'U3225QE' in d['txt']
 )
-sceptre = next(
-    (c for c, d in conn_map.items()
-     if (d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']))
-     or ('Sceptre' in d['txt'] or 'Z32' in d['txt'])),
-    None
+sceptre = find_display(
+    conn_map,
+    lambda d: d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']),
+    lambda d: 'Sceptre' in d['txt'] or 'Z32' in d['txt']
 )
-asus = next(
-    (c for c, d in conn_map.items()
-     if (d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']))
-     or ('VG34V' in d['txt'] or 'ASUS' in d['txt'])),
-    None
+asus = find_display(
+    conn_map,
+    lambda d: d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']),
+    lambda d: 'VG34V' in d['txt'] or 'ASUS' in d['txt']
 )
 
 if dell and sceptre and asus:
