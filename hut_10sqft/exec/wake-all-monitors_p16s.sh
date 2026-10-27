@@ -16,6 +16,10 @@
 
 set -u
 
+# @summary: Detect an active and reachable X11 display.
+# @param: None directly (inspects environment variable $DISPLAY, then falls back to ":1", ":0").
+# @return: 0 if an active X display is reachable (prints display string e.g. ":1" to stdout);
+#          1 if no reachable X display is found.
 detect_display() {
     for d in "${DISPLAY:-}" ":1" ":0"; do
         [ -z "$d" ] && continue
@@ -27,6 +31,9 @@ detect_display() {
     return 1
 }
 
+# @summary: Check if GNOME ScreenSaver / lock screen is currently active.
+# @param: None.
+# @return: 0 (true) if screen is locked; 1 (false) otherwise.
 is_screen_locked() {
     local out
     out=$(gdbus call --session \
@@ -36,6 +43,9 @@ is_screen_locked() {
     echo "$out" | grep -q "true"
 }
 
+# @summary: Check whether the 3 target monitors are currently configured with expected modes and orientations.
+# @param: None.
+# @return: 0 if primary 4K landscape, secondary 4K portrait left, and ultrawide are active; 1 otherwise.
 are_monitors_configured() {
     local xr_cur
     xr_cur=$(xrandr --current 2>/dev/null || true)
@@ -45,6 +55,9 @@ are_monitors_configured() {
     echo "$xr_cur" | grep -qE " connected 3440x1440\+[0-9]+\+[0-9]+ "
 }
 
+# @summary: Parse EDID from xrandr and apply multi-monitor layout matching specific monitors.
+# @param: None (queries xrandr --verbose on current $DISPLAY).
+# @return: 0 if all 3 monitors were identified and layout was applied; 1 otherwise.
 apply_layout_by_edid() {
     python3 -c "
 import subprocess
@@ -55,32 +68,66 @@ try:
 except Exception:
     sys.exit(1)
 
+def parse_edid(hex_str):
+    try:
+        raw = bytes.fromhex(hex_str)
+        if len(raw) >= 12:
+            m = int.from_bytes(raw[8:10], 'big')
+            c1 = chr(((m >> 10) & 0x1f) + 64)
+            c2 = chr(((m >> 5) & 0x1f) + 64)
+            c3 = chr((m & 0x1f) + 64)
+            mfg = f'{c1}{c2}{c3}'
+            prod = int.from_bytes(raw[10:12], 'little')
+        else:
+            mfg, prod = '', 0
+        txt = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in raw)
+        return {'mfg': mfg, 'prod': prod, 'txt': txt}
+    except Exception:
+        return {'mfg': '', 'prod': 0, 'txt': ''}
+
 conn_map = {}
 curr = None
 edid_hex = ''
 for line in out.splitlines():
     if ' connected' in line:
         if curr and edid_hex:
-            ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
-            conn_map[curr] = ascii_text
+            conn_map[curr] = parse_edid(edid_hex)
         curr = line.split()[0]
         edid_hex = ''
     elif ' disconnected' in line:
         if curr and edid_hex:
-            ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
-            conn_map[curr] = ascii_text
+            conn_map[curr] = parse_edid(edid_hex)
         curr = None
         edid_hex = ''
     elif curr and line.startswith('\t\t') and len(line.strip()) == 32:
         edid_hex += line.strip()
 
 if curr and edid_hex:
-    ascii_text = ''.join(chr(b) if 32 <= b < 127 else ' ' for b in bytes.fromhex(edid_hex))
-    conn_map[curr] = ascii_text
+    conn_map[curr] = parse_edid(edid_hex)
 
-dell = next((c for c, txt in conn_map.items() if 'DELL' in txt), None)
-sceptre = next((c for c, txt in conn_map.items() if 'Sceptre' in txt), None)
-asus = next((c for c, txt in conn_map.items() if 'ASUS' in txt), None)
+# Match target displays specifically by manufacturer ID and product/model identifier to avoid
+# ambiguity with other Dell displays or generic devices, with printable brand text as secondary fallback.
+# - Dell U3225QE: mfg DEL (0x10ac), prod_id 17262 (0x436e), model U3225QE
+# - Sceptre Z32:   mfg SPT (0x4e14), prod_id 3240 (0x0ca8), model Z32
+# - ASUS VG34V:    mfg AUS (0x06b3), prod_id 13365 (0x3435), model VG34V
+dell = next(
+    (c for c, d in conn_map.items()
+     if (d['mfg'] == 'DEL' and (d['prod'] == 17262 or 'U3225QE' in d['txt']))
+     or ('U3225QE' in d['txt'] or ('DELL' in d['txt'] and '32' in d['txt']))),
+    None
+)
+sceptre = next(
+    (c for c, d in conn_map.items()
+     if (d['mfg'] == 'SPT' and (d['prod'] == 3240 or 'Z32' in d['txt']))
+     or ('Sceptre' in d['txt'] or 'Z32' in d['txt'])),
+    None
+)
+asus = next(
+    (c for c, d in conn_map.items()
+     if (d['mfg'] in ('AUS', 'ASU') and (d['prod'] == 13365 or 'VG34V' in d['txt']))
+     or ('VG34V' in d['txt'] or 'ASUS' in d['txt'])),
+    None
+)
 
 if dell and sceptre and asus:
     cmd = [
@@ -98,6 +145,9 @@ sys.exit(1)
 LOCK_FILE="/tmp/wake-all-monitors-${UID}.lock"
 DEBOUNCE_SEC=15
 
+# @summary: Wake and restore display layouts if debounce window has elapsed.
+# @param reason: String describing the wake trigger (e.g. DPMS change, GNOME ScreenSaver signal).
+# @return: 0 if successfully restored or if debounced; 1 on failure.
 wake_and_restore() {
     local reason="$1"
     local now
@@ -157,6 +207,9 @@ wake_and_restore() {
 }
 
 # Background watcher 1: Monitor DPMS transitions (Off/Standby/Suspend -> On) on keyboard wake
+# @summary: Polling loop monitoring X11 DPMS state transitions to trigger display wake.
+# @param: None.
+# @return: Runs indefinitely in background until terminated.
 watch_dpms() {
     local prev_state="On"
     while true; do
