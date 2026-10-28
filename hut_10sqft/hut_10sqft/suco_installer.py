@@ -84,16 +84,18 @@ class SucoInstaller():
         parser.add_argument("--path_temp_colconws", required=False, help=SucoInstaller._MSG_ARG_PATH_COLCONWS, default=CompInitSetupConfig.PATH_TEMP_COLCON_WS)
         parser.add_argument("--pip_break_syspkg", required=False, help=SucoInstaller._MSG_PIP_BREAK_SYSPKG, action="store_true")
         parser.add_argument("--git_branch", required=False, help="Branch of SUCO repo", default=CompInitSetupConfig.BRANCH_DEFAULT_CONF_REPO)
+        parser.add_argument("--build_colcon", required=False, help="If specified, build using colcon (legacy behavior).", action="store_true")
+        parser.add_argument("--pip_install", required=False, help="If specified, install package in editable mode via pip.", action="store_true")
         return parser
 
-    def cli_args_install_suco(self, parser: argparse.Namespace) -> argparse.Namespace:
+    def cli_args_install_suco(self, parser: argparse.Namespace = None, args_list: List[str] = None) -> argparse.Namespace:
         """
         @summary: Create args obj for installing SUCO itself.        
         """
         if not parser:
             parser = SucoInstaller.init_cli_args_suco()
 
-        args = parser.parse_args()
+        args = parser.parse_args(args_list)
         self._logger.info("args: {}".format(args))
         return args
 
@@ -119,23 +121,61 @@ class SucoInstaller():
             self._logger.error(f"Failed to source the colcon workspace setting.")
             return
 
-    def main(self):
+    def main(self, args_list: List[str] = None):
         """
-        @summary: Install, or at least clone, and make SUCO ready to be executed locally, which includes:
-            1) Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.
-              If the folder already exists, try to update the git repo.
-            2) Install colcon from pip if not yet installed.
-            3) Build and install packages in the temporary Colcon workspace
-              (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
+        @summary: Install, clone or update, and make SUCO ready to be executed locally.
+            By default, clones/updates directly to ~/.config/hut_10sqft without colcon overhead.
+            Legacy colcon workspace building is preserved via --build_colcon flag.
+        """
+        args = self.cli_args_install_suco(None, args_list=args_list)
 
-            After these, user can continue, source the olcon workspace setting, execute SUCO from the colcon workspace.
-        @note: This creates 2 different locations of `hut_10sqft` local repo, each of which serves
-          for different purposes as follows:
-            - ~/.config/hut_10sqft: Permanent location of the config repo that the applications on the OS refers to.
-            - ~/.local/share/tmp_suco/colconws/src/hut_10sqft: Temporary location of the config repo
-              that is used for building and installing SUCO itself. This may be deleted after SUCO is executed.
-        """
-        args = self.cli_args_install_suco(None)
+        if not args.build_colcon:
+            path_conf_dest = os.path.join(args.path_base_conf, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+            if os.path.exists(path_conf_dest):
+                if os.path.exists(os.path.join(path_conf_dest, ".git")):
+                    self._logger.info(f"Existing git repository found at '{path_conf_dest}'. Updating.")
+                    cmd_pull = f"cd {path_conf_dest} && git pull"
+                    ret = os.system(cmd_pull)
+                    if ret != 0:
+                        raise RuntimeError(f"Failed to update repository at '{path_conf_dest}'.")
+                else:
+                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                    path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
+                    self._logger.info(f"Backing up non-git directory at '{path_conf_dest}' to '{path_conf_backup}'.")
+                    os.rename(path_conf_dest, path_conf_backup)
+                    branch_option = f"-b {args.git_branch}" if args.git_branch else ""
+                    cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_conf_dest}"
+                    self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {cmd_clone}")
+                    ret = os.system(cmd_clone)
+                    if ret != 0:
+                        raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
+            else:
+                os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
+                branch_option = f"-b {args.git_branch}" if args.git_branch else ""
+                cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_conf_dest}"
+                self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {cmd_clone}")
+                ret = os.system(cmd_clone)
+                if ret != 0:
+                    raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
+
+            if args.pip_install:
+                opt_break = "--break-system-packages" if args.pip_break_syspkg else ""
+                cmd_pip = f"pip3 install -e {path_conf_dest} {opt_break}"
+                self._logger.info(f"Installing SUCO via pip: {cmd_pip}")
+                ret = os.system(cmd_pip)
+                if ret != 0:
+                    self._logger.warning(f"pip install failed (return code {ret}). You can still run SUCO via python3 module.")
+
+            self._logger.info(
+                f"SUCO is ready at '{path_conf_dest}'.\n"
+                f"To run SUCO:\n"
+                f"  cd {path_conf_dest} && python3 -m hut_10sqft.suco_main\n"
+                f"Or if installed via pip:\n"
+                f"  suco"
+            )
+            return
+
+        # Legacy colcon build path
         _colcon_installed_pip = False
 
         # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.

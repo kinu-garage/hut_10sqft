@@ -3,35 +3,32 @@
 ## Usecase: Setting up computer OS
 
 Prerequisite:
-- Any shell/terminal where an executable [`curl`](https://curl.se/), `python3` are available.
+- Any shell/terminal where `python3` and `git` (or `curl`) are available.
 
-### Steps for Linux (Debian incl. ChromeOS / Ubuntu)
+### Quickstart (Fresh Machine or Remote Setup)
 
-1. Execute the following command. Note: Above command set assumes `bash` and `apt`. TBD for other platform and package managers.
+1. Clone or update the configuration repository to `~/.config/hut_10sqft` using the standard Python installer:
+   ```bash
+   $ export VERSION=develop  # Or a release version e.g. "0.6.0"
+   $ curl -sSL https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py | python3 - --git_branch $VERSION
    ```
-   $ export PATH_TMP_SUCO=~/.local/share/tmp_suco && \
-     export PATH_VENV=~/.local/share/tmp_suco/venv && \
-     sudo apt update && sudo apt install python3-venv && \
-     mkdir -p $PATH_TMP_SUCO && cd $PATH_TMP_SUCO && python3 -m venv $PATH_VENV && source $PATH_VENV/bin/activate
-   $ export SUCO_INSTALLER=/tmp/suco.py &&  \
-     export VERSION=0.3.0 &&  \
-     sudo apt update && sudo apt install -y curl git python3 python3-pip &&  \
-     curl --output $SUCO_INSTALLER https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py && chmod 755 $SUCO_INSTALLER && \
-     export GIT_CONFIG_GLOBAL=''; export GIT_CONFIG_SYSTEM=''; $SUCO_INSTALLER --git_branch $VERSION
-   $ export PATH_TMP_WS=~/.local/share/tmp_suco/colconws &&  \
-     export HOST_NAME=130s-p16s-4 &&  \
-     export OS_DISTRO=Ubuntu &&  \
-     source $PATH_TMP_WS/install/setup.bash && \
-     cd $PATH_TMP_WS/src/hut_10sqft/hut_10sqft && python -m pip install setuptools && python setup.py install && cd $PATH_TMP_WS
-   $ suco --hostname $HOST_NAME --os_distro $OS_DISTRO --conf_repo_version $VERSION
-   $ echo "Removing a temp colcon ws dir".; rm -fr $PATH_TMP_WS
-   ```
-   Note as of v0.3.1, when re-running SUCO, running the whole set of lines, instead of resuming at certain line in the middle, is recommended.
 
-   Customization:
-   - `VERSION`: if you want to use non-standard branch/version.
-   - `HOST_NAME`: Must be already defined in the code (e.g. 130s-p16s). Otherwise execution fails.
-   - `OS_DISTRO`: Must be already defined in the code. Currently available options: [`ChromeOS` | `Debian` | `Ubuntu`]
+2. Execute SUCO. Hostname and OS distribution are automatically detected:
+   ```bash
+   $ cd ~/.config/hut_10sqft && python3 -m hut_10sqft.suco_main
+   ```
+
+   *Optional overrides:*
+   - `--hostname`: Override detected host (e.g. `130s-p16s-4`).
+   - `--os_distro`: Override detected distro (`Ubuntu` | `Debian` | `ChromeOS` | `MacOS`).
+
+### Local Checkout or Development (Pip-Installable)
+
+When working from a local clone of `hut_10sqft`:
+```bash
+$ pip install -e .
+$ suco
+```
 1. At the end of the execution of the above command you should see the list of runtime issues that are captured during the run. Address those if possible.
 1. Should be ready to start using the OS.
 
