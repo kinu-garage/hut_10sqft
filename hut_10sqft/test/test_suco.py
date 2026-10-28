@@ -867,3 +867,65 @@ def test_suco_installer_cli_args():
     args_custom = installer.cli_args_install_suco(args_list=["--build_colcon", "--pip_install"])
     assert args_custom.build_colcon is True
     assert args_custom.pip_install is True
+
+
+def test_suco_installer_main_clone(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    dest_repo = str(base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--git_branch", "develop"])
+
+    assert len(commands_run) == 1
+    assert commands_run[0]["cmd"] == ["git", "clone", CompInitSetupConfig.URL_HUT, "-b", "develop", dest_repo]
+    assert commands_run[0]["cwd"] is None
+
+
+def test_suco_installer_main_pull_and_pip(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--pip_install", "--pip_break_syspkg"])
+
+    assert len(commands_run) == 2
+    assert commands_run[0]["cmd"] == ["git", "pull"]
+    assert commands_run[0]["cwd"] == str(dest_repo)
+    assert commands_run[1]["cmd"] == ["pip3", "install", "-e", str(dest_repo), "--break-system-packages"]
+
+
+def test_suco_installer_pip_oserror_fallback(tmp_path, monkeypatch):
+    from hut_10sqft.suco_installer import main as installer_main
+
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        if cmd[0] == "pip3":
+            raise FileNotFoundError("pip3 not found")
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr("sys.argv", ["suco_installer", "--path_base_conf", str(base_conf), "--pip_install"])
+
+    # Should not raise FileNotFoundError / OSError, should catch and finish cleanly
+    installer_main()

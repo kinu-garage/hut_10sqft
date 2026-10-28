@@ -8,6 +8,7 @@ import datetime
 import logging
 import os
 import pathlib
+import subprocess
 from typing import List
 
 
@@ -134,44 +135,62 @@ class SucoInstaller():
             if os.path.exists(path_conf_dest):
                 if os.path.exists(os.path.join(path_conf_dest, ".git")):
                     self._logger.info(f"Existing git repository found at '{path_conf_dest}'. Updating.")
-                    cmd_pull = f"cd {path_conf_dest} && git pull"
-                    ret = os.system(cmd_pull)
-                    if ret != 0:
+                    cmd_pull = ["git", "pull"]
+                    res = subprocess.run(cmd_pull, cwd=path_conf_dest)
+                    if res.returncode != 0:
                         raise RuntimeError(f"Failed to update repository at '{path_conf_dest}'.")
                 else:
                     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
                     path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
                     self._logger.info(f"Backing up non-git directory at '{path_conf_dest}' to '{path_conf_backup}'.")
                     os.rename(path_conf_dest, path_conf_backup)
-                    branch_option = f"-b {args.git_branch}" if args.git_branch else ""
-                    cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_conf_dest}"
-                    self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {cmd_clone}")
-                    ret = os.system(cmd_clone)
-                    if ret != 0:
+                    cmd_clone = ["git", "clone", CompInitSetupConfig.URL_HUT]
+                    if args.git_branch:
+                        cmd_clone.extend(["-b", args.git_branch])
+                    cmd_clone.append(path_conf_dest)
+                    self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {' '.join(cmd_clone)}")
+                    res = subprocess.run(cmd_clone)
+                    if res.returncode != 0:
                         raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
             else:
                 os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
-                branch_option = f"-b {args.git_branch}" if args.git_branch else ""
-                cmd_clone = f"git clone {CompInitSetupConfig.URL_HUT} {branch_option} {path_conf_dest}"
-                self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {cmd_clone}")
-                ret = os.system(cmd_clone)
-                if ret != 0:
+                cmd_clone = ["git", "clone", CompInitSetupConfig.URL_HUT]
+                if args.git_branch:
+                    cmd_clone.extend(["-b", args.git_branch])
+                cmd_clone.append(path_conf_dest)
+                self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {' '.join(cmd_clone)}")
+                res = subprocess.run(cmd_clone)
+                if res.returncode != 0:
                     raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
 
+            pip_installed = False
             if args.pip_install:
-                opt_break = "--break-system-packages" if args.pip_break_syspkg else ""
-                cmd_pip = f"pip3 install -e {path_conf_dest} {opt_break}"
-                self._logger.info(f"Installing SUCO via pip: {cmd_pip}")
-                ret = os.system(cmd_pip)
-                if ret != 0:
-                    self._logger.warning(f"pip install failed (return code {ret}). You can still run SUCO via python3 module.")
+                cmd_pip = ["pip3", "install", "-e", path_conf_dest]
+                if args.pip_break_syspkg:
+                    cmd_pip.append("--break-system-packages")
+                self._logger.info(f"Installing SUCO via pip: {' '.join(cmd_pip)}")
+                try:
+                    res = subprocess.run(cmd_pip)
+                    if res.returncode == 0:
+                        pip_installed = True
+                    else:
+                        self._logger.warning(f"pip install failed (return code {res.returncode}). You can still run SUCO via python3 module.")
+                except OSError as err:
+                    self._logger.warning(f"pip install failed ({err}). You can still run SUCO via python3 module.")
+
+            if pip_installed:
+                run_instructions = "  suco"
+            else:
+                run_instructions = (
+                    f"  cd {path_conf_dest} && PYTHONPATH=\"hut_10sqft:hut_10sqft_lib\" python3 -m hut_10sqft.suco_main\n"
+                    f"Or if installed via pip:\n"
+                    f"  suco"
+                )
 
             self._logger.info(
                 f"SUCO is ready at '{path_conf_dest}'.\n"
                 f"To run SUCO:\n"
-                f"  cd {path_conf_dest} && python3 -m hut_10sqft.suco_main\n"
-                f"Or if installed via pip:\n"
-                f"  suco"
+                f"{run_instructions}"
             )
             return
 
@@ -236,6 +255,10 @@ class SucoInstaller():
             os.system(f"pip3 uninstall -y {self._PKG_COLCON_PIP}")
 
 
-if __name__ == '__main__':
+def main():
     si = SucoInstaller()
     si.main()
+
+
+if __name__ == '__main__':
+    main()

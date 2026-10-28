@@ -9,7 +9,15 @@ import os
 import pathlib
 import pwd
 import socket
+import sys
 from typing import List, Optional, Tuple
+
+# Ensure nested package directories are in sys.path when running from an uninstalled checkout
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+for _pkg in ["hut_10sqft", "hut_10sqft_lib"]:
+    _p = str(_REPO_ROOT / _pkg)
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
