@@ -832,6 +832,32 @@ def test_suco_run_auto_detection(monkeypatch):
     assert captured_builder[0].args_in.os_type == "Linux"
 
 
+def test_suco_run_auto_detect_chromeos(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_BRYA)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Debian"))
+
+    setup = CompInitSetup()
+    captured_builder = []
+
+    class FakeChromeOsBuilder:
+        _OS_TYPE = ChromeOsSetup._OS_TYPE
+        def __init__(self, args_in=None):
+            self.args_in = args_in
+            captured_builder.append(self)
+
+        def run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+            return True
+
+        def listup_runtime_issues(self):
+            pass
+
+    monkeypatch.setattr("hut_10sqft.suco_main.ChromeOsSetup", FakeChromeOsBuilder)
+
+    assert setup.run(args_list=[]) is True
+    assert len(captured_builder) == 1
+    assert captured_builder[0].args_in.os_distro == ChromeOsSetup._OS_TYPE
+
+
 def test_suco_installer_cli_args():
     installer = SucoInstaller()
     args_default = installer.cli_args_install_suco(args_list=[])

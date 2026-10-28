@@ -131,6 +131,19 @@ treats the user ID tha is used to execute this tool as the main user."""
         if not _args.os_distro or not _args.os_type:
             try:
                 detected_os, detected_distro = self.auto_detect_os(self._logger)
+                # Differentiate ChromeOS Crostini container from generic Debian
+                if detected_distro == DebianSetup._OS_TYPE:
+                    is_known_cros_host = _args.hostname in (
+                        CompInitSetupConfig.HOSTNAME_BRYA,
+                        CompInitSetupConfig.HOSTNAME_C13_MORPH,
+                        CompInitSetupConfig.HOSTNAME_ZORK16,
+                        CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5,
+                    )
+                    has_cros_marker = os.path.exists("/dev/.cros_milestone") or os.path.exists("/mnt/chromeos")
+                    if is_known_cros_host or has_cros_marker:
+                        detected_distro = ChromeOsSetup._OS_TYPE
+                        self._logger.info(f"Detected ChromeOS Crostini environment: os_distro set to '{detected_distro}'.")
+
                 if not _args.os_type:
                     _args.os_type = detected_os
                 if not _args.os_distro:
@@ -164,7 +177,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == CompInitSetupConfig.HOSTNAME_BRYA:
             _host_cfg = _host_cfg_brya            
-        elif _args.hostname == (CompInitSetupConfig.HOSTNAME_C13_MORPH or CompInitSetupConfig.HOSTNAME_ZORK16 or CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5):
+        elif _args.hostname in (CompInitSetupConfig.HOSTNAME_C13_MORPH, CompInitSetupConfig.HOSTNAME_ZORK16, CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5):
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")

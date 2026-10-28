@@ -13,21 +13,22 @@ Prerequisite:
    $ curl -sSL https://raw.githubusercontent.com/kinu-garage/hut_10sqft/$VERSION/hut_10sqft/hut_10sqft/suco_installer.py | python3 - --git_branch $VERSION
    ```
 
-2. Execute SUCO. Hostname and OS distribution are automatically detected:
+2. Execute SUCO. Specify the target `OS_DISTRO` (`ChromeOS`, `Debian`, or `Ubuntu`):
    ```bash
-   $ cd ~/.config/hut_10sqft && python3 -m hut_10sqft.suco_main
+   $ export OS_DISTRO=Ubuntu  # [ChromeOS | Debian | Ubuntu | MacOS]
+   $ cd ~/.config/hut_10sqft && python3 -m hut_10sqft.suco_main --os_distro $OS_DISTRO
    ```
 
-   *Optional overrides:*
-   - `--hostname`: Override detected host (e.g. `130s-p16s-4`).
-   - `--os_distro`: Override detected distro (`Ubuntu` | `Debian` | `ChromeOS` | `MacOS`).
+   *Notes on OS and Host identification:*
+   - `OS_DISTRO` is required to distinguish ChromeOS from generic Debian (since ChromeOS Crostini runs inside a Debian container that identifies as Debian at the OS level). On standard Ubuntu/Debian, it can also fall back to auto-detection if omitted.
+   - `--hostname` is automatically detected from the system (e.g., `130s-p16s-4`), but can still be explicitly specified if needed (`--hostname $HOST_NAME`).
 
 ### Local Checkout or Development (Pip-Installable)
 
 When working from a local clone of `hut_10sqft`:
 ```bash
 $ pip install -e .
-$ suco
+$ suco --os_distro $OS_DISTRO
 ```
 1. At the end of the execution of the above command you should see the list of runtime issues that are captured during the run. Address those if possible.
 1. Should be ready to start using the OS.
