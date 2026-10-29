@@ -1101,6 +1101,33 @@ def test_setup_docker_conflict_removal_failure_stops_setup(monkeypatch):
     assert any("dpkg was interrupted" in str(issue) for issue in setup._list_runtime_issues)
 
 
+def test_setup_docker_apt_update_failure(monkeypatch):
+    """Verify that subprocess.CalledProcessError from apt_update raises RuntimeError and records runtime issue."""
+    import subprocess
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    def fake_apt_update(force=False):
+        raise subprocess.CalledProcessError(returncode=100, cmd="apt update", stderr="Failed to fetch repository")
+    monkeypatch.setattr(setup, "apt_update", fake_apt_update)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to update package index for Docker CE: Failed to fetch repository" in str(exc_info.value)
+    assert any("Failed to fetch repository" in str(issue) for issue in setup._list_runtime_issues)
+
+
 def test_setup_docker_removes_snap_docker(monkeypatch):
     """Verify conflicting snap docker is removed if present."""
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
