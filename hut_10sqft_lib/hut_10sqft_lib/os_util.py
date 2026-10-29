@@ -14,6 +14,7 @@ import os
 import pathlib
 import platform
 import re
+import shlex
 import shutil
 import socket
 import subprocess
@@ -364,6 +365,76 @@ class OsUtil:
         if (not path) and throw_exception:
             raise ReferenceError(f"The executable '{executable_name}' not found.")
         return path
+
+    @staticmethod
+    def whereis_docker(logger=None) -> str:
+        """
+        @summary: Identify the installation source of Docker (e.g. none, snap, apt (docker-ce), apt (docker.io), brew, docker-desktop, other).
+        @return str: Source description.
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()
+
+        path_docker = OsUtil.which("docker")
+        _SNAP_PREFIXES = ("/snap/", "/var/lib/snapd/snap/")
+
+        # Check snap first (either docker command points to snap or snap package is installed)
+        if OsUtil.which("snap"):
+            _, _, ret_snap = OsUtil.subproc_bash("snap list docker")
+            if ret_snap == 0:
+                if not path_docker or any(path_docker.startswith(p) for p in _SNAP_PREFIXES):
+                    logger.info("Docker is provided by snap.")
+                    return "snap"
+
+        if not path_docker:
+            logger.info("Docker is not installed.")
+            return "none"
+
+        if any(path_docker.startswith(p) for p in _SNAP_PREFIXES):
+            logger.info("Docker is provided by snap.")
+            return "snap"
+
+        real_path = os.path.realpath(path_docker)
+        if any(real_path.startswith(p) for p in _SNAP_PREFIXES):
+            logger.info("Docker is provided by snap.")
+            return "snap"
+
+        # Check Debian / Ubuntu apt ownership of the resolved executable
+        quoted_path = shlex.quote(real_path)
+        out_pkg, _, ret_pkg = OsUtil.subproc_bash(f"dpkg -S {quoted_path}")
+        if ret_pkg == 0 and ":" in out_pkg:
+            pkg_name = out_pkg.split(":")[0].strip()
+            if pkg_name == "snapd":
+                logger.info("Docker is provided by snap.")
+                return "snap"
+            elif pkg_name in ("docker-ce", "docker-ce-cli"):
+                out_ce, _, ret_ce = OsUtil.subproc_bash("dpkg -s docker-ce")
+                if ret_ce == 0 and "Status: install ok installed" in out_ce:
+                    logger.info("Docker is provided by apt (docker-ce).")
+                    return "apt (docker-ce)"
+                logger.info(f"Docker is provided by apt ({pkg_name}).")
+                return f"apt ({pkg_name})"
+            elif pkg_name == "docker.io":
+                out_io, _, ret_io = OsUtil.subproc_bash("dpkg -s docker.io")
+                if ret_io == 0 and "Status: install ok installed" in out_io:
+                    logger.info("Docker is provided by apt (docker.io).")
+                    return "apt (docker.io)"
+                logger.info("Docker is provided by apt (docker.io).")
+                return "apt (docker.io)"
+            else:
+                logger.info(f"Docker is provided by apt ({pkg_name}).")
+                return f"apt ({pkg_name})"
+
+        # Check macOS / Homebrew / Docker Desktop
+        if "homebrew" in real_path.lower() or "cellar" in real_path.lower() or "caskroom" in real_path.lower():
+            logger.info("Docker is provided by Homebrew.")
+            return "brew"
+        if "docker.app" in real_path.lower():
+            logger.info("Docker is provided by Docker Desktop.")
+            return "docker-desktop"
+
+        logger.info(f"Docker is provided by other: '{path_docker}'.")
+        return f"other: {path_docker}"
 
     @staticmethod
     def get_os_type(logger=None) -> tuple[str, str]:
