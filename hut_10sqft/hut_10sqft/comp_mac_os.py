@@ -5,6 +5,7 @@
 
 import argparse
 import os
+import pwd
 
 from hut_10sqft.host_config import HostConf
 from hut_10sqft.config_dispatch import ConfigDispatch
@@ -17,6 +18,20 @@ class MacOsSetup(AbstCompSetupFactory):
     _OS_TYPE = OsUtil.TYPE_OS_MACOS
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
         super().__init__(os_name, args_in, default_userid=default_userid)
+
+    def run(self, host_cfg: HostConf, conf_repo_remote="", conf_base_path=""):
+        """
+        @summary: Execute setup steps for MacOS.
+        """
+        self._logger.info(f"Running setup for {self._os} on host '{self._args_in.hostname}'...")
+        self.add_runtime_issue(RuntimeWarning("MacOS setup is experimental and partially implemented."))
+        try:
+            user_home = pwd.getpwuid(os.getuid()).pw_dir
+            symlinks = self.generate_symlinks(self._args_in.path_symlinks_dir, path_user_home=user_home)
+            self._logger.info(f"Generated {len(symlinks)} symlink configurations for macOS.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+        return True
 
     def install_deps_adhoc(self, deb_pkgs=[], pip_pkgs=[], allow_pip_break=False, snap_pkgs: list[str]=[]):
         raise RuntimeWarning("TBD On MacOS maybe set up brew first, then install the dependencies via brew, pip, etc.")

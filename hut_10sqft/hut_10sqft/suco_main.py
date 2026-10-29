@@ -8,7 +8,16 @@ import logging
 import os
 import pathlib
 import pwd
-from typing import List
+import socket
+import sys
+from typing import List, Optional, Tuple
+
+# Ensure nested package directories are in sys.path when running from an uninstalled checkout
+_REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent
+for _pkg in ["hut_10sqft", "hut_10sqft_lib"]:
+    _p = str(_REPO_ROOT / _pkg)
+    if os.path.isdir(_p) and _p not in sys.path:
+        sys.path.insert(0, _p)
 
 from hut_10sqft.host_config import HostConf
 from hut_10sqft_lib.os_util import OsUtil
@@ -52,16 +61,38 @@ treats the user ID tha is used to execute this tool as the main user."""
         self._logger.setLevel(logging.DEBUG)  # Needs changed
         self._logger.addHandler(log_handler)
 
-    def _cli_args(self):
+    @staticmethod
+    def auto_detect_hostname(logger=None) -> str:
+        """
+        @summary: Automatically detect the system hostname using standard library socket.
+        @return: Hostname string.
+        """
+        hostname = socket.gethostname()
+        if logger:
+            logger.info(f"Auto-detected hostname: '{hostname}'")
+        return hostname
+
+    @staticmethod
+    def auto_detect_os(logger=None) -> Tuple[str, str]:
+        """
+        @summary: Automatically detect operating system type and distribution using OsUtil.
+        @return: Tuple of (os_type, os_distro).
+        """
+        detected_os, detected_distro = OsUtil.get_os_type(logger=logger)
+        if logger:
+            logger.info(f"Auto-detected os_type: '{detected_os}', os_distro: '{detected_distro}'")
+        return detected_os, detected_distro
+
+    def _cli_args(self, args_list: Optional[List[str]] = None):
         """
         @rtype: argparse.Namespace
         """
         parser = SucoInstaller.init_cli_args_suco()
-        # Optional but close to required args
-        parser.add_argument("--hostname", required=True, help="Specify in case you need to modify the host name.")
+        # Optional arguments with automatic fallback detection
+        parser.add_argument("--hostname", required=False, default="", help="Specify host name. If omitted, auto-detected from system.")
         parser.add_argument("--msg_endroll", help="Specify the message string that will be printed at the end in case of need.")
-        parser.add_argument("--os_distro", required=True, help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}")
-        parser.add_argument("--os_type", required=False, help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}")
+        parser.add_argument("--os_distro", required=False, default="", help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}. If omitted, auto-detected from system.")
+        parser.add_argument("--os_type", required=False, default="", help=f"Type of OS. Options: {OsUtil.TYPE_OS_LINUX} | {MacOsSetup._OS_TYPE}. If omitted, auto-detected from system.")
         parser.add_argument("--path_local_conf_repo", help=self._MSG_PATH_PERMCONF_REPO, default=CompInitSetupConfig.PATH_DEFAULT_PERMANENT_CONF_REPO)
         parser.add_argument("--conf_repo_version", required=False, help="Git version of the repo e.g. 'develop'", default="develop")
         parser.add_argument("--path_conf_dir", help=self._MSG_PATH_CONF_DIR, default=CompInitSetupConfig.PATH_DEFAULT_CONFIG_CONFDIR)
@@ -74,7 +105,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
         parser.add_argument("--remove_tmpws", required=False, help=self._MSG_REMOVE_TMP_COLCONWS, action="store_true")
 
-        args = parser.parse_args()
+        args = parser.parse_args(args_list)
         self._logger.info("args: {}".format(args))
 
         return args
@@ -95,12 +126,41 @@ treats the user ID tha is used to execute this tool as the main user."""
         OsUtil.remove_tree(path_colconws)
         return True
 
-    def run(self) -> bool:
+    def run(self, args_list: Optional[List[str]] = None) -> bool:
         """
         @return bool: `True` if reaches the end of the method, if it doesn't reach the end nothing returns.
           This is primarily for testing purpose.
         """
-        _args = self._cli_args()
+        _args = self._cli_args(args_list)
+
+        if not _args.hostname:
+            _args.hostname = self.auto_detect_hostname(self._logger)
+
+        if not _args.os_distro or not _args.os_type:
+            try:
+                detected_os, detected_distro = self.auto_detect_os(self._logger)
+                # Differentiate ChromeOS Crostini container from generic Debian
+                if detected_distro == DebianSetup._OS_TYPE:
+                    is_known_cros_host = _args.hostname in (
+                        CompInitSetupConfig.HOSTNAME_BRYA,
+                        CompInitSetupConfig.HOSTNAME_C13_MORPH,
+                        CompInitSetupConfig.HOSTNAME_ZORK16,
+                        CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5,
+                    )
+                    has_cros_marker = os.path.exists("/dev/.cros_milestone") or os.path.exists("/mnt/chromeos")
+                    if is_known_cros_host or has_cros_marker:
+                        detected_distro = ChromeOsSetup._OS_TYPE
+                        self._logger.info(f"Detected ChromeOS Crostini environment: os_distro set to '{detected_distro}'.")
+                elif (detected_os == MacOsSetup._OS_TYPE or _args.os_type == MacOsSetup._OS_TYPE) and (detected_distro == "None" or not detected_distro):
+                    detected_distro = MacOsSetup._OS_TYPE
+
+                if not _args.os_type:
+                    _args.os_type = detected_os
+                if not _args.os_distro:
+                    _args.os_distro = detected_distro
+            except Exception as e:
+                self._logger.warning(f"OS auto-detection failed: {e}")
+
         # Builder pattern
         _os_builder = None
         _user_id = ""
@@ -116,7 +176,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         elif _args.os_distro == MacOsSetup._OS_TYPE:
             _os_builder = MacOsSetup(args_in=_args)
         else:
-            raise NotImplementedError(f"Chosen OS '{_args.os}' is either not implemented or invalid.")
+            raise NotImplementedError(f"Chosen OS '{_args.os_distro}' is either not implemented or invalid.")
 
         # Env vars per host: Bash, Emacs
         _host_cfg = None
@@ -127,7 +187,7 @@ treats the user ID tha is used to execute this tool as the main user."""
             _host_cfg = HostConf(_args.hostname, "bashrc_130s-p16s", "emacs_130s-p16s.el", "id_rsa_130s-p16s", "id_rsa_130s-p16s.pub")
         elif _args.hostname == CompInitSetupConfig.HOSTNAME_BRYA:
             _host_cfg = _host_cfg_brya            
-        elif _args.hostname == (CompInitSetupConfig.HOSTNAME_C13_MORPH or CompInitSetupConfig.HOSTNAME_ZORK16 or CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5):
+        elif _args.hostname in (CompInitSetupConfig.HOSTNAME_C13_MORPH, CompInitSetupConfig.HOSTNAME_ZORK16, CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5):
             _host_cfg = HostConf(_args.hostname, "130s-brya.bash", "130s-zork16.el", "id_rsa_130s-c13-morph", "id_rsa_130s-c13-morph.pub")
         else:
             self._logger.warning(f"'{_args.hostname=}' not matching any host. Using default config set (that of '130s-brya').")

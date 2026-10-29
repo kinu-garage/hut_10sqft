@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import pytest
@@ -30,7 +31,8 @@ from hut_10sqft.comp_chrome_os import ChromeOsSetup
 from hut_10sqft.comp_mac_os import MacOsSetup
 from hut_10sqft.comp_ubuntu import UbuntuOsSetup
 from hut_10sqft.host_config import HostConf
-from hut_10sqft.suco_installer import CompInitSetupConfig
+from hut_10sqft.suco_installer import CompInitSetupConfig, SucoInstaller
+from hut_10sqft.suco_main import CompInitSetup
 from hut_10sqft_lib.os_util import OsUtil
 
 ATTR_HOME_DIR = "user_home_dir"
@@ -771,3 +773,169 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     setup.setup_agent_remote_control()
     assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["
     assert len(setup._list_runtime_issues) > 0
+
+
+def test_suco_auto_detect_hostname(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host-130s")
+    assert CompInitSetup.auto_detect_hostname() == "mocked-host-130s"
+
+
+def test_suco_auto_detect_os(monkeypatch):
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+    os_type, os_distro = CompInitSetup.auto_detect_os()
+    assert os_type == "Linux"
+    assert os_distro == "Ubuntu"
+
+
+def test_suco_cli_args_auto_detection(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+
+    setup = CompInitSetup()
+
+    # 1. When --hostname and --os_distro are omitted, _cli_args returns empty strings
+    args = setup._cli_args([])
+    assert args.hostname == ""
+    assert args.os_distro == ""
+
+    # 2. When passed explicitly, CLI args take precedence
+    args_explicit = setup._cli_args(["--hostname", "explicit-host", "--os_distro", "Debian"])
+    assert args_explicit.hostname == "explicit-host"
+    assert args_explicit.os_distro == "Debian"
+
+
+def test_suco_run_auto_detection(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+
+    setup = CompInitSetup()
+    captured_builder = []
+
+    class FakeOsBuilder:
+        _OS_TYPE = "Ubuntu"
+        def __init__(self, args_in=None):
+            self.args_in = args_in
+            captured_builder.append(self)
+
+        def run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+            return True
+
+        def listup_runtime_issues(self):
+            pass
+
+    monkeypatch.setattr("hut_10sqft.suco_main.UbuntuOsSetup", FakeOsBuilder)
+
+    assert setup.run(args_list=[]) is True
+    assert len(captured_builder) == 1
+    assert captured_builder[0].args_in.hostname == "mocked-auto-host"
+    assert captured_builder[0].args_in.os_distro == "Ubuntu"
+    assert captured_builder[0].args_in.os_type == "Linux"
+
+
+def test_suco_run_auto_detect_chromeos(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_BRYA)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Debian"))
+
+    setup = CompInitSetup()
+    captured_builder = []
+
+    class FakeChromeOsBuilder:
+        _OS_TYPE = ChromeOsSetup._OS_TYPE
+        def __init__(self, args_in=None):
+            self.args_in = args_in
+            captured_builder.append(self)
+
+        def run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+            return True
+
+        def listup_runtime_issues(self):
+            pass
+
+    monkeypatch.setattr("hut_10sqft.suco_main.ChromeOsSetup", FakeChromeOsBuilder)
+
+    assert setup.run(args_list=[]) is True
+    assert len(captured_builder) == 1
+    assert captured_builder[0].args_in.os_distro == ChromeOsSetup._OS_TYPE
+
+
+def test_suco_run_auto_detect_macos(monkeypatch):
+    from hut_10sqft.comp_mac_os import MacOsSetup
+
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_MAC1)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("MacOS", "None"))
+
+    setup = CompInitSetup()
+    assert setup.run(args_list=[]) is True
+
+
+def test_suco_installer_cli_args():
+    installer = SucoInstaller()
+    args_default = installer.cli_args_install_suco(args_list=[])
+    assert args_default.build_colcon is False
+    assert args_default.pip_install is False
+
+    args_custom = installer.cli_args_install_suco(args_list=["--build_colcon", "--pip_install"])
+    assert args_custom.build_colcon is True
+    assert args_custom.pip_install is True
+
+
+def test_suco_installer_main_clone(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    dest_repo = str(base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--git_branch", "develop"])
+
+    assert len(commands_run) == 1
+    assert commands_run[0]["cmd"] == ["git", "clone", CompInitSetupConfig.URL_HUT, "-b", "develop", dest_repo]
+    assert commands_run[0]["cwd"] is None
+
+
+def test_suco_installer_main_pull_and_pip(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--pip_install", "--pip_break_syspkg"])
+
+    assert len(commands_run) == 2
+    assert commands_run[0]["cmd"] == ["git", "pull"]
+    assert commands_run[0]["cwd"] == str(dest_repo)
+    assert commands_run[1]["cmd"] == ["pip3", "install", "-e", str(dest_repo), "--break-system-packages"]
+
+
+def test_suco_installer_pip_oserror_fallback(tmp_path, monkeypatch):
+    from hut_10sqft.suco_installer import main as installer_main
+
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        if cmd[0] == "pip3":
+            raise FileNotFoundError("pip3 not found")
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr("sys.argv", ["suco_installer", "--path_base_conf", str(base_conf), "--pip_install"])
+
+    # Should not raise FileNotFoundError / OSError, should catch and finish cleanly
+    installer_main()
