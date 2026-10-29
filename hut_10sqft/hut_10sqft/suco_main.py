@@ -151,6 +151,8 @@ treats the user ID tha is used to execute this tool as the main user."""
                     if is_known_cros_host or has_cros_marker:
                         detected_distro = ChromeOsSetup._OS_TYPE
                         self._logger.info(f"Detected ChromeOS Crostini environment: os_distro set to '{detected_distro}'.")
+                elif (detected_os == MacOsSetup._OS_TYPE or _args.os_type == MacOsSetup._OS_TYPE) and (detected_distro == "None" or not detected_distro):
+                    detected_distro = MacOsSetup._OS_TYPE
 
                 if not _args.os_type:
                     _args.os_type = detected_os

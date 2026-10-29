@@ -858,6 +858,16 @@ def test_suco_run_auto_detect_chromeos(monkeypatch):
     assert captured_builder[0].args_in.os_distro == ChromeOsSetup._OS_TYPE
 
 
+def test_suco_run_auto_detect_macos(monkeypatch):
+    from hut_10sqft.comp_mac_os import MacOsSetup
+
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_MAC1)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("MacOS", "None"))
+
+    setup = CompInitSetup()
+    assert setup.run(args_list=[]) is True
+
+
 def test_suco_installer_cli_args():
     installer = SucoInstaller()
     args_default = installer.cli_args_install_suco(args_list=[])
