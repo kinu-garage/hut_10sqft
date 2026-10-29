@@ -1036,6 +1036,40 @@ def test_setup_docker_removes_snap_docker(monkeypatch):
     assert any("snap remove docker" in c for c in cmds_run)
 
 
+def test_setup_docker_removes_snap_docker_failure(monkeypatch):
+    """Verify failure to remove conflicting snap docker raises RuntimeError, records runtime issue, and stops setup before _is_docker_setup."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    is_docker_setup_called = []
+    def fake_is_docker_setup():
+        is_docker_setup_called.append(True)
+        return 0
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/snap" if name == "snap" else None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if cmd == "snap list docker":
+            return "docker 27.2.0 2932 latest/stable canonical** -", "", 0
+        if "snap remove docker" in cmd:
+            return "", "error: cannot remove docker: snap has running services", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to remove conflicting docker snap package (exit code 1)" in str(exc_info.value)
+    assert any("cannot remove docker" in str(issue) for issue in setup._list_runtime_issues)
+    assert len(is_docker_setup_called) == 0
+
+
 def test_setup_docker_installs_docker_ce_apt_debian(monkeypatch):
     """Verify modern Docker CE repository and packages are installed on Debian."""
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
