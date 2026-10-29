@@ -16,9 +16,9 @@ Prerequisite:
 2. Execute SUCO. Specify the target `OS_DISTRO` (`ChromeOS`, `Debian`, or `Ubuntu`):
    ```bash
    $ export OS_DISTRO=Ubuntu  # [ChromeOS | Debian | Ubuntu | MacOS]
-   $ cd ~/.config/hut_10sqft && PYTHONPATH="hut_10sqft:hut_10sqft_lib" python3 -m hut_10sqft.suco_main --os_distro $OS_DISTRO
+   $ cd ~/.config/hut_10sqft && PYTHONPATH="hut_10sqft:hut_10sqft_lib" python3 -m hut_10sqft.suco_main --os_distro "$OS_DISTRO"
    ```
-   *(Or if `pip` is available, install in editable mode and run `suco` directly: `cd ~/.config/hut_10sqft && pip install -e . && suco --os_distro $OS_DISTRO`)*
+   *(Or if `pip` is available, install in editable mode and run `suco` directly: `cd ~/.config/hut_10sqft && pip install -e . && suco --os_distro "$OS_DISTRO"`)*
 
    *Notes on OS and Host identification:*
    - `OS_DISTRO` is required to distinguish ChromeOS from generic Debian (since ChromeOS Crostini runs inside a Debian container that identifies as Debian at the OS level). On standard Ubuntu/Debian, it can also fall back to auto-detection if omitted.
@@ -29,7 +29,7 @@ Prerequisite:
 When working from a local clone of `hut_10sqft`:
 ```bash
 $ pip install -e .
-$ suco --os_distro $OS_DISTRO
+$ suco --os_distro "$OS_DISTRO"
 ```
 1. At the end of the execution of the above command you should see the list of runtime issues that are captured during the run. Address those if possible.
 1. Should be ready to start using the OS.
