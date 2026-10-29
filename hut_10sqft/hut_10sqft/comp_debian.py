@@ -6,6 +6,8 @@
 import argparse
 import os
 import pwd
+import re
+import shlex
 import subprocess
 
 from hut_10sqft.host_config import HostConf
@@ -269,6 +271,12 @@ class DebianSetup(ShellCapableOsSetup):
             self._logger.info("Skipping Docker setup as 'skip' is set to True.")
             return
 
+        if not userid_os:
+            userid_os = getattr(getattr(self, "_args_in", None), "user_id", "") or pwd.getpwuid(os.getuid()).pw_name
+
+        if userid_os and not re.fullmatch(r"[a-zA-Z0-9_.][a-zA-Z0-9_.-]*(?:[@\\/][a-zA-Z0-9_.-]+)*\$?", userid_os):
+            raise ValueError(f"Invalid username: '{userid_os}'")
+
         # Clean up conflicting Docker snap package if present (issue #1484)
         if OsUtil.which("snap"):
             _, _, ret_snap = OsUtil.subproc_bash("snap list docker")
@@ -292,9 +300,6 @@ class DebianSetup(ShellCapableOsSetup):
             ""
         ).lower()
         distro = "ubuntu" if "ubuntu" in os_identifier else "debian"
-
-        if not userid_os:
-            userid_os = getattr(getattr(self, "_args_in", None), "user_id", "") or pwd.getpwuid(os.getuid()).pw_name
 
         # 1. Install prerequisites
         OsUtil.apt_install(self._DEBS_DOCKER_PREREQ, logger=self._logger)
@@ -329,7 +334,8 @@ class DebianSetup(ShellCapableOsSetup):
         # 6. Create docker group and add user
         OsUtil.subproc_bash("groupadd -f docker", does_sudo=True)
         if userid_os:
-            OsUtil.subproc_bash(f"usermod -aG docker {userid_os}", does_sudo=True)
+            quoted_user = shlex.quote(userid_os)
+            OsUtil.subproc_bash(f"usermod -aG docker {quoted_user}", does_sudo=True)
 
         # 7. Start and enable Docker service
         OsUtil.subproc_bash("systemctl enable --now docker || service docker start", does_sudo=True)
@@ -342,7 +348,11 @@ class DebianSetup(ShellCapableOsSetup):
         if ret == 0:
             self._logger.info("Docker setup completed and verified successfully.")
         else:
-            self._logger.warning(f"Docker setup completed, but 'docker run hello-world' check exited with code {ret}: {_err}")
+            msg = f"Docker setup completed, but 'docker run hello-world' verification failed with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
     
     def _setup_git(self):
         self.install_deps_adhoc(deb_pkgs=["python3-git"])

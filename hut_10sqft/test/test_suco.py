@@ -1063,3 +1063,96 @@ def test_setup_docker_installs_docker_ce_apt_debian(monkeypatch):
 
     assert any("https://download.docker.com/linux/debian/gpg" in c for c in cmds_run)
     assert any("https://download.docker.com/linux/debian" in c for c in cmds_run)
+
+
+def test_setup_docker_verification_failure(monkeypatch):
+    """Verify that a nonzero exit from 'docker run hello-world' raises an error and records a runtime issue."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "docker run --rm hello-world" in cmd:
+            return "", "Cannot connect to the Docker daemon", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "exit code 1" in str(exc_info.value)
+    assert "Cannot connect to the Docker daemon" in str(exc_info.value)
+    assert len(setup._list_runtime_issues) > 0
+    assert any("exit code 1" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_invalid_userid(monkeypatch):
+    """Verify that an invalid userid_os raises ValueError before executing any system commands."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    commands_run = []
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: (commands_run.append(cmd) or ("", "", 0)))
+
+    with pytest.raises(ValueError) as exc_info:
+        setup.setup_docker(userid_os="invalid user; rm -rf /", skip=False)
+    assert "Invalid username" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        setup.setup_docker(userid_os="alice\n", skip=False)
+    assert "Invalid username" in str(exc_info.value)
+    assert len(commands_run) == 0
+
+
+def test_shell_capable_os_setup_catches_docker_runtime_error(monkeypatch):
+    """Verify ShellCapableOsSetup.run records RuntimeError from setup_docker without duplicate entries or aborting setup."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = CompInitSetup()._cli_args([])
+    args.hostname = "test-host"
+    args.skip_setup_docker = False
+    args.user_id = "test-user"
+    args.skip_dropbox = True
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+    monkeypatch.setattr(setup, "clone", lambda *args, **kwargs: None)
+    err = RuntimeError("Docker verification failed")
+    setup.add_runtime_issue(err)
+    monkeypatch.setattr(setup, "setup_docker", lambda *args, **kwargs: (_ for _ in ()).throw(err))
+    monkeypatch.setattr(setup, "update_hostname", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_rosdep_and_run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "nonrosdep_deps", lambda *args, **kwargs: ([], []))
+    monkeypatch.setattr(setup, "install_deps_adhoc", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "swap_caps_ctrl", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_terminal_configs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_ssh", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_git_config", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_agent_skills", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_antigravity_cli", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_agent_remote_control", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "create_data_dir", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "generate_symlinks", lambda *args, **kwargs: [])
+    monkeypatch.setattr(setup, "common_symlinks", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_configs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_vscode", lambda *args, **kwargs: None)
+
+    host_cfg = HostConf("test-host", "bashrc", "emacs", "rsa", "pub")
+    setup.run(host_cfg, conf_repo_remote="https://github.com/kinu-garage/hut_10sqft.git", conf_base_path="/tmp")
+    issues = [issue for issue in setup._list_runtime_issues if "Docker verification failed" in str(issue)]
+    assert len(issues) == 1
