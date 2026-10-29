@@ -130,30 +130,23 @@ class SucoInstaller():
         """
         args = self.cli_args_install_suco(None, args_list=args_list)
 
-        if not args.build_colcon:
-            path_conf_dest = os.path.join(args.path_base_conf, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
-            if os.path.exists(path_conf_dest):
-                if os.path.exists(os.path.join(path_conf_dest, ".git")):
-                    self._logger.info(f"Existing git repository found at '{path_conf_dest}'. Updating.")
-                    cmd_pull = ["git", "pull"]
-                    res = subprocess.run(cmd_pull, cwd=path_conf_dest)
-                    if res.returncode != 0:
-                        raise RuntimeError(f"Failed to update repository at '{path_conf_dest}'.")
-                else:
-                    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-                    path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
-                    self._logger.info(f"Backing up non-git directory at '{path_conf_dest}' to '{path_conf_backup}'.")
-                    os.rename(path_conf_dest, path_conf_backup)
-                    cmd_clone = ["git", "clone", CompInitSetupConfig.URL_HUT]
-                    if args.git_branch:
-                        cmd_clone.extend(["-b", args.git_branch])
-                    cmd_clone.append(path_conf_dest)
-                    self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {' '.join(cmd_clone)}")
-                    res = subprocess.run(cmd_clone)
-                    if res.returncode != 0:
-                        raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
+        if args.build_colcon:
+            self._colcon_build_venv(args)
+            return
+
+        path_conf_dest = os.path.join(args.path_base_conf, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+        if os.path.exists(path_conf_dest):
+            if os.path.exists(os.path.join(path_conf_dest, ".git")):
+                self._logger.info(f"Existing git repository found at '{path_conf_dest}'. Updating.")
+                cmd_pull = ["git", "pull"]
+                res = subprocess.run(cmd_pull, cwd=path_conf_dest)
+                if res.returncode != 0:
+                    raise RuntimeError(f"Failed to update repository at '{path_conf_dest}'.")
             else:
-                os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
+                timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+                path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
+                self._logger.info(f"Backing up non-git directory at '{path_conf_dest}' to '{path_conf_backup}'.")
+                os.rename(path_conf_dest, path_conf_backup)
                 cmd_clone = ["git", "clone", CompInitSetupConfig.URL_HUT]
                 if args.git_branch:
                     cmd_clone.extend(["-b", args.git_branch])
@@ -162,43 +155,53 @@ class SucoInstaller():
                 res = subprocess.run(cmd_clone)
                 if res.returncode != 0:
                     raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
+        else:
+            os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
+            cmd_clone = ["git", "clone", CompInitSetupConfig.URL_HUT]
+            if args.git_branch:
+                cmd_clone.extend(["-b", args.git_branch])
+            cmd_clone.append(path_conf_dest)
+            self._logger.info(f"Cloning '{CompInitSetupConfig.URL_HUT}' repo into '{path_conf_dest}': {' '.join(cmd_clone)}")
+            res = subprocess.run(cmd_clone)
+            if res.returncode != 0:
+                raise RuntimeError(f"Failed to clone repository into '{path_conf_dest}'.")
 
-            pip_installed = False
-            if args.pip_install:
-                cmd_pip = ["pip3", "install", "-e", path_conf_dest]
-                if args.pip_break_syspkg:
-                    cmd_pip.append("--break-system-packages")
-                self._logger.info(f"Installing SUCO via pip: {' '.join(cmd_pip)}")
-                try:
-                    res = subprocess.run(cmd_pip)
-                    if res.returncode == 0:
-                        pip_installed = True
-                    else:
-                        self._logger.warning(f"pip install failed (return code {res.returncode}). You can still run SUCO via python3 module.")
-                except OSError as err:
-                    self._logger.warning(f"pip install failed ({err}). You can still run SUCO via python3 module.")
+        pip_installed = False
+        if args.pip_install:
+            cmd_pip = ["pip3", "install", "-e", path_conf_dest]
+            if args.pip_break_syspkg:
+                cmd_pip.append("--break-system-packages")
+            self._logger.info(f"Installing SUCO via pip: {' '.join(cmd_pip)}")
+            try:
+                res = subprocess.run(cmd_pip)
+                if res.returncode == 0:
+                    pip_installed = True
+                else:
+                    self._logger.warning(f"pip install failed (return code {res.returncode}). You can still run SUCO via python3 module.")
+            except OSError as err:
+                self._logger.warning(f"pip install failed ({err}). You can still run SUCO via python3 module.")
 
-            if pip_installed:
-                run_instructions = "  suco"
-            else:
-                run_instructions = (
-                    f"  cd {path_conf_dest} && PYTHONPATH=\"hut_10sqft:hut_10sqft_lib\" python3 -m hut_10sqft.suco_main\n"
-                    f"Or if installed via pip:\n"
-                    f"  suco"
-                )
-
-            self._logger.info(
-                f"SUCO is ready at '{path_conf_dest}'.\n"
-                f"To run SUCO:\n"
-                f"{run_instructions}"
+        if pip_installed:
+            run_instructions = "  suco"
+        else:
+            run_instructions = (
+                f"  cd {path_conf_dest} && PYTHONPATH=\"hut_10sqft:hut_10sqft_lib\" python3 -m hut_10sqft.suco_main\n"
+                f"Or if installed via pip:\n"
+                f"  suco"
             )
-            return
 
+        self._logger.info(
+            f"SUCO is ready at '{path_conf_dest}'.\n"
+            f"To run SUCO:\n"
+            f"{run_instructions}"
+        )
+
+    def _colcon_build_venv(self, args: argparse.Namespace):
         # Legacy colcon build path
         _colcon_installed_pip = False
 
-        # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.
-        #    If the folder already exists, try to update the git repo.
+            # Clone `hut_10sqft` repo from GitHub into the folder `~/.local/share/tmp_suco/colconws/src`.
+            #    If the folder already exists, try to update the git repo.
         os.makedirs(args.path_temp_colconws, exist_ok=True)
         path_srcdir = os.path.join(args.path_temp_colconws, CompInitSetupConfig.PATH_COLCON_SRC)
         os.makedirs(path_srcdir, exist_ok=True)
@@ -219,14 +222,14 @@ class SucoInstaller():
 
         path_conf_dest = os.path.join(args.path_base_conf, CompInitSetupConfig.REPO_PERMANENT_CONFIG)
         if os.path.exists(path_conf_dest):
-            # Copy the hut_10sqft repo, which was just cloned, to a user's config folder (e.g. ~/.config).
-            # If the destination already exists, back it up by renaming it with a timestamp suffix, and copy the cloned repo.
+                # Copy the hut_10sqft repo, which was just cloned, to a user's config folder (e.g. ~/.config).
+                # If the destination already exists, back it up by renaming it with a timestamp suffix, and copy the cloned repo.
             timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
             path_conf_backup = os.path.join(args.path_base_conf, f"{CompInitSetupConfig.REPO_PERMANENT_CONFIG}_{timestamp}.backup")
             self._logger.info(f"Backing up existing config repo at '{path_conf_dest}' to '{path_conf_backup}'.")
             os.rename(path_conf_dest, path_conf_backup)
         else:
-            # If the path does not exist, create parent dirs as needed.
+                # If the path does not exist, create parent dirs as needed.
             os.makedirs(os.path.dirname(args.path_base_conf), exist_ok=True)
             os.makedirs(os.path.dirname(path_conf_dest), exist_ok=True)
         cmd_copy_repo = f"cp -r {path_hut_ws} {path_conf_dest}"
@@ -234,21 +237,21 @@ class SucoInstaller():
         ret = os.system(cmd_copy_repo)
         if ret != 0:
             raise RuntimeError(f"Failed to copy the config repo to '{path_conf_dest}'.")
-        
-        # Install colcon from pip if not yet installed.
+            
+            # Install colcon from pip if not yet installed.
         _colcon_installed_pip = self.install_pip_essentials(break_syspkg=args.pip_break_syspkg)
 
-        # Build and install packages in the temporary Colcon workspace
-        #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
+            # Build and install packages in the temporary Colcon workspace
+            #   (as of 2025/10, the pkgs to be built-installed are `hut_10sqft` and `hut_10sqft_lib`).
         cmd_build = f"cd {args.path_temp_colconws} && colcon build --symlink-install"
         self._logger.info(f"Building and installing SUCO itself by executing: {cmd_build}")
         ret = os.system(cmd_build)
         if ret != 0:
             raise RuntimeError(f"Failed to build and install SUCO itself.")
 
-        # Source the colcon workspace setting.
+            # Source the colcon workspace setting.
         cmd_sourcing_ws = f"source {os.path.join(args.path_temp_colconws, 'install', 'setup.sh')}"
-        #self.source_colconws(cmd_sourcing_ws)
+            #self.source_colconws(cmd_sourcing_ws)
         self._logger.info(f"""SUCO installation is complete. You can now source the colcon workspace setting by:\n\t{cmd_sourcing_ws}""")
 
         if _colcon_installed_pip:
