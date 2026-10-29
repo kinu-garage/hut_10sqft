@@ -292,9 +292,13 @@ class DebianSetup(ShellCapableOsSetup):
 
         try:
             res = self._is_docker_setup()
-            if res is True or res == 0:
-                self._logger.info("Looks like Docker setup is already completed.")
+            _out_dpkg, _err_dpkg, ret_dpkg = OsUtil.subproc_bash("dpkg -s docker-ce")
+            is_ce_installed = (ret_dpkg == 0 and "Status: install ok installed" in _out_dpkg)
+            if (res is True or res == 0) and is_ce_installed:
+                self._logger.info("Looks like Docker CE setup is already completed.")
                 return
+            elif (res is True or res == 0) and not is_ce_installed:
+                self._logger.info("Docker command is available, but 'docker-ce' package is not installed. Proceeding with Docker CE setup.")
         except RuntimeWarning as e:
             self._logger.info(f"Docker setup check: {str(e)}. Proceeding with Docker setup.")
 
@@ -327,11 +331,38 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.subproc_bash(f'echo "{repo_line}" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
 
         # 4. Remove obsolete / conflicting packages if present
-        OsUtil.subproc_bash(
-            "apt remove -y docker-engine lxc-docker docker.io docker-doc docker-compose podman-docker runc 2>/dev/null || true",
-            does_sudo=True,
-            non_interactive=True
-        )
+        conflicting_candidates = [
+            "docker-engine",
+            "lxc-docker",
+            "docker.io",
+            "docker-doc",
+            "docker-compose",
+            "docker-compose-v2",
+            "podman-docker",
+            "containerd",
+            "runc",
+        ]
+        installed_conflicts = []
+        for pkg in conflicting_candidates:
+            _out_chk, _, ret_chk = OsUtil.subproc_bash(f"dpkg -s {pkg}")
+            if ret_chk == 0 and "Status: install ok installed" in _out_chk:
+                installed_conflicts.append(pkg)
+
+        if installed_conflicts:
+            pkgs_str = " ".join(installed_conflicts)
+            self._logger.warning(f"Conflicting Docker packages detected: {pkgs_str}. Removing them prior to Docker CE install.")
+            _out_rm, _err_rm, ret_rm = OsUtil.subproc_bash(
+                f"apt remove -y {pkgs_str}",
+                does_sudo=True,
+                non_interactive=True,
+                logger=self._logger
+            )
+            if ret_rm != 0:
+                msg = f"Failed to remove conflicting Docker packages ({pkgs_str}) with exit code {ret_rm}: {_err_rm}"
+                self._logger.error(msg)
+                err = RuntimeError(msg)
+                self.add_runtime_issue(err)
+                raise err
 
         # 5. Update package index and install Docker CE packages
         self.apt_update(force=True)

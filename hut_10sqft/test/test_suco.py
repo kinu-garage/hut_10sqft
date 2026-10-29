@@ -961,7 +961,7 @@ def test_setup_docker_skip(monkeypatch):
 
 
 def test_setup_docker_already_completed(monkeypatch):
-    """Verify that setup_docker returns early if docker is already setup."""
+    """Verify that setup_docker returns early if docker and docker-ce package are already setup."""
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
     setup = DebianSetup(args_in=args)
@@ -969,12 +969,65 @@ def test_setup_docker_already_completed(monkeypatch):
 
     monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
     monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("Status: install ok installed", "", 0))
 
     called_apt = []
     monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
 
     setup.setup_docker(userid_os="test-user", skip=False)
     assert len(called_apt) == 0
+
+
+def test_setup_docker_retained_config_does_not_skip(monkeypatch):
+    """Verify that setup_docker proceeds if docker-ce has only retained config files."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker-ce" in cmd:
+            return "Status: deinstall ok config-files", "", 0
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) > 0
+    assert setup._DEBS_DOCKER in called_apt
+
+
+def test_setup_docker_proceeds_when_ce_package_missing(monkeypatch):
+    """Verify that setup_docker proceeds with CE installation if docker command exists but docker-ce package is not installed."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker-ce" in cmd:
+            return "", "package docker-ce is not installed", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) > 0
+    assert setup._DEBS_DOCKER in called_apt
 
 
 def test_setup_docker_installs_docker_ce_apt(monkeypatch):
@@ -997,6 +1050,8 @@ def test_setup_docker_installs_docker_ce_apt(monkeypatch):
     monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
     def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
         cmds_run.append(cmd)
+        if "dpkg -s docker.io" in cmd:
+            return "Status: install ok installed", "", 0
         return "", "", 0
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
 
@@ -1005,12 +1060,45 @@ def test_setup_docker_installs_docker_ce_apt(monkeypatch):
     assert called_apt[0] == ["ca-certificates", "curl"]
     assert called_apt[1] == ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin"]
 
+    assert any("apt remove -y docker.io" in c for c in cmds_run)
     assert any("https://download.docker.com/linux/ubuntu/gpg" in c for c in cmds_run)
     assert any("/etc/apt/keyrings/docker.asc" in c for c in cmds_run)
     assert any("https://download.docker.com/linux/ubuntu" in c for c in cmds_run)
     assert any("groupadd -f docker" in c for c in cmds_run)
     assert any("usermod -aG docker test-user" in c for c in cmds_run)
     assert any("systemctl enable --now docker" in c for c in cmds_run)
+
+
+def test_setup_docker_conflict_removal_failure_stops_setup(monkeypatch):
+    """Verify that a failure in removing installed conflicting packages raises RuntimeError and stops setup."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker.io" in cmd:
+            return "Status: install ok installed", "", 0
+        if "apt remove -y docker.io" in cmd:
+            return "", "dpkg was interrupted", 100
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to remove conflicting Docker packages (docker.io) with exit code 100" in str(exc_info.value)
+    assert any("dpkg was interrupted" in str(issue) for issue in setup._list_runtime_issues)
 
 
 def test_setup_docker_removes_snap_docker(monkeypatch):
@@ -1028,6 +1116,8 @@ def test_setup_docker_removes_snap_docker(monkeypatch):
         cmds_run.append(cmd)
         if cmd == "snap list docker":
             return "Name Version Rev Tracking Publisher Notes\ndocker 27.2.0 2932 latest/stable canonical** -", "", 0
+        if "dpkg -s docker-ce" in cmd:
+            return "Status: install ok installed", "", 0
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
