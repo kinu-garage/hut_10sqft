@@ -373,7 +373,14 @@ class DebianSetup(ShellCapableOsSetup):
             err = RuntimeError(msg)
             self.add_runtime_issue(err)
             raise err
-        OsUtil.apt_install(self._DEBS_DOCKER, logger=self._logger)
+        try:
+            OsUtil.apt_install(self._DEBS_DOCKER, logger=self._logger)
+        except RuntimeWarning as e:
+            msg = f"Failed to install Docker CE packages: {e}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
 
         # 6. Create docker group and add user
         OsUtil.subproc_bash("groupadd -f docker", does_sudo=True)
