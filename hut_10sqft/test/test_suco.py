@@ -1307,3 +1307,119 @@ def test_shell_capable_os_setup_catches_docker_runtime_error(monkeypatch):
     setup.run(host_cfg, conf_repo_remote="https://github.com/kinu-garage/hut_10sqft.git", conf_base_path="/tmp")
     issues = [issue for issue in setup._list_runtime_issues if "Docker verification failed" in str(issue)]
     assert len(issues) == 1
+
+
+def test_os_util_whereis_docker_none(monkeypatch):
+    """Verify whereis_docker returns 'none' when docker is not installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    assert OsUtil.whereis_docker() == "none"
+
+
+def test_os_util_whereis_docker_snap(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker is installed via snap."""
+    def fake_which(name):
+        if name == "docker":
+            return "/snap/bin/docker"
+        if name == "snap":
+            return "/usr/bin/snap"
+        return None
+
+    monkeypatch.setattr(OsUtil, "which", fake_which)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("docker 27.2.0", "", 0))
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_snap_var_lib(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker executable is under /var/lib/snapd/snap/bin."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/var/lib/snapd/snap/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_snap_symlink_snapd(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker executable resolves to a snapd-owned binary."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: "/usr/bin/snap")
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "snapd: /usr/bin/snap", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_apt_ce(monkeypatch):
+    """Verify whereis_docker returns 'apt (docker-ce)' when docker is owned by docker-ce-cli and docker-ce is installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "docker-ce-cli: /usr/bin/docker", "", 0
+        if "dpkg -s docker-ce" in cmd:
+            return "Package: docker-ce\nStatus: install ok installed", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "apt (docker-ce)"
+
+
+def test_os_util_whereis_docker_apt_io(monkeypatch):
+    """Verify whereis_docker returns 'apt (docker.io)' when docker is owned by docker.io and docker.io is installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "docker.io: /usr/bin/docker", "", 0
+        if "dpkg -s docker.io" in cmd:
+            return "Package: docker.io\nStatus: install ok installed", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "apt (docker.io)"
+
+
+def test_os_util_whereis_docker_other_unowned_binary(monkeypatch):
+    """Verify whereis_docker returns 'other: /usr/local/bin/docker' when the binary is not owned by dpkg."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/local/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        # Even if docker-ce happens to be installed on the system, the active binary in /usr/local/bin is unowned
+        if "dpkg -s docker-ce" in cmd:
+            return "Package: docker-ce\nStatus: install ok installed", "", 0
+        if "dpkg -S" in cmd:
+            return "dpkg-query: no path found matching pattern /usr/local/bin/docker", "", 1
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "other: /usr/local/bin/docker"
+
+
+def test_os_util_whereis_docker_brew(monkeypatch):
+    """Verify whereis_docker returns 'brew' when installed via Homebrew."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/opt/homebrew/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 1))
+    assert OsUtil.whereis_docker() == "brew"
+
+
+def test_os_util_whereis_docker_desktop(monkeypatch):
+    """Verify whereis_docker returns 'docker-desktop' when resolving to Docker.app."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/local/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: "/Applications/Docker.app/Contents/Resources/bin/docker")
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 1))
+    assert OsUtil.whereis_docker() == "docker-desktop"
+
+
+def test_suco_run_whereis_docker(capsys, monkeypatch):
+    """Verify 'suco whereis_docker' prints the result to stdout and returns True."""
+    monkeypatch.setattr(OsUtil, "whereis_docker", lambda logger=None: "apt (docker-ce)")
+    comp_setup = CompInitSetup()
+    res = comp_setup.run(["whereis_docker"])
+    assert res is True
+    captured = capsys.readouterr()
+    assert "apt (docker-ce)" in captured.out

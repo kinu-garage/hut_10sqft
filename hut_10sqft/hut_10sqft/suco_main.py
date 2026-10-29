@@ -83,12 +83,24 @@ treats the user ID tha is used to execute this tool as the main user."""
             logger.info(f"Auto-detected os_type: '{detected_os}', os_distro: '{detected_distro}'")
         return detected_os, detected_distro
 
-    def _cli_args(self, args_list: Optional[List[str]] = None):
+    def whereis_docker(self) -> str:
         """
-        @rtype: argparse.Namespace
+        @summary: Determine and print where Docker is installed from (none, snap, apt, brew, other).
+        @return str: Result string.
         """
-        parser = SucoInstaller.init_cli_args_suco()
-        # Optional arguments with automatic fallback detection
+        res = OsUtil.whereis_docker(logger=self._logger)
+        print(res)
+        return res
+
+    def _add_setup_cli_args(self, parser: argparse.ArgumentParser):
+        # Base installer args
+        parser.add_argument("--path_base_conf", required=False, help=CompInitSetupConfig.MSG_ARG_BASE_CONF_PATH, default=CompInitSetupConfig.PATH_FOLDER_CONF)
+        parser.add_argument("--path_temp_colconws", required=False, help=SucoInstaller._MSG_ARG_PATH_COLCONWS, default=CompInitSetupConfig.PATH_TEMP_COLCON_WS)
+        parser.add_argument("--pip_break_syspkg", required=False, help=SucoInstaller._MSG_PIP_BREAK_SYSPKG, action="store_true")
+        parser.add_argument("--git_branch", required=False, help="Branch of SUCO repo", default=CompInitSetupConfig.BRANCH_DEFAULT_CONF_REPO)
+        parser.add_argument("--build_colcon", required=False, help="If specified, build using colcon (legacy behavior).", action="store_true")
+        parser.add_argument("--pip_install", required=False, help="If specified, install package in editable mode via pip.", action="store_true")
+        # Setup specific args
         parser.add_argument("--hostname", required=False, default="", help="Specify host name. If omitted, auto-detected from system.")
         parser.add_argument("--msg_endroll", help="Specify the message string that will be printed at the end in case of need.")
         parser.add_argument("--os_distro", required=False, default="", help=f"Type of OS distro. Options: {ChromeOsSetup._OS_TYPE} | {DebianSetup._OS_TYPE} | {UbuntuOsSetup._OS_TYPE}. If omitted, auto-detected from system.")
@@ -105,7 +117,34 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
         parser.add_argument("--remove_tmpws", required=False, help=self._MSG_REMOVE_TMP_COLCONWS, action="store_true")
 
-        args = parser.parse_args(args_list)
+    def _cli_args(self, args_list: Optional[List[str]] = None):
+        """
+        @rtype: argparse.Namespace
+        """
+        parser = argparse.ArgumentParser(
+            prog="suco",
+            description=CompInitSetupConfig.MSG_CONSOLE_TOOL_INTRO,
+        )
+        subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
+
+        # Subcommand: setup
+        setup_parser = subparsers.add_parser("setup", help="Run system setup and configuration")
+        self._add_setup_cli_args(setup_parser)
+
+        # Subcommand: whereis_docker
+        subparsers.add_parser("whereis_docker", help="Show where Docker is provided from (apt, snap, none, etc.)")
+
+        # Fallback to 'setup' when no subcommand is specified or legacy option flags are passed
+        raw_args = list(args_list) if args_list is not None else sys.argv[1:]
+        known_commands = list(subparsers.choices.keys())
+        if raw_args and raw_args[0] in known_commands:
+            effective_args = raw_args
+        elif raw_args and raw_args[0] in ("-h", "--help"):
+            effective_args = raw_args
+        else:
+            effective_args = ["setup"] + raw_args
+
+        args = parser.parse_args(effective_args)
         self._logger.info("args: {}".format(args))
 
         return args
@@ -132,6 +171,10 @@ treats the user ID tha is used to execute this tool as the main user."""
           This is primarily for testing purpose.
         """
         _args = self._cli_args(args_list)
+
+        if getattr(_args, "command", "setup") == "whereis_docker":
+            self.whereis_docker()
+            return True
 
         if not _args.hostname:
             _args.hostname = self.auto_detect_hostname(self._logger)
