@@ -365,7 +365,14 @@ class DebianSetup(ShellCapableOsSetup):
                 raise err
 
         # 5. Update package index and install Docker CE packages
-        self.apt_update(force=True)
+        try:
+            self.apt_update(force=True)
+        except subprocess.CalledProcessError as e:
+            msg = f"Failed to update package index for Docker CE: {e.stderr or e}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
         OsUtil.apt_install(self._DEBS_DOCKER, logger=self._logger)
 
         # 6. Create docker group and add user
