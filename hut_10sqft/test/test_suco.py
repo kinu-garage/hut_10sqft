@@ -1128,6 +1128,35 @@ def test_setup_docker_apt_update_failure(monkeypatch):
     assert any("Failed to fetch repository" in str(issue) for issue in setup._list_runtime_issues)
 
 
+def test_setup_docker_apt_install_failure(monkeypatch):
+    """Verify that RuntimeWarning from OsUtil.apt_install raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_apt_update(force=False):
+        pass
+
+    monkeypatch.setattr(setup, "apt_update", fake_apt_update)
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    def fake_apt_install(pkgs, logger=None):
+        if "docker-ce" in pkgs:
+            raise RuntimeWarning("The following pkgs didn't get installed:\n - docker-ce")
+
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to install Docker CE packages" in str(exc_info.value)
+    assert any("Failed to install Docker CE packages" in str(issue) for issue in setup._list_runtime_issues)
+
+
 def test_setup_docker_removes_snap_docker(monkeypatch):
     """Verify conflicting snap docker is removed if present."""
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
