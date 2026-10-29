@@ -1157,6 +1157,110 @@ def test_setup_docker_apt_install_failure(monkeypatch):
     assert any("Failed to install Docker CE packages" in str(issue) for issue in setup._list_runtime_issues)
 
 
+def test_setup_docker_prereq_install_failure(monkeypatch):
+    """Verify that RuntimeWarning from installing prerequisites raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    def fake_apt_install(pkgs, logger=None):
+        if setup._DEBS_DOCKER_PREREQ == pkgs:
+            raise RuntimeWarning("The following pkgs didn't get installed:\n - ca-certificates")
+
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to install Docker prerequisites" in str(exc_info.value)
+    assert any("Failed to install Docker prerequisites" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_key_download_failure(monkeypatch):
+    """Verify that failure downloading Docker GPG key raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "curl" in cmd and "gpg" in cmd:
+            return "", "curl: (6) Could not resolve host: download.docker.com", 6
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to download Docker GPG key" in str(exc_info.value)
+    assert any("Failed to download Docker GPG key" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_repo_write_failure(monkeypatch):
+    """Verify that failure writing docker.list raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "docker.list" in cmd:
+            return "", "Permission denied", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to write Docker repository configuration" in str(exc_info.value)
+    assert any("Failed to write Docker repository configuration" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_usermod_failure(monkeypatch):
+    """Verify that failure adding user to docker group raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "usermod" in cmd:
+            return "", "usermod: user 'test-user' does not exist", 6
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to add user 'test-user' to 'docker' group" in str(exc_info.value)
+    assert any("Failed to add user 'test-user' to 'docker' group" in str(issue) for issue in setup._list_runtime_issues)
+
+
 def test_setup_docker_removes_snap_docker(monkeypatch):
     """Verify conflicting snap docker is removed if present."""
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
