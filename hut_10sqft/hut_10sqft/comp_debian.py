@@ -312,15 +312,43 @@ class DebianSetup(ShellCapableOsSetup):
         distro = "ubuntu" if "ubuntu" in os_identifier else "debian"
 
         # 1. Install prerequisites
-        OsUtil.apt_install(self._DEBS_DOCKER_PREREQ, logger=self._logger)
+        try:
+            OsUtil.apt_install(self._DEBS_DOCKER_PREREQ, logger=self._logger)
+        except RuntimeWarning as e:
+            msg = f"Failed to install Docker prerequisites: {e}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
 
         # 2. Add Docker's official GPG key
-        OsUtil.subproc_bash("install -m 0755 -d /etc/apt/keyrings", does_sudo=True)
-        OsUtil.subproc_bash(
+        _out, _err, ret = OsUtil.subproc_bash("install -m 0755 -d /etc/apt/keyrings", does_sudo=True, logger=self._logger)
+        if ret != 0:
+            msg = f"Failed to create /etc/apt/keyrings directory with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
+
+        _out, _err, ret = OsUtil.subproc_bash(
             f"curl -fsSL https://download.docker.com/linux/{distro}/gpg -o /etc/apt/keyrings/docker.asc",
-            does_sudo=True
+            does_sudo=True,
+            logger=self._logger
         )
-        OsUtil.subproc_bash("chmod a+r /etc/apt/keyrings/docker.asc", does_sudo=True)
+        if ret != 0:
+            msg = f"Failed to download Docker GPG key with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
+
+        _out, _err, ret = OsUtil.subproc_bash("chmod a+r /etc/apt/keyrings/docker.asc", does_sudo=True, logger=self._logger)
+        if ret != 0:
+            msg = f"Failed to set permissions on Docker GPG key with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
 
         # 3. Add Docker CE repository
         repo_line = (
@@ -328,7 +356,13 @@ class DebianSetup(ShellCapableOsSetup):
             f"https://download.docker.com/linux/{distro} "
             f"$(. /etc/os-release && echo \"${{UBUNTU_CODENAME:-$VERSION_CODENAME}}\") stable"
         )
-        OsUtil.subproc_bash(f'echo "{repo_line}" > /etc/apt/sources.list.d/docker.list', does_sudo=True)
+        _out, _err, ret = OsUtil.subproc_bash(f'echo "{repo_line}" > /etc/apt/sources.list.d/docker.list', does_sudo=True, logger=self._logger)
+        if ret != 0:
+            msg = f"Failed to write Docker repository configuration with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
 
         # 4. Remove obsolete / conflicting packages if present
         conflicting_candidates = [
@@ -383,10 +417,23 @@ class DebianSetup(ShellCapableOsSetup):
             raise err
 
         # 6. Create docker group and add user
-        OsUtil.subproc_bash("groupadd -f docker", does_sudo=True)
+        _out, _err, ret = OsUtil.subproc_bash("groupadd -f docker", does_sudo=True, logger=self._logger)
+        if ret != 0:
+            msg = f"Failed to create 'docker' group with exit code {ret}: {_err}"
+            self._logger.error(msg)
+            err = RuntimeError(msg)
+            self.add_runtime_issue(err)
+            raise err
+
         if userid_os:
             quoted_user = shlex.quote(userid_os)
-            OsUtil.subproc_bash(f"usermod -aG docker {quoted_user}", does_sudo=True)
+            _out, _err, ret = OsUtil.subproc_bash(f"usermod -aG docker {quoted_user}", does_sudo=True, logger=self._logger)
+            if ret != 0:
+                msg = f"Failed to add user '{userid_os}' to 'docker' group with exit code {ret}: {_err}"
+                self._logger.error(msg)
+                err = RuntimeError(msg)
+                self.add_runtime_issue(err)
+                raise err
 
         # 7. Start and enable Docker service
         OsUtil.subproc_bash("systemctl enable --now docker || service docker start", does_sudo=True)
