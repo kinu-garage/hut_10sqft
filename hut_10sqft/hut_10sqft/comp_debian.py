@@ -282,7 +282,13 @@ class DebianSetup(ShellCapableOsSetup):
             _, _, ret_snap = OsUtil.subproc_bash("snap list docker")
             if ret_snap == 0:
                 self._logger.warning("Conflicting Docker snap package detected. Removing docker snap to prioritize Docker CE APT.")
-                OsUtil.subproc_bash("snap remove docker", does_sudo=True)
+                _out_snap, _err_snap, ret_remove = OsUtil.subproc_bash("snap remove docker", does_sudo=True, logger=self._logger)
+                if ret_remove != 0:
+                    msg = f"Failed to remove conflicting docker snap package (exit code {ret_remove}): {_err_snap}"
+                    self._logger.error(msg)
+                    err = RuntimeError(msg)
+                    self.add_runtime_issue(err)
+                    raise err
 
         try:
             res = self._is_docker_setup()
