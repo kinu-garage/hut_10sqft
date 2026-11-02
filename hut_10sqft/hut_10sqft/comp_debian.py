@@ -252,7 +252,7 @@ class DebianSetup(ShellCapableOsSetup):
             self.setup_swapfile(
                 size_gb=getattr(self._args_in, "swap_size_gb", self.SIZE_SWAPFILE_GB_DEFAULT),
                 skip=getattr(self._args_in, "skip_swap", False))
-        except (RuntimeWarning, RuntimeError) as e:
+        except (RuntimeWarning, RuntimeError, OSError) as e:
             self.add_runtime_issue(e)
 
     def setup_swapfile(self, size_gb: int=SIZE_SWAPFILE_GB_DEFAULT, path_swapfile: str=PATH_SWAPFILE, skip=False) -> bool:
