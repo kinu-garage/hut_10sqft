@@ -245,7 +245,10 @@ treats the user ID tha is used to execute this tool as the main user."""
         try:
             _args.os_type, _args.os_distro = self._resolve_os(_args.hostname, _args.os_type, _args.os_distro)
         except Exception as e:
-            self._logger.warning(f"Moving on with the given os_type '{_args.os_type}' / os_distro '{_args.os_distro}': {e}")
+            # Only 'os_distro' selects the builder below, so a supported one given by the user is enough to move on.
+            if _args.os_distro not in (ChromeOsSetup._OS_TYPE, DebianSetup._OS_TYPE, UbuntuOsSetup._OS_TYPE, MacOsSetup._OS_TYPE):
+                raise
+            self._logger.warning(f"Moving on with the given os_distro '{_args.os_distro}': {e}")
 
         # Builder pattern
         _os_builder = None

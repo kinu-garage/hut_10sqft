@@ -1659,6 +1659,25 @@ def test_suco_setup_swap_stops_when_os_detection_fails(monkeypatch):
     assert called == []
 
 
+def test_suco_run_os_detection_failure(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    def fail_get_os_type(logger=None):
+        raise OSError("cannot read /etc/os-release")
+    monkeypatch.setattr(OsUtil, "get_os_type", fail_get_os_type)
+
+    # No usable fallback: the original detection error surfaces, not a NotImplementedError for an empty distro.
+    with pytest.raises(OSError, match="cannot read /etc/os-release"):
+        CompInitSetup().run(args_list=["setup"])
+
+    # A supported os_distro given by the user is enough to move on to building the setup.
+    captured_builder = []
+    def fake_run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+        captured_builder.append(self)
+    monkeypatch.setattr(MacOsSetup, "run", fake_run)
+    assert CompInitSetup().run(args_list=["setup", "--os_distro", MacOsSetup._OS_TYPE]) is True
+    assert isinstance(captured_builder[0], MacOsSetup)
+
+
 @pytest.mark.parametrize("hostname,os_type,os_distro", [
     (CompInitSetupConfig.HOSTNAME_BRYA, OsUtil.TYPE_OS_LINUX, DebianSetup._OS_TYPE),            # ChromeOS Crostini
     (CompInitSetupConfig.HOSTNAME_IL80D4KK, OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE),     # WSL2
