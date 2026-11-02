@@ -1636,6 +1636,35 @@ def test_setup_swapfile_path_with_whitespace_and_quote(tmp_path, monkeypatch):
         assert sum(1 for line in f if not line.startswith("#")) == 1
 
 
+@pytest.mark.parametrize("fstab_text,expected", [
+    ("UUID=abc / ext4 defaults 0 1", "UUID=abc / ext4 defaults 0 1\n{entry}\n"),     # no trailing newline
+    ("UUID=abc / ext4 defaults 0 1\n", "UUID=abc / ext4 defaults 0 1\n{entry}\n"),   # trailing newline
+    ("", "{entry}\n"),                                                               # empty
+    (None, "{entry}\n"),                                                             # missing
+])
+def test_setup_swapfile_fstab_entry_is_its_own_line(tmp_path, monkeypatch, fstab_text, expected):
+    path_swapfile = str(tmp_path / "swapfile")
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 16777212 0 -2\n"], 5663964, "")
+    if fstab_text is None:
+        os.remove(path_fstab)
+    else:
+        with open(path_fstab, "w") as f:
+            f.write(fstab_text)
+
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        assert cmd.startswith("printf "), cmd
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # Already active at the requested size, so only the fstab entry is ensured. A re-run adds nothing.
+    for _ in range(2):
+        assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    with open(path_fstab) as f:
+        assert f.read() == expected.format(entry=f"{path_swapfile} none swap sw 0 0")
+
+
 def test_setup_swapfile_refuses_when_ram_cannot_absorb_swap(tmp_path, monkeypatch):
     path_swapfile = str(tmp_path / "swapfile")
     open(path_swapfile, "wb").close()
