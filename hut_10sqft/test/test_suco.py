@@ -1680,6 +1680,17 @@ def test_suco_setup_swap_subcommand(monkeypatch):
     assert called == [(8, DebianSetup.PATH_SWAPFILE)]
 
 
+@pytest.mark.parametrize("subcommand", ["setup", "setup_swap"])
+def test_suco_swap_size_gb_must_be_positive(subcommand, capsys):
+    for bad in ("0", "-5", "abc"):
+        with pytest.raises(SystemExit) as exc:
+            CompInitSetup()._cli_args([subcommand, "--swap_size_gb", bad])
+        assert exc.value.code == 2
+        assert "--swap_size_gb" in capsys.readouterr().err
+    assert CompInitSetup()._cli_args([subcommand, "--swap_size_gb", "8"]).swap_size_gb == 8
+    assert CompInitSetup()._cli_args([subcommand]).swap_size_gb == DebianSetup.SIZE_SWAPFILE_GB_DEFAULT
+
+
 def test_suco_setup_swap_stops_when_os_detection_fails(monkeypatch):
     called = []
     monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
