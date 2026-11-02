@@ -1556,3 +1556,86 @@ def test_suco_run_whereis_docker(capsys, monkeypatch):
     assert res is True
     captured = capsys.readouterr()
     assert "apt (docker-ce)" in captured.out
+
+
+def _write_swap_fixtures(tmp_path, swaps_lines, mem_available_kb, fstab_text):
+    path_swaps = tmp_path / "swaps"
+    path_swaps.write_text("Filename\tType\tSize\tUsed\tPriority\n" + "".join(swaps_lines))
+    path_meminfo = tmp_path / "meminfo"
+    path_meminfo.write_text(f"MemTotal:       32556336 kB\nMemAvailable:   {mem_available_kb} kB\n")
+    path_fstab = tmp_path / "fstab"
+    path_fstab.write_text(fstab_text)
+    return str(path_swaps), str(path_meminfo), str(path_fstab)
+
+
+def test_setup_swapfile_resizes_and_persists(tmp_path, monkeypatch):
+    path_swapfile = str(tmp_path / "swapfile")
+    with open(path_swapfile, "wb") as f:
+        f.truncate(2 * 1024 * 1024 * 1024)
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 2097148 2095924 -2\n"], 5663964, "# empty\n")
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        if cmd.startswith("stat -f"):
+            return "ext2/ext3", "", 0
+        if cmd.startswith("swapon"):
+            with open(path_swaps, "w") as f:
+                f.write(f"Filename\tType\tSize\tUsed\tPriority\n{path_swapfile} file 16777212 0 -2\n")
+        if "tee -a" in cmd:
+            with open(path_fstab, "a") as f:
+                f.write(f"{path_swapfile} none swap sw 0 0\n")
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
+    cmds = [c for c, _ in executed_cmds if not c.startswith("stat -f")]
+    assert [c.split()[0] for c in cmds] == ["swapoff", "rm", "fallocate", "chmod", "mkswap", "swapon", "echo"]
+    assert "fallocate -l 16G" in cmds[2]
+    assert all(sudo for c, sudo in executed_cmds if not c.startswith("stat -f"))
+
+    # Re-running is a no-op once the swapfile is sized and persisted.
+    executed_cmds.clear()
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    assert executed_cmds == []
+
+
+def test_setup_swapfile_refuses_when_ram_cannot_absorb_swap(tmp_path, monkeypatch):
+    path_swapfile = str(tmp_path / "swapfile")
+    open(path_swapfile, "wb").close()
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 2097148 2095924 -2\n"], 1000000, f"{path_swapfile} none swap sw 0 0\n")
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append(cmd)
+        return "ext2/ext3", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    with pytest.raises(RuntimeWarning, match="Retry when the system is less loaded"):
+        OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab)
+    assert not any(c.startswith("swapoff") for c in executed_cmds)
+
+    with pytest.raises(ValueError):
+        OsUtil.setup_swapfile(0, path_swapfile, path_swaps, path_meminfo, path_fstab)
+
+
+def test_setup_swapfile_skipped_per_os(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+
+    assert DebianSetup(args_in=args).setup_swapfile(skip=True) is False
+    assert ChromeOsSetup(args_in=args).setup_swapfile() is False
+    assert called == []
+    assert DebianSetup(args_in=args).setup_swapfile(size_gb=16) is True
+    assert called[0][0] == 16
+
+
+def test_suco_setup_swap_subcommand(monkeypatch):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda size_gb, path_swapfile="/swapfile", logger=None: called.append((size_gb, path_swapfile)) or True)
+    assert CompInitSetup().run(args_list=["setup_swap", "--swap_size_gb", "8"]) is True
+    assert called == [(8, DebianSetup.PATH_SWAPFILE)]
