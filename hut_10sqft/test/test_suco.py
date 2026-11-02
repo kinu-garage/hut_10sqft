@@ -1637,5 +1637,22 @@ def test_setup_swapfile_skipped_per_os(monkeypatch):
 def test_suco_setup_swap_subcommand(monkeypatch):
     called = []
     monkeypatch.setattr(OsUtil, "setup_swapfile", lambda size_gb, path_swapfile="/swapfile", logger=None: called.append((size_gb, path_swapfile)) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(os.path, "exists", lambda p: False if p in ("/dev/.cros_milestone", "/mnt/chromeos") else os.path.lexists(p))
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: (OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE))
     assert CompInitSetup().run(args_list=["setup_swap", "--swap_size_gb", "8"]) is True
     assert called == [(8, DebianSetup.PATH_SWAPFILE)]
+
+
+@pytest.mark.parametrize("hostname,os_type,os_distro", [
+    (CompInitSetupConfig.HOSTNAME_BRYA, OsUtil.TYPE_OS_LINUX, DebianSetup._OS_TYPE),            # ChromeOS Crostini
+    (CompInitSetupConfig.HOSTNAME_IL80D4KK, OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE),     # WSL2
+    ("mocked-mac-host", MacOsSetup._OS_TYPE, "None"),
+])
+def test_suco_setup_swap_skipped_on_unsupported_hosts(monkeypatch, hostname, os_type, os_distro):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: hostname)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: (os_type, os_distro))
+    assert CompInitSetup().setup_swap(16, DebianSetup.PATH_SWAPFILE) is False
+    assert called == []
