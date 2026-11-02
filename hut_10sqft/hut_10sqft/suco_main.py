@@ -97,6 +97,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         @summary: Fill in `os_type` / `os_distro` that are not given, by auto-detection.
           A ChromeOS Crostini container is told apart from generic Debian.
         @return: Tuple of (os_type, os_distro).
+        @raise Exception: Whatever auto-detection raised, after logging it.
         """
         if os_distro and os_type:
             return os_type, os_distro
@@ -122,7 +123,8 @@ treats the user ID tha is used to execute this tool as the main user."""
             if not os_distro:
                 os_distro = detected_distro
         except Exception as e:
-            self._logger.warning(f"OS auto-detection failed: {e}")
+            self._logger.error(f"OS auto-detection failed: {e}")
+            raise
         return os_type, os_distro
 
     def setup_swap(self, size_gb: int, path_swapfile: str) -> bool:
@@ -130,6 +132,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         @summary: Resize the swapfile without running the whole setup.
           Skipped on hosts whose swap is managed outside, i.e. ChromeOS (Crostini), WSL2 and macOS.
         @return bool: `True` if the swapfile was (re)created, `False` if it was already sized or skipped.
+        @raise Exception: When OS auto-detection fails, so that an unidentified host is never touched.
         """
         hostname = self.auto_detect_hostname(self._logger)
         _, os_distro = self._resolve_os(hostname)
@@ -239,7 +242,10 @@ treats the user ID tha is used to execute this tool as the main user."""
         if not _args.hostname:
             _args.hostname = self.auto_detect_hostname(self._logger)
 
-        _args.os_type, _args.os_distro = self._resolve_os(_args.hostname, _args.os_type, _args.os_distro)
+        try:
+            _args.os_type, _args.os_distro = self._resolve_os(_args.hostname, _args.os_type, _args.os_distro)
+        except Exception as e:
+            self._logger.warning(f"Moving on with the given os_type '{_args.os_type}' / os_distro '{_args.os_distro}': {e}")
 
         # Builder pattern
         _os_builder = None
