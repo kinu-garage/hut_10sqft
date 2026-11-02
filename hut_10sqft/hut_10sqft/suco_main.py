@@ -92,11 +92,53 @@ treats the user ID tha is used to execute this tool as the main user."""
         print(res)
         return res
 
+    def _resolve_os(self, hostname: str, os_type: str = "", os_distro: str = "") -> Tuple[str, str]:
+        """
+        @summary: Fill in `os_type` / `os_distro` that are not given, by auto-detection.
+          A ChromeOS Crostini container is told apart from generic Debian.
+        @return: Tuple of (os_type, os_distro).
+        """
+        if os_distro and os_type:
+            return os_type, os_distro
+        try:
+            detected_os, detected_distro = self.auto_detect_os(self._logger)
+            # Differentiate ChromeOS Crostini container from generic Debian
+            if detected_distro == DebianSetup._OS_TYPE:
+                is_known_cros_host = hostname in (
+                    CompInitSetupConfig.HOSTNAME_BRYA,
+                    CompInitSetupConfig.HOSTNAME_C13_MORPH,
+                    CompInitSetupConfig.HOSTNAME_ZORK16,
+                    CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5,
+                )
+                has_cros_marker = os.path.exists("/dev/.cros_milestone") or os.path.exists("/mnt/chromeos")
+                if is_known_cros_host or has_cros_marker:
+                    detected_distro = ChromeOsSetup._OS_TYPE
+                    self._logger.info(f"Detected ChromeOS Crostini environment: os_distro set to '{detected_distro}'.")
+            elif (detected_os == MacOsSetup._OS_TYPE or os_type == MacOsSetup._OS_TYPE) and (detected_distro == "None" or not detected_distro):
+                detected_distro = MacOsSetup._OS_TYPE
+
+            if not os_type:
+                os_type = detected_os
+            if not os_distro:
+                os_distro = detected_distro
+        except Exception as e:
+            self._logger.warning(f"OS auto-detection failed: {e}")
+        return os_type, os_distro
+
     def setup_swap(self, size_gb: int, path_swapfile: str) -> bool:
         """
         @summary: Resize the swapfile without running the whole setup.
-        @return bool: `True` if the swapfile was (re)created, `False` if it was already sized.
+          Skipped on hosts whose swap is managed outside, i.e. ChromeOS (Crostini), WSL2 and macOS.
+        @return bool: `True` if the swapfile was (re)created, `False` if it was already sized or skipped.
         """
+        hostname = self.auto_detect_hostname(self._logger)
+        _, os_distro = self._resolve_os(hostname)
+        if os_distro in (ChromeOsSetup._OS_TYPE, MacOsSetup._OS_TYPE):
+            self._logger.warning(f"Skipping swapfile setup on '{os_distro}', as swap is not managed by a swapfile on this host.")
+            return False
+        if os_distro == UbuntuOsSetup._OS_TYPE and hostname == CompInitSetupConfig.HOSTNAME_IL80D4KK:
+            self._logger.warning("Skipping swapfile setup on WSL2, as swap is configured in '.wslconfig' on the Windows host.")
+            return False
         return OsUtil.setup_swapfile(size_gb, path_swapfile=path_swapfile, logger=self._logger)
 
     def _add_setup_cli_args(self, parser: argparse.ArgumentParser):
@@ -197,30 +239,7 @@ treats the user ID tha is used to execute this tool as the main user."""
         if not _args.hostname:
             _args.hostname = self.auto_detect_hostname(self._logger)
 
-        if not _args.os_distro or not _args.os_type:
-            try:
-                detected_os, detected_distro = self.auto_detect_os(self._logger)
-                # Differentiate ChromeOS Crostini container from generic Debian
-                if detected_distro == DebianSetup._OS_TYPE:
-                    is_known_cros_host = _args.hostname in (
-                        CompInitSetupConfig.HOSTNAME_BRYA,
-                        CompInitSetupConfig.HOSTNAME_C13_MORPH,
-                        CompInitSetupConfig.HOSTNAME_ZORK16,
-                        CompInitSetupConfig.HOSTNAME_OPFYDE_RPI5,
-                    )
-                    has_cros_marker = os.path.exists("/dev/.cros_milestone") or os.path.exists("/mnt/chromeos")
-                    if is_known_cros_host or has_cros_marker:
-                        detected_distro = ChromeOsSetup._OS_TYPE
-                        self._logger.info(f"Detected ChromeOS Crostini environment: os_distro set to '{detected_distro}'.")
-                elif (detected_os == MacOsSetup._OS_TYPE or _args.os_type == MacOsSetup._OS_TYPE) and (detected_distro == "None" or not detected_distro):
-                    detected_distro = MacOsSetup._OS_TYPE
-
-                if not _args.os_type:
-                    _args.os_type = detected_os
-                if not _args.os_distro:
-                    _args.os_distro = detected_distro
-            except Exception as e:
-                self._logger.warning(f"OS auto-detection failed: {e}")
+        _args.os_type, _args.os_distro = self._resolve_os(_args.hostname, _args.os_type, _args.os_distro)
 
         # Builder pattern
         _os_builder = None
