@@ -1435,6 +1435,7 @@ def test_shell_capable_os_setup_catches_docker_runtime_error(monkeypatch):
     monkeypatch.setattr(setup, "common_symlinks", lambda *args, **kwargs: None)
     monkeypatch.setattr(setup, "setup_configs", lambda *args, **kwargs: None)
     monkeypatch.setattr(setup, "setup_vscode", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_swapfile", lambda *args, **kwargs: False)
 
     host_cfg = HostConf("test-host", "bashrc", "emacs", "rsa", "pub")
     setup.run(host_cfg, conf_repo_remote="https://github.com/kinu-garage/hut_10sqft.git", conf_base_path="/tmp")
