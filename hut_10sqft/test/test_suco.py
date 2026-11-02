@@ -1647,6 +1647,18 @@ def test_suco_setup_swap_subcommand(monkeypatch):
     assert called == [(8, DebianSetup.PATH_SWAPFILE)]
 
 
+def test_suco_setup_swap_stops_when_os_detection_fails(monkeypatch):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    def fail_get_os_type(logger=None):
+        raise OSError("cannot read /etc/os-release")
+    monkeypatch.setattr(OsUtil, "get_os_type", fail_get_os_type)
+    with pytest.raises(OSError, match="cannot read /etc/os-release"):
+        CompInitSetup().setup_swap(16, DebianSetup.PATH_SWAPFILE)
+    assert called == []
+
+
 @pytest.mark.parametrize("hostname,os_type,os_distro", [
     (CompInitSetupConfig.HOSTNAME_BRYA, OsUtil.TYPE_OS_LINUX, DebianSetup._OS_TYPE),            # ChromeOS Crostini
     (CompInitSetupConfig.HOSTNAME_IL80D4KK, OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE),     # WSL2
