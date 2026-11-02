@@ -526,7 +526,14 @@ class OsUtil:
             # fstab escaping keeps the path a single field; shell quoting keeps the command safe. 'printf' rather than
             # 'echo', as dash's echo would turn the escapes back into whitespace.
             line_fstab = f"{OsUtil.encode_fstab_field(path_swapfile)} none swap sw 0 0"
-            _run(f"printf '%s\\n' {shlex.quote(line_fstab)} | tee -a {shlex.quote(path_fstab)} > /dev/null")
+            # Without a trailing newline in the file, the entry would be glued onto its last line.
+            fmt_printf = "%s\\n"
+            if os.path.exists(path_fstab) and os.path.getsize(path_fstab) > 0:
+                with open(path_fstab, "rb") as f:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        fmt_printf = "\\n%s\\n"
+            _run(f"printf {shlex.quote(fmt_printf)} {shlex.quote(line_fstab)} | tee -a {shlex.quote(path_fstab)} > /dev/null")
 
         swaps = OsUtil.read_proc_swaps(path_proc_swaps)
         # /proc/swaps reports the size minus the header page, hence the 4 kB tolerance.
