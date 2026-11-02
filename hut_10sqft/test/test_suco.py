@@ -1670,6 +1670,26 @@ def test_setup_swapfile_skipped_per_os(monkeypatch):
     assert called[0][0] == 16
 
 
+@pytest.mark.parametrize("err", [
+    RuntimeWarning("not enough disk space"),
+    RuntimeError("'mkswap /swapfile' failed"),
+    FileNotFoundError(2, "No such file or directory", "/proc/swaps"),
+    PermissionError(13, "Permission denied", "/etc/fstab"),
+])
+def test_debian_run_records_swapfile_errors(monkeypatch, err):
+    from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(ShellCapableOsSetup, "run", lambda self, *a, **kw: None)
+    def raise_err(*a, **kw):
+        raise err
+    monkeypatch.setattr(OsUtil, "setup_swapfile", raise_err)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    setup.run(HostConf("test-host", "bashrc", "emacs", "rsa", "pub"), conf_repo_remote="")
+    assert err in setup._list_runtime_issues
+
+
 def test_suco_setup_swap_subcommand(monkeypatch):
     called = []
     monkeypatch.setattr(OsUtil, "setup_swapfile", lambda size_gb, path_swapfile="/swapfile", logger=None: called.append((size_gb, path_swapfile)) or True)
