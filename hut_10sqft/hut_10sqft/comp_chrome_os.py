@@ -31,6 +31,10 @@ class ChromeOsSetup(DebianSetup):
         self._logger.warning(
             f"Skipping Dropbox setup on {self._OS_TYPE}, as it runs on the Chrome OS host without allowing to mount the directory onto Linux mode.")
 
+    def setup_swapfile(self, size_gb: int=DebianSetup.SIZE_SWAPFILE_GB_DEFAULT, path_swapfile: str=DebianSetup.PATH_SWAPFILE, skip=False) -> bool:
+        self._logger.warning(f"Skipping swapfile setup on {self._OS_TYPE}, as swap is managed by the Chrome OS host while SUCO runs on a container.")
+        return False
+
     def generate_symlinks(self, rootpath_symlinks: str, path_user_home=""):
         """
         @param rootpath_symlinks: Path to the directory that is designed to host the list of symlinks e.g. '~/link'.

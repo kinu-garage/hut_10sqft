@@ -61,6 +61,8 @@ class DebianSetup(ShellCapableOsSetup):
                 ] + _DEBS_MOZC + _DEBS_VIRTUALBOX
     _OS_TYPE = OsUtil.TYPE_LINUX_DISTRO_DEBIAN
     _PIP_PKGS = ["pipx"]
+    PATH_SWAPFILE = "/swapfile"
+    SIZE_SWAPFILE_GB_DEFAULT = 16
 
     def __init__(self, os_name=_OS_TYPE, args_in: argparse.Namespace=None, default_userid=CompInitSetupConfig.VAL_USERID_DEFAULT):
         # This variable might be accessed in `super().__init__` so
@@ -246,6 +248,25 @@ class DebianSetup(ShellCapableOsSetup):
     def run(self, host_config, conf_repo_remote, conf_base_path=""):
         super().run(host_config, conf_repo_remote, conf_base_path)
         self.setup_oracle_java()
+        try:
+            self.setup_swapfile(
+                size_gb=getattr(self._args_in, "swap_size_gb", self.SIZE_SWAPFILE_GB_DEFAULT),
+                skip=getattr(self._args_in, "skip_swap", False))
+        except (RuntimeWarning, RuntimeError) as e:
+            self.add_runtime_issue(e)
+
+    def setup_swapfile(self, size_gb: int=SIZE_SWAPFILE_GB_DEFAULT, path_swapfile: str=PATH_SWAPFILE, skip=False) -> bool:
+        """
+        @summary: Resize the swapfile to `size_gb` GiB and persist it. Safe to re-run; no-op when already sized.
+        @return bool: `True` if the swapfile was (re)created.
+        @raise RuntimeWarning: When a precondition is not met. Nothing is changed in that case.
+        @raise RuntimeError: When a command fails midway.
+        @see https://github.com/kinu-garage/essay_in_idleness/issues/558
+        """
+        if skip:
+            self._logger.info("Skipping swapfile setup as 'skip' is set to True.")
+            return False
+        return OsUtil.setup_swapfile(size_gb, path_swapfile=path_swapfile, logger=self._logger)
 
     def apt_update(self, force=False):
         if self.apt_updated and not force:

@@ -92,6 +92,13 @@ treats the user ID tha is used to execute this tool as the main user."""
         print(res)
         return res
 
+    def setup_swap(self, size_gb: int, path_swapfile: str) -> bool:
+        """
+        @summary: Resize the swapfile without running the whole setup.
+        @return bool: `True` if the swapfile was (re)created, `False` if it was already sized.
+        """
+        return OsUtil.setup_swapfile(size_gb, path_swapfile=path_swapfile, logger=self._logger)
+
     def _add_setup_cli_args(self, parser: argparse.ArgumentParser):
         # Base installer args
         parser.add_argument("--path_base_conf", required=False, help=CompInitSetupConfig.MSG_ARG_BASE_CONF_PATH, default=CompInitSetupConfig.PATH_FOLDER_CONF)
@@ -114,6 +121,8 @@ treats the user ID tha is used to execute this tool as the main user."""
         parser.add_argument("--skip_setup_docker", required=False, help="Skip setup for docker", action="store_true")
         parser.add_argument("--skip_dropbox", required=False, help="Skip setup for Dropbox", action="store_true")
         parser.add_argument("--skip_ssh", required=False, help="Skip setup for ssh server", action="store_true")
+        parser.add_argument("--skip_swap", required=False, help="Skip resizing the swapfile", action="store_true")
+        parser.add_argument("--swap_size_gb", required=False, type=int, help="Size of the swapfile in GiB.", default=DebianSetup.SIZE_SWAPFILE_GB_DEFAULT)
         parser.add_argument("--path_vscode_installer", required=False, help="Absolute path to the installer of VSCode.", default=self._PATH_VSCODE_INSTALLER)
         parser.add_argument("--remove_tmpws", required=False, help=self._MSG_REMOVE_TMP_COLCONWS, action="store_true")
 
@@ -133,6 +142,11 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         # Subcommand: whereis_docker
         subparsers.add_parser("whereis_docker", help="Show where Docker is provided from (apt, snap, none, etc.)")
+
+        # Subcommand: setup_swap
+        swap_parser = subparsers.add_parser("setup_swap", help="Resize the swapfile and persist it in /etc/fstab (Linux only). Safe to re-run.")
+        swap_parser.add_argument("--swap_size_gb", required=False, type=int, help="Size of the swapfile in GiB.", default=DebianSetup.SIZE_SWAPFILE_GB_DEFAULT)
+        swap_parser.add_argument("--path_swapfile", required=False, help="Path to the swapfile.", default=DebianSetup.PATH_SWAPFILE)
 
         # Fallback to 'setup' when no subcommand is specified or legacy option flags are passed
         raw_args = list(args_list) if args_list is not None else sys.argv[1:]
@@ -174,6 +188,10 @@ treats the user ID tha is used to execute this tool as the main user."""
 
         if getattr(_args, "command", "setup") == "whereis_docker":
             self.whereis_docker()
+            return True
+
+        if getattr(_args, "command", "setup") == "setup_swap":
+            self.setup_swap(_args.swap_size_gb, _args.path_swapfile)
             return True
 
         if not _args.hostname:

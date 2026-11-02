@@ -437,6 +437,122 @@ class OsUtil:
         return f"other: {path_docker}"
 
     @staticmethod
+    def read_proc_swaps(path_proc_swaps: str = "/proc/swaps") -> Dict[str, Tuple[int, int]]:
+        """
+        @return: Dict of active swap areas, `{path: (size_kb, used_kb)}`.
+        """
+        swaps = {}
+        with open(path_proc_swaps, encoding="utf-8") as f:
+            for line in f.readlines()[1:]:
+                cols = line.split()
+                if len(cols) >= 4:
+                    swaps[cols[0]] = (int(cols[2]), int(cols[3]))
+        return swaps
+
+    @staticmethod
+    def read_mem_available_kb(path_meminfo: str = "/proc/meminfo") -> int:
+        """
+        @raise RuntimeError: When 'MemAvailable' is not found in `path_meminfo`.
+        """
+        with open(path_meminfo, encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1])
+        raise RuntimeError(f"'MemAvailable' not found in '{path_meminfo}'.")
+
+    @staticmethod
+    def fstab_has_swap_entry(path_swapfile: str, path_fstab: str = "/etc/fstab") -> bool:
+        if not os.path.exists(path_fstab):
+            return False
+        with open(path_fstab, encoding="utf-8") as f:
+            for line in f:
+                cols = line.split()
+                if len(cols) >= 3 and not cols[0].startswith("#") and cols[0] == path_swapfile and cols[2] == "swap":
+                    return True
+        return False
+
+    @staticmethod
+    def setup_swapfile(
+            size_gb: int,
+            path_swapfile: str = "/swapfile",
+            path_proc_swaps: str = "/proc/swaps",
+            path_meminfo: str = "/proc/meminfo",
+            path_fstab: str = "/etc/fstab",
+            logger=None) -> bool:
+        """
+        @summary: Idempotently (re)create a swapfile of `size_gb` GiB, activate it and persist it in fstab.
+          Nothing is changed when the swapfile is already active with at least `size_gb` GiB.
+        @return bool: `True` if the swapfile was (re)created, `False` if it was already sized as requested.
+        @raise ValueError: When `size_gb` is not positive.
+        @raise RuntimeWarning: When a precondition is not met (unsupported filesystem, insufficient disk space,
+          not enough available RAM to absorb the pages currently in the swapfile). Nothing is changed in that case.
+        @raise RuntimeError: When a command fails midway.
+        @see https://github.com/kinu-garage/essay_in_idleness/issues/558
+        """
+        if not logger:
+            logger = OsUtil._gen_logger()
+        if size_gb <= 0:
+            raise ValueError(f"'size_gb' must be positive, got {size_gb}.")
+
+        _MARGIN_KB = 1024 * 1024  # 1 GiB
+        size_kb = size_gb * 1024 * 1024
+        quoted_path = shlex.quote(path_swapfile)
+
+        def _run(cmd: str):
+            _out, _err, ret = OsUtil.subproc_bash(cmd, does_sudo=True, logger=logger)
+            if ret != 0:
+                raise RuntimeError(f"'{cmd}' failed with exit code {ret}: {_err}")
+
+        def _ensure_fstab():
+            if OsUtil.fstab_has_swap_entry(path_swapfile, path_fstab):
+                return
+            logger.info(f"Adding swap entry for '{path_swapfile}' to '{path_fstab}'.")
+            _run(f"echo '{path_swapfile} none swap sw 0 0' | tee -a {shlex.quote(path_fstab)} > /dev/null")
+
+        swaps = OsUtil.read_proc_swaps(path_proc_swaps)
+        # /proc/swaps reports the size minus the header page, hence the 4 kB tolerance.
+        if path_swapfile in swaps and swaps[path_swapfile][0] >= size_kb - 4:
+            logger.info(f"Swapfile '{path_swapfile}' is already active with {swaps[path_swapfile][0]} kB (>= {size_gb} GiB). Nothing to resize.")
+            _ensure_fstab()
+            return False
+
+        dir_swapfile = os.path.dirname(path_swapfile) or "/"
+        out_fs, _, ret_fs = OsUtil.subproc_bash(f"stat -f -c %T {shlex.quote(dir_swapfile)}", logger=logger)
+        if ret_fs == 0 and out_fs.strip() == "btrfs":
+            raise RuntimeWarning(f"'{dir_swapfile}' is on btrfs, which needs 'btrfs filesystem mkswapfile'. Not supported here.")
+
+        size_existing_kb = os.path.getsize(path_swapfile) // 1024 if os.path.exists(path_swapfile) else 0
+        free_kb = shutil.disk_usage(dir_swapfile).free // 1024
+        if free_kb + size_existing_kb < size_kb + _MARGIN_KB:
+            raise RuntimeWarning(f"Not enough disk space on '{dir_swapfile}' for a {size_gb} GiB swapfile ({free_kb} kB free).")
+
+        if path_swapfile in swaps:
+            used_kb = swaps[path_swapfile][1]
+            avail_kb = OsUtil.read_mem_available_kb(path_meminfo)
+            if avail_kb < used_kb + _MARGIN_KB:
+                raise RuntimeWarning(
+                    f"Swapfile '{path_swapfile}' holds {used_kb} kB but only {avail_kb} kB RAM is available to absorb it "
+                    "during 'swapoff'. Retry when the system is less loaded.")
+            logger.info(f"Deactivating '{path_swapfile}' ({used_kb} kB in use) to resize it to {size_gb} GiB.")
+            _run(f"swapoff {quoted_path}")
+
+        _run(f"rm -f {quoted_path}")
+        try:
+            _run(f"fallocate -l {size_gb}G {quoted_path}")
+        except RuntimeError as e:
+            logger.warning(f"fallocate failed, falling back to dd: {e}")
+            _run(f"dd if=/dev/zero of={quoted_path} bs=1M count={size_gb * 1024} status=none")
+        _run(f"chmod 600 {quoted_path}")
+        _run(f"mkswap {quoted_path}")
+        _run(f"swapon {quoted_path}")
+        _ensure_fstab()
+
+        if path_swapfile not in OsUtil.read_proc_swaps(path_proc_swaps):
+            raise RuntimeError(f"Swapfile '{path_swapfile}' is not listed in '{path_proc_swaps}' after 'swapon'.")
+        logger.info(f"Swapfile '{path_swapfile}' is now active with {size_gb} GiB.")
+        return True
+
+    @staticmethod
     def get_os_type(logger=None) -> tuple[str, str]:
         _FILEPATH_OS_RELEASE = "/etc/os-release"
         _FILEPATH_LSB_RELEASE = "/etc/lsb-release"
