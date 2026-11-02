@@ -39,6 +39,8 @@ class OsUtil:
     TYPE_OS_MACOS_DARWIN = "Darwin"
     TYPE_LINUX_DISTRO_DEBIAN = "Debian"
     TYPE_LINUX_DISTRO_UBUNTU = "Ubuntu"
+    # Characters that fstab(5) and /proc/swaps write as octal escapes within a field.
+    _FSTAB_FIELD_ESCAPES = {" ": "\\040", "\t": "\\011", "\n": "\\012", "\\": "\\134"}
 
     def __init__(self, logger=None):
         if logger:
@@ -437,6 +439,20 @@ class OsUtil:
         return f"other: {path_docker}"
 
     @staticmethod
+    def encode_fstab_field(value: str) -> str:
+        """
+        @summary: Escape whitespace and backslashes as fstab(5) octal escapes, e.g. ' ' -> '\\040'.
+        """
+        return "".join(OsUtil._FSTAB_FIELD_ESCAPES.get(c, c) for c in value)
+
+    @staticmethod
+    def decode_fstab_field(value: str) -> str:
+        """
+        @summary: Reverse of `encode_fstab_field`. Also applies to the paths in /proc/swaps.
+        """
+        return re.sub(r"\\([0-7]{3})", lambda m: chr(int(m.group(1), 8)), value)
+
+    @staticmethod
     def read_proc_swaps(path_proc_swaps: str = "/proc/swaps") -> Dict[str, Tuple[int, int]]:
         """
         @return: Dict of active swap areas, `{path: (size_kb, used_kb)}`.
@@ -446,7 +462,7 @@ class OsUtil:
             for line in f.readlines()[1:]:
                 cols = line.split()
                 if len(cols) >= 4:
-                    swaps[cols[0]] = (int(cols[2]), int(cols[3]))
+                    swaps[OsUtil.decode_fstab_field(cols[0])] = (int(cols[2]), int(cols[3]))
         return swaps
 
     @staticmethod
@@ -467,7 +483,7 @@ class OsUtil:
         with open(path_fstab, encoding="utf-8") as f:
             for line in f:
                 cols = line.split()
-                if len(cols) >= 3 and not cols[0].startswith("#") and cols[0] == path_swapfile and cols[2] == "swap":
+                if len(cols) >= 3 and not cols[0].startswith("#") and OsUtil.decode_fstab_field(cols[0]) == path_swapfile and cols[2] == "swap":
                     return True
         return False
 
@@ -507,7 +523,10 @@ class OsUtil:
             if OsUtil.fstab_has_swap_entry(path_swapfile, path_fstab):
                 return
             logger.info(f"Adding swap entry for '{path_swapfile}' to '{path_fstab}'.")
-            _run(f"echo '{path_swapfile} none swap sw 0 0' | tee -a {shlex.quote(path_fstab)} > /dev/null")
+            # fstab escaping keeps the path a single field; shell quoting keeps the command safe. 'printf' rather than
+            # 'echo', as dash's echo would turn the escapes back into whitespace.
+            line_fstab = f"{OsUtil.encode_fstab_field(path_swapfile)} none swap sw 0 0"
+            _run(f"printf '%s\\n' {shlex.quote(line_fstab)} | tee -a {shlex.quote(path_fstab)} > /dev/null")
 
         swaps = OsUtil.read_proc_swaps(path_proc_swaps)
         # /proc/swaps reports the size minus the header page, hence the 4 kB tolerance.

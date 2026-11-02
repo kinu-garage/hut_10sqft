@@ -1585,15 +1585,15 @@ def test_setup_swapfile_resizes_and_persists(tmp_path, monkeypatch):
             with open(path_swaps, "w") as f:
                 f.write(f"Filename\tType\tSize\tUsed\tPriority\n{path_swapfile} file 16777212 0 -2\n")
         if "tee -a" in cmd:
-            with open(path_fstab, "a") as f:
-                f.write(f"{path_swapfile} none swap sw 0 0\n")
+            # The fstab target is under tmp_path, so the real command runs without sudo.
+            subprocess.run(["/bin/sh", "-c", cmd], check=True)
         return "", "", 0
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
     monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
 
     assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
     cmds = [c for c, _ in executed_cmds if not c.startswith("stat -f")]
-    assert [c.split()[0] for c in cmds] == ["swapoff", "rm", "fallocate", "chmod", "mkswap", "swapon", "echo"]
+    assert [c.split()[0] for c in cmds] == ["swapoff", "rm", "fallocate", "chmod", "mkswap", "swapon", "printf"]
     assert "fallocate -l 16G" in cmds[2]
     assert all(sudo for c, sudo in executed_cmds if not c.startswith("stat -f"))
 
@@ -1601,6 +1601,39 @@ def test_setup_swapfile_resizes_and_persists(tmp_path, monkeypatch):
     executed_cmds.clear()
     assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
     assert executed_cmds == []
+
+
+def test_setup_swapfile_path_with_whitespace_and_quote(tmp_path, monkeypatch):
+    dir_swap = tmp_path / "my swap's dir"
+    dir_swap.mkdir()
+    path_swapfile = str(dir_swap / "swap\tfile")
+    path_encoded = OsUtil.encode_fstab_field(path_swapfile)
+    assert " " not in path_encoded and "\t" not in path_encoded
+    assert OsUtil.decode_fstab_field(path_encoded) == path_swapfile
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(tmp_path, [], 5663964, "# empty\n")
+
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        if cmd.startswith("stat -f"):
+            return "ext2/ext3", "", 0
+        if cmd.startswith("swapon"):
+            # The kernel escapes whitespace in /proc/swaps the same way as fstab.
+            with open(path_swaps, "w") as f:
+                f.write(f"Filename\tType\tSize\tUsed\tPriority\n{path_encoded} file 16777212 0 -2\n")
+        if "tee -a" in cmd:
+            subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
+
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
+    with open(path_fstab) as f:
+        entries = [line.split() for line in f if not line.startswith("#")]
+    assert entries == [[path_encoded, "none", "swap", "sw", "0", "0"]]
+
+    # Both /proc/swaps and fstab are matched after decoding, so a re-run is a no-op and adds no duplicate.
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    with open(path_fstab) as f:
+        assert sum(1 for line in f if not line.startswith("#")) == 1
 
 
 def test_setup_swapfile_refuses_when_ram_cannot_absorb_swap(tmp_path, monkeypatch):
