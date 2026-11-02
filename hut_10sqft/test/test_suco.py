@@ -1589,6 +1589,7 @@ def test_setup_swapfile_resizes_and_persists(tmp_path, monkeypatch):
                 f.write(f"{path_swapfile} none swap sw 0 0\n")
         return "", "", 0
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
 
     assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
     cmds = [c for c, _ in executed_cmds if not c.startswith("stat -f")]
@@ -1613,6 +1614,7 @@ def test_setup_swapfile_refuses_when_ram_cannot_absorb_swap(tmp_path, monkeypatc
         executed_cmds.append(cmd)
         return "ext2/ext3", "", 0
     monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
 
     with pytest.raises(RuntimeWarning, match="Retry when the system is less loaded"):
         OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab)
