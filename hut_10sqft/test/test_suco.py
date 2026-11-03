@@ -205,12 +205,10 @@ def test_setup_rosdep():
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Antigravity CLI setup has only been verified for Linux so far on SUCO.")
-def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
-    """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
-    parser = argparse.ArgumentParser(description="")
-    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+def test_setup_antigravity_cli_for_linux(tmp_path, monkeypatch, caplog):
+    """The shared Linux setup should install Antigravity CLI via curl installer and export its PATH."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     monkeypatch.setattr(DebianSetup, "apt_update", lambda self: None)
-    setup = DebianSetup(args_in=args)
 
     called = {}
 
@@ -220,6 +218,16 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     def fake_install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
         called["pip"] = pip_pkgs
 
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+    monkeypatch.setattr(OsUtil, "install_pip_adhoc", fake_install_pip_adhoc)
+
+    parser = argparse.ArgumentParser(description="")
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    home_dir = tmp_path / "home"
+    setup._user_home_dir = str(home_dir)
+    os.makedirs(home_dir, exist_ok=True)
+
     def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
         called.setdefault("cmds", []).append(cmd)
         if "install.sh" in cmd:
@@ -227,7 +235,7 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
             path_bin = os.path.join(path_user_home, ".local", "bin")
             os.makedirs(path_bin, exist_ok=True)
             with open(os.path.join(path_bin, "agy"), "w", encoding="utf-8") as fh:
-                fh.write("#!/bin/sh\n")
+                fh.write("#!/bin/sh\necho 'mock agy'\n" + "x" * 2000)
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
@@ -241,13 +249,56 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     assert called["pip"] == []
     assert any("install.sh" in cmd for cmd in called["cmds"])
     assert any("gh auth status" in cmd for cmd in called["cmds"])
-    path_user_home = getattr(setup, "_user_home_dir", os.path.expanduser("~"))
-    path_bashrc = os.path.join(path_user_home, ".bashrc")
-    if not os.path.exists(path_bashrc):
-        with open(path_bashrc, "w", encoding="utf-8") as fh:
-            fh.write("")
+    path_bashrc = os.path.join(str(home_dir), ".bashrc")
     with open(path_bashrc, "r", encoding="utf-8") as fh:
         assert "antigravity" in fh.read().lower()
+    path_agy = os.path.join(str(home_dir), ".local", "bin", "agy")
+    assert os.path.exists(path_agy)
+
+    # Verify cleaning up corrupted stub (< 1000 bytes) triggers reinstallation
+    with open(path_agy, "w", encoding="utf-8") as fh:
+        fh.write("#!/bin/sh\n")  # 10 byte stub
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert any("install.sh" in cmd for cmd in called["cmds"])
+
+    # Verify existing ~/.gemini/bin/agy gets symlinked
+    os.remove(path_agy)
+    gemini_bin = home_dir / ".gemini" / "bin"
+    gemini_bin.mkdir(parents=True, exist_ok=True)
+    gemini_agy = gemini_bin / "agy"
+    gemini_agy.write_text("#!/bin/sh\n" + "y" * 2000, encoding="utf-8")
+    gemini_agy.chmod(0o755)
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert os.path.islink(path_agy)
+    assert os.path.realpath(path_agy) == str(gemini_agy)
+    assert not any("install.sh" in cmd for cmd in called["cmds"])
+
+    # Verify non-executable agy gets repaired with execute permissions without re-running installer
+    os.remove(path_agy)
+    with open(path_agy, "w", encoding="utf-8") as fh:
+        fh.write("#!/bin/sh\n" + "z" * 2000)
+    os.chmod(path_agy, 0o644)
+    assert not os.access(path_agy, os.X_OK)
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert os.access(path_agy, os.X_OK)
+    assert not any("install.sh" in cmd for cmd in called["cmds"])
+
+    # Verify 0600 mode only becomes executable for owner (0700), not group or others
+    os.remove(path_agy)
+    with open(path_agy, "w", encoding="utf-8") as fh:
+        fh.write("#!/bin/sh\n" + "w" * 2000)
+    os.chmod(path_agy, 0o600)
+    setup.setup_antigravity_cli()
+    assert os.stat(path_agy).st_mode & 0o777 == 0o700
+
+    # Verify _make_executable_for_readers preserves mode and raises PermissionError when owner read is missing
+    os.chmod(path_agy, 0o200)
+    with pytest.raises(PermissionError):
+        DebianSetup._make_executable_for_readers(path_agy)
+    assert os.stat(path_agy).st_mode & 0o777 == 0o200
 
 
 def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
@@ -377,3 +428,1216 @@ def test_emacs_lisp_syntax():
         )
         assert res.returncode == 0, f"Emacs batch load failed: {res.stderr}"
 
+<<<<<<< HEAD
+=======
+
+def test_swap_caps_ctrl(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    verified_pkgs = []
+    monkeypatch.setattr(setup, "verify_deb_installed", lambda pkg: verified_pkgs.append(pkg))
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    setup.swap_caps_ctrl()
+    assert verified_pkgs == [DebianSetup._DEB_CAPS_CTRL_UTIL]
+    assert len(executed_cmds) == 1
+    assert "gsettings set org.gnome.desktop.input-sources xkb-options \"['ctrl:swapcaps']\"" in executed_cmds[0][0]
+    assert executed_cmds[0][1] is False
+
+    # Verify failure raises RuntimeError
+    monkeypatch.setattr(
+        OsUtil,
+        "subproc_bash",
+        lambda cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False: ("", "dconf error", 1)
+    )
+    with pytest.raises(RuntimeError, match="Failed to configure Caps/Ctrl swap"):
+        setup.swap_caps_ctrl()
+
+
+
+def test_setup_agent_skills(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._user_home_dir = str(tmp_path / "home")
+
+    conf_dir = tmp_path / "conf"
+    skills_dir = conf_dir / "skills" / "test-skill"
+    skills_dir.mkdir(parents=True)
+    (skills_dir / "SKILL.md").write_text("---\nname: test-skill\n---\n", encoding="utf-8")
+
+    # 1. Initial creation of directory symlinks
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+
+    dest_gemini = tmp_path / "home" / ".gemini" / "antigravity" / "skills" / "test-skill"
+    dest_gemini_cli = tmp_path / "home" / ".gemini" / "antigravity-cli" / "skills" / "test-skill"
+    dest_claude = tmp_path / "home" / ".claude" / "skills" / "test-skill"
+    assert dest_gemini.is_symlink()
+    assert dest_gemini_cli.is_symlink()
+    assert dest_claude.is_symlink()
+    assert dest_gemini.resolve() == skills_dir.resolve()
+    assert dest_gemini_cli.resolve() == skills_dir.resolve()
+    assert dest_claude.resolve() == skills_dir.resolve()
+
+    # 2. Idempotent re-run leaves existing symlinks unchanged
+    mtime_before = dest_gemini.lstat().st_mtime_ns
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert dest_gemini.is_symlink()
+    assert dest_gemini.lstat().st_mtime_ns == mtime_before
+
+    # 3. Preserves unrelated existing non-symlink destination
+    unrelated_skill = conf_dir / "skills" / "custom-skill"
+    unrelated_skill.mkdir(parents=True)
+    (unrelated_skill / "SKILL.md").write_text("---\nname: custom-skill\n---\n", encoding="utf-8")
+
+    existing_custom_dir = tmp_path / "home" / ".claude" / "skills" / "custom-skill"
+    existing_custom_dir.mkdir(parents=True)
+    custom_marker = existing_custom_dir / "local_file.txt"
+    custom_marker.write_text("user content", encoding="utf-8")
+
+    setup.setup_agent_skills(path_local_perm_conf=str(conf_dir))
+    assert not existing_custom_dir.is_symlink()
+    assert custom_marker.exists()
+    assert custom_marker.read_text(encoding="utf-8") == "user content"
+
+
+def test_setup_agent_remote_control(tmp_path, monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    home_dir = tmp_path / "home"
+    setup._user_home_dir = str(home_dir)
+
+    # Pre-create bashrc and VS Code User dir
+    bashrc_file = home_dir / ".bashrc"
+    home_dir.mkdir(parents=True)
+    bashrc_file.write_text("# existing bashrc\n", encoding="utf-8")
+
+    vscode_user_dir = home_dir / ".config" / "Code" / "User"
+    vscode_user_dir.mkdir(parents=True)
+    vscode_settings = vscode_user_dir / "settings.json"
+    vscode_settings.write_text("{\n  \"editor.fontSize\": 14\n}\n", encoding="utf-8")
+
+    executed_cmds = []
+    def fake_subproc(cmd, does_sudo=False, logger=None):
+        executed_cmds.append(cmd)
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    monkeypatch.setattr(shutil, "which", lambda cmd: "/custom path with spaces/bin/agy" if cmd == "agy" else None)
+
+    setup.setup_agent_remote_control()
+
+    # 1. Claude Code settings.json
+    path_claude_settings = home_dir / ".claude" / "settings.json"
+    assert path_claude_settings.exists()
+    data = json.loads(path_claude_settings.read_text(encoding="utf-8"))
+    assert data.get("remoteControlAtStartup") is True
+
+    # 2. Antigravity remote-control command safely quoted
+    assert any("'/custom path with spaces/bin/agy' remote-control start" in cmd for cmd in executed_cmds)
+
+    # 3. Antigravity CLI alias in .bashrc and executable wrapper
+    assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+    agy_rc_bin = home_dir / ".local" / "bin" / "agy-rc"
+    assert agy_rc_bin.exists()
+    assert os.access(str(agy_rc_bin), os.X_OK)
+
+    # Verify migration of legacy alias agy="agy --remote-control"
+    bashrc_file.write_text('alias agy="agy --remote-control"\n', encoding="utf-8")
+    setup.setup_agent_remote_control()
+    assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+    assert 'alias agy="agy --remote-control"' not in bashrc_file.read_text(encoding="utf-8")
+
+    # Verify migration preserves existing agy-rc alias when legacy alias is present
+    bashrc_file.write_text('alias agy-rc="custom_command"\nalias agy="agy --remote-control"\n', encoding="utf-8")
+    setup.setup_agent_remote_control()
+    bashrc_lines = [l for l in bashrc_file.read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert 'alias agy-rc="custom_command"' in bashrc_lines
+    assert 'alias agy="agy --remote-control"' not in bashrc_lines
+    assert 'alias agy-rc="agy --remote-control"' not in bashrc_lines
+    assert len([l for l in bashrc_lines if l.startswith("alias agy-rc=")]) == 1
+
+    # Verify setup does not append a duplicate when an agy-rc alias already exists
+    setup.setup_agent_remote_control()
+    bashrc_lines_after = [l for l in bashrc_file.read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert len([l for l in bashrc_lines_after if l.startswith("alias agy-rc=")]) == 1
+
+    # Verify existing symlink at agy-rc is preserved without truncating target
+    target_custom = home_dir / "custom_script.sh"
+    target_custom.write_text("#!/bin/sh\necho custom\n", encoding="utf-8")
+    agy_rc_bin.unlink()
+    agy_rc_bin.symlink_to(target_custom)
+    setup.setup_agent_remote_control()
+    assert agy_rc_bin.is_symlink()
+    assert target_custom.read_text(encoding="utf-8") == "#!/bin/sh\necho custom\n"
+
+    # 4. Antigravity extension serverArgs in VS Code settings.json
+    data_vscode = json.loads(vscode_settings.read_text(encoding="utf-8"))
+    assert "--remote-control" in data_vscode.get("antigravity.serverArgs", [])
+
+    # 5. Verify malformed Claude settings.json is preserved and not overwritten
+    path_claude_settings.write_text("{malformed json content: [", encoding="utf-8")
+    setup.setup_claude_code_remote_control()
+    assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["
+    assert len(setup._list_runtime_issues) > 0
+
+    # 6. Verify independent sub methods can be invoked directly
+    path_claude_settings.unlink()
+    setup.setup_claude_code_remote_control()
+    assert path_claude_settings.exists()
+
+    setup.setup_antigravity_cli_remote_control()
+    setup.setup_vscode_antigravity_remote_control()
+
+    # 7. Verify non-executable existing wrapper restores execute permissions and updates to current header
+    agy_rc_bin.unlink()
+    agy_rc_bin.write_text("#!/bin/sh\nexec agy --remote-control \"$@\"\n", encoding="utf-8")
+    os.chmod(str(agy_rc_bin), 0o644)
+    assert not os.access(str(agy_rc_bin), os.X_OK)
+    setup.setup_antigravity_cli_remote_control()
+    assert os.access(str(agy_rc_bin), os.X_OK)
+    assert "exec agy --remote-control" in agy_rc_bin.read_text(encoding="utf-8")
+
+    # Verify existing current wrapper is preserved without rewriting
+    os.chmod(str(agy_rc_bin), 0o644)
+    setup.setup_antigravity_cli_remote_control()
+    assert os.access(str(agy_rc_bin), os.X_OK)
+    assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/sh\n# Generated by hut_10sqft for Antigravity remote-control\nexec agy --remote-control \"$@\"\n"
+
+    # 8. Verify existing custom regular file at agy-rc is preserved and not overwritten
+    agy_rc_bin.write_text("#!/bin/bash\necho my-custom-tool\n", encoding="utf-8")
+    setup.setup_antigravity_cli_remote_control()
+    assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/bash\necho my-custom-tool\n"
+
+    # 9. Verify unreadable existing file is preserved and not overwritten
+    os.chmod(str(agy_rc_bin), 0o000)
+    setup.setup_antigravity_cli_remote_control()
+    os.chmod(str(agy_rc_bin), 0o644)
+    assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/bash\necho my-custom-tool\n"
+
+    # 10. Verify non-UTF-8 binary existing file is preserved without raising runtime issue
+    agy_rc_bin.write_bytes(b"\x7fELF\x02\x01\x01\x00\xff\xfe\xfd")
+    initial_issues_count = len(setup._list_runtime_issues)
+    setup.setup_antigravity_cli_remote_control()
+    assert agy_rc_bin.read_bytes() == b"\x7fELF\x02\x01\x01\x00\xff\xfe\xfd"
+    assert len(setup._list_runtime_issues) == initial_issues_count
+
+
+def test_suco_auto_detect_hostname(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host-130s")
+    assert CompInitSetup.auto_detect_hostname() == "mocked-host-130s"
+
+
+def test_suco_auto_detect_os(monkeypatch):
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+    os_type, os_distro = CompInitSetup.auto_detect_os()
+    assert os_type == "Linux"
+    assert os_distro == "Ubuntu"
+
+
+def test_suco_cli_args_auto_detection(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+
+    setup = CompInitSetup()
+
+    # 1. When --hostname and --os_distro are omitted, _cli_args returns empty strings
+    args = setup._cli_args([])
+    assert args.hostname == ""
+    assert args.os_distro == ""
+
+    # 2. When passed explicitly, CLI args take precedence
+    args_explicit = setup._cli_args(["--hostname", "explicit-host", "--os_distro", "Debian"])
+    assert args_explicit.hostname == "explicit-host"
+    assert args_explicit.os_distro == "Debian"
+
+
+def test_suco_run_auto_detection(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Ubuntu"))
+
+    setup = CompInitSetup()
+    captured_builder = []
+
+    class FakeOsBuilder:
+        _OS_TYPE = "Ubuntu"
+        def __init__(self, args_in=None):
+            self.args_in = args_in
+            captured_builder.append(self)
+
+        def run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+            return True
+
+        def listup_runtime_issues(self):
+            pass
+
+    monkeypatch.setattr("hut_10sqft.suco_main.UbuntuOsSetup", FakeOsBuilder)
+
+    assert setup.run(args_list=[]) is True
+    assert len(captured_builder) == 1
+    assert captured_builder[0].args_in.hostname == "mocked-auto-host"
+    assert captured_builder[0].args_in.os_distro == "Ubuntu"
+    assert captured_builder[0].args_in.os_type == "Linux"
+
+
+def test_suco_run_auto_detect_chromeos(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_BRYA)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("Linux", "Debian"))
+
+    setup = CompInitSetup()
+    captured_builder = []
+
+    class FakeChromeOsBuilder:
+        _OS_TYPE = ChromeOsSetup._OS_TYPE
+        def __init__(self, args_in=None):
+            self.args_in = args_in
+            captured_builder.append(self)
+
+        def run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+            return True
+
+        def listup_runtime_issues(self):
+            pass
+
+    monkeypatch.setattr("hut_10sqft.suco_main.ChromeOsSetup", FakeChromeOsBuilder)
+
+    assert setup.run(args_list=[]) is True
+    assert len(captured_builder) == 1
+    assert captured_builder[0].args_in.os_distro == ChromeOsSetup._OS_TYPE
+
+
+def test_suco_run_auto_detect_macos(monkeypatch):
+    from hut_10sqft.comp_mac_os import MacOsSetup
+
+    monkeypatch.setattr(socket, "gethostname", lambda: CompInitSetupConfig.HOSTNAME_MAC1)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: ("MacOS", "None"))
+
+    setup = CompInitSetup()
+    assert setup.run(args_list=[]) is True
+
+
+def test_suco_installer_cli_args():
+    installer = SucoInstaller()
+    args_default = installer.cli_args_install_suco(args_list=[])
+    assert args_default.build_colcon is False
+    assert args_default.pip_install is False
+
+    args_custom = installer.cli_args_install_suco(args_list=["--build_colcon", "--pip_install"])
+    assert args_custom.build_colcon is True
+    assert args_custom.pip_install is True
+
+
+def test_suco_installer_main_clone(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    dest_repo = str(base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG)
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--git_branch", "develop"])
+
+    assert len(commands_run) == 1
+    assert commands_run[0]["cmd"] == ["git", "clone", CompInitSetupConfig.URL_HUT, "-b", "develop", dest_repo]
+    assert commands_run[0]["cwd"] is None
+
+
+def test_suco_installer_main_pull_and_pip(tmp_path, monkeypatch):
+    installer = SucoInstaller()
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    commands_run = []
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        commands_run.append({"cmd": cmd, "cwd": cwd})
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+
+    installer.main(args_list=["--path_base_conf", str(base_conf), "--pip_install", "--pip_break_syspkg"])
+
+    assert len(commands_run) == 2
+    assert commands_run[0]["cmd"] == ["git", "pull"]
+    assert commands_run[0]["cwd"] == str(dest_repo)
+    assert commands_run[1]["cmd"] == ["pip3", "install", "-e", str(dest_repo), "--break-system-packages"]
+
+
+def test_suco_installer_pip_oserror_fallback(tmp_path, monkeypatch):
+    from hut_10sqft.suco_installer import main as installer_main
+
+    base_conf = tmp_path / "config"
+    dest_repo = base_conf / CompInitSetupConfig.REPO_PERMANENT_CONFIG
+    git_dir = dest_repo / ".git"
+    git_dir.mkdir(parents=True)
+
+    def fake_subprocess_run(cmd, cwd=None, **kwargs):
+        if cmd[0] == "pip3":
+            raise FileNotFoundError("pip3 not found")
+        return subprocess.CompletedProcess(args=cmd, returncode=0)
+
+    monkeypatch.setattr(subprocess, "run", fake_subprocess_run)
+    monkeypatch.setattr("sys.argv", ["suco_installer", "--path_base_conf", str(base_conf), "--pip_install"])
+
+    # Should not raise FileNotFoundError / OSError, should catch and finish cleanly
+    installer_main()
+
+
+def test_ubuntu_snap_pkgs_excludes_docker():
+    """Verify that docker is removed from snap packages in UbuntuOsSetup."""
+    assert "docker" not in UbuntuOsSetup._PKGS_SNAP
+    assert UbuntuOsSetup._PKGS_SNAP == ["yt-dlp"]
+
+
+def test_setup_docker_skip(monkeypatch):
+    """Verify that setup_docker returns immediately when skip is True."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    cmds_run = []
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: (cmds_run.append(cmd), ("", "", 0))[1])
+    setup.setup_docker(userid_os="test-user", skip=True)
+    assert len(cmds_run) == 0
+
+
+def test_setup_docker_already_completed(monkeypatch):
+    """Verify that setup_docker returns early if docker and docker-ce package are already setup."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("Status: install ok installed", "", 0))
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) == 0
+
+
+def test_setup_docker_retained_config_does_not_skip(monkeypatch):
+    """Verify that setup_docker proceeds if docker-ce has only retained config files."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker-ce" in cmd:
+            return "Status: deinstall ok config-files", "", 0
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) > 0
+    assert setup._DEBS_DOCKER in called_apt
+
+
+def test_setup_docker_proceeds_when_ce_package_missing(monkeypatch):
+    """Verify that setup_docker proceeds with CE installation if docker command exists but docker-ce package is not installed."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker-ce" in cmd:
+            return "", "package docker-ce is not installed", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+    assert len(called_apt) > 0
+    assert setup._DEBS_DOCKER in called_apt
+
+
+def test_setup_docker_installs_docker_ce_apt(monkeypatch):
+    """Verify modern Docker CE repository and packages are installed."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    cmds_run = []
+
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        if "dpkg -s docker.io" in cmd:
+            return "Status: install ok installed", "", 0
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert called_apt[0] == ["ca-certificates", "curl"]
+    assert called_apt[1] == ["docker-ce", "docker-ce-cli", "containerd.io", "docker-buildx-plugin", "docker-compose-plugin"]
+
+    assert any("apt remove -y docker.io" in c for c in cmds_run)
+    assert any("https://download.docker.com/linux/ubuntu/gpg" in c for c in cmds_run)
+    assert any("/etc/apt/keyrings/docker.asc" in c for c in cmds_run)
+    assert any("https://download.docker.com/linux/ubuntu" in c for c in cmds_run)
+    assert any("groupadd -f docker" in c for c in cmds_run)
+    assert any("usermod -aG docker test-user" in c for c in cmds_run)
+    assert any("systemctl enable --now docker" in c for c in cmds_run)
+
+
+def test_setup_docker_conflict_removal_failure_stops_setup(monkeypatch):
+    """Verify that a failure in removing installed conflicting packages raises RuntimeError and stops setup."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "dpkg -s docker.io" in cmd:
+            return "Status: install ok installed", "", 0
+        if "apt remove -y docker.io" in cmd:
+            return "", "dpkg was interrupted", 100
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to remove conflicting Docker packages (docker.io) with exit code 100" in str(exc_info.value)
+    assert any("dpkg was interrupted" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_apt_update_failure(monkeypatch):
+    """Verify that subprocess.CalledProcessError from apt_update raises RuntimeError and records runtime issue."""
+    import subprocess
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    def fake_apt_update(force=False):
+        raise subprocess.CalledProcessError(returncode=100, cmd="apt update", stderr="Failed to fetch repository")
+    monkeypatch.setattr(setup, "apt_update", fake_apt_update)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to update package index for Docker CE: Failed to fetch repository" in str(exc_info.value)
+    assert any("Failed to fetch repository" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_apt_install_failure(monkeypatch):
+    """Verify that RuntimeWarning from OsUtil.apt_install raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_apt_update(force=False):
+        pass
+
+    monkeypatch.setattr(setup, "apt_update", fake_apt_update)
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    def fake_apt_install(pkgs, logger=None):
+        if "docker-ce" in pkgs:
+            raise RuntimeWarning("The following pkgs didn't get installed:\n - docker-ce")
+
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to install Docker CE packages" in str(exc_info.value)
+    assert any("Failed to install Docker CE packages" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_prereq_install_failure(monkeypatch):
+    """Verify that RuntimeWarning from installing prerequisites raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 0))
+
+    def fake_apt_install(pkgs, logger=None):
+        if setup._DEBS_DOCKER_PREREQ == pkgs:
+            raise RuntimeWarning("The following pkgs didn't get installed:\n - ca-certificates")
+
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to install Docker prerequisites" in str(exc_info.value)
+    assert any("Failed to install Docker prerequisites" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_key_download_failure(monkeypatch):
+    """Verify that failure downloading Docker GPG key raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "curl" in cmd and "gpg" in cmd:
+            return "", "curl: (6) Could not resolve host: download.docker.com", 6
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to download Docker GPG key" in str(exc_info.value)
+    assert any("Failed to download Docker GPG key" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_repo_write_failure(monkeypatch):
+    """Verify that failure writing docker.list raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "docker.list" in cmd:
+            return "", "Permission denied", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to write Docker repository configuration" in str(exc_info.value)
+    assert any("Failed to write Docker repository configuration" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_usermod_failure(monkeypatch):
+    """Verify that failure adding user to docker group raises RuntimeError and records runtime issue."""
+    import pytest
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+
+    def fake_subproc(cmd, **kwargs):
+        if "usermod" in cmd:
+            return "", "usermod: user 'test-user' does not exist", 6
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to add user 'test-user' to 'docker' group" in str(exc_info.value)
+    assert any("Failed to add user 'test-user' to 'docker' group" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_removes_snap_docker(monkeypatch):
+    """Verify conflicting snap docker is removed if present."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    monkeypatch.setattr(setup, "_is_docker_setup", lambda: 0)
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/snap" if name == "snap" else None)
+
+    cmds_run = []
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        if cmd == "snap list docker":
+            return "Name Version Rev Tracking Publisher Notes\ndocker 27.2.0 2932 latest/stable canonical** -", "", 0
+        if "dpkg -s docker-ce" in cmd:
+            return "Status: install ok installed", "", 0
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert any("snap remove docker" in c for c in cmds_run)
+
+
+def test_setup_docker_removes_snap_docker_failure(monkeypatch):
+    """Verify failure to remove conflicting snap docker raises RuntimeError, records runtime issue, and stops setup before _is_docker_setup."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    is_docker_setup_called = []
+    def fake_is_docker_setup():
+        is_docker_setup_called.append(True)
+        return 0
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/snap" if name == "snap" else None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if cmd == "snap list docker":
+            return "docker 27.2.0 2932 latest/stable canonical** -", "", 0
+        if "snap remove docker" in cmd:
+            return "", "error: cannot remove docker: snap has running services", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "Failed to remove conflicting docker snap package (exit code 1)" in str(exc_info.value)
+    assert any("cannot remove docker" in str(issue) for issue in setup._list_runtime_issues)
+    assert len(is_docker_setup_called) == 0
+
+
+def test_setup_docker_installs_docker_ce_apt_debian(monkeypatch):
+    """Verify modern Docker CE repository and packages are installed on Debian."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "debian"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+
+    called_apt = []
+    cmds_run = []
+
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: called_apt.append(pkgs))
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        cmds_run.append(cmd)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert any("https://download.docker.com/linux/debian/gpg" in c for c in cmds_run)
+    assert any("https://download.docker.com/linux/debian" in c for c in cmds_run)
+
+
+def test_setup_docker_verification_failure(monkeypatch):
+    """Verify that a nonzero exit from 'docker run hello-world' raises an error and records a runtime issue."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    def fake_is_docker_setup():
+        raise RuntimeWarning("Docker setup is not done yet")
+
+    monkeypatch.setattr(setup, "_is_docker_setup", fake_is_docker_setup)
+    monkeypatch.setattr(setup, "apt_update", lambda force=False: None)
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    monkeypatch.setattr(OsUtil, "apt_install", lambda pkgs, logger=None: None)
+
+    def fake_subproc(cmd, does_sudo=False, non_interactive=False, logger=None, print_stdout_err=False):
+        if "docker run --rm hello-world" in cmd:
+            return "", "Cannot connect to the Docker daemon", 1
+        return "", "", 0
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        setup.setup_docker(userid_os="test-user", skip=False)
+
+    assert "exit code 1" in str(exc_info.value)
+    assert "Cannot connect to the Docker daemon" in str(exc_info.value)
+    assert len(setup._list_runtime_issues) > 0
+    assert any("exit code 1" in str(issue) for issue in setup._list_runtime_issues)
+
+
+def test_setup_docker_invalid_userid(monkeypatch):
+    """Verify that an invalid userid_os raises ValueError before executing any system commands."""
+    import pytest
+
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=False, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+
+    commands_run = []
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: (commands_run.append(cmd) or ("", "", 0)))
+
+    with pytest.raises(ValueError) as exc_info:
+        setup.setup_docker(userid_os="invalid user; rm -rf /", skip=False)
+    assert "Invalid username" in str(exc_info.value)
+
+    with pytest.raises(ValueError) as exc_info:
+        setup.setup_docker(userid_os="alice\n", skip=False)
+    assert "Invalid username" in str(exc_info.value)
+    assert len(commands_run) == 0
+
+
+def test_shell_capable_os_setup_catches_docker_runtime_error(monkeypatch):
+    """Verify ShellCapableOsSetup.run records RuntimeError from setup_docker without duplicate entries or aborting setup."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    args = CompInitSetup()._cli_args([])
+    args.hostname = "test-host"
+    args.skip_setup_docker = False
+    args.user_id = "test-user"
+    args.skip_dropbox = True
+    setup = DebianSetup(args_in=args)
+    setup._os_name = "ubuntu"
+    monkeypatch.setattr(setup, "clone", lambda *args, **kwargs: None)
+    err = RuntimeError("Docker verification failed")
+    setup.add_runtime_issue(err)
+    monkeypatch.setattr(setup, "setup_docker", lambda *args, **kwargs: (_ for _ in ()).throw(err))
+    monkeypatch.setattr(setup, "update_hostname", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_rosdep_and_run", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "nonrosdep_deps", lambda *args, **kwargs: ([], []))
+    monkeypatch.setattr(setup, "install_deps_adhoc", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "swap_caps_ctrl", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_terminal_configs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_ssh", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_git_config", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_agent_skills", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_antigravity_cli", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_agent_remote_control", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "create_data_dir", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "generate_symlinks", lambda *args, **kwargs: [])
+    monkeypatch.setattr(setup, "common_symlinks", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_configs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_vscode", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "setup_swapfile", lambda *args, **kwargs: False)
+
+    host_cfg = HostConf("test-host", "bashrc", "emacs", "rsa", "pub")
+    setup.run(host_cfg, conf_repo_remote="https://github.com/kinu-garage/hut_10sqft.git", conf_base_path="/tmp")
+    issues = [issue for issue in setup._list_runtime_issues if "Docker verification failed" in str(issue)]
+    assert len(issues) == 1
+
+
+def test_os_util_whereis_docker_none(monkeypatch):
+    """Verify whereis_docker returns 'none' when docker is not installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: None)
+    assert OsUtil.whereis_docker() == "none"
+
+
+def test_os_util_whereis_docker_snap(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker is installed via snap."""
+    def fake_which(name):
+        if name == "docker":
+            return "/snap/bin/docker"
+        if name == "snap":
+            return "/usr/bin/snap"
+        return None
+
+    monkeypatch.setattr(OsUtil, "which", fake_which)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("docker 27.2.0", "", 0))
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_snap_var_lib(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker executable is under /var/lib/snapd/snap/bin."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/var/lib/snapd/snap/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_snap_symlink_snapd(monkeypatch):
+    """Verify whereis_docker returns 'snap' when docker executable resolves to a snapd-owned binary."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: "/usr/bin/snap")
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "snapd: /usr/bin/snap", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "snap"
+
+
+def test_os_util_whereis_docker_apt_ce(monkeypatch):
+    """Verify whereis_docker returns 'apt (docker-ce)' when docker is owned by docker-ce-cli and docker-ce is installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "docker-ce-cli: /usr/bin/docker", "", 0
+        if "dpkg -s docker-ce" in cmd:
+            return "Package: docker-ce\nStatus: install ok installed", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "apt (docker-ce)"
+
+
+def test_os_util_whereis_docker_apt_io(monkeypatch):
+    """Verify whereis_docker returns 'apt (docker.io)' when docker is owned by docker.io and docker.io is installed."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/bin/" + name if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        if "dpkg -S" in cmd:
+            return "docker.io: /usr/bin/docker", "", 0
+        if "dpkg -s docker.io" in cmd:
+            return "Package: docker.io\nStatus: install ok installed", "", 0
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "apt (docker.io)"
+
+
+def test_os_util_whereis_docker_other_unowned_binary(monkeypatch):
+    """Verify whereis_docker returns 'other: /usr/local/bin/docker' when the binary is not owned by dpkg."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/local/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+
+    def fake_subproc(cmd, **kwargs):
+        # Even if docker-ce happens to be installed on the system, the active binary in /usr/local/bin is unowned
+        if "dpkg -s docker-ce" in cmd:
+            return "Package: docker-ce\nStatus: install ok installed", "", 0
+        if "dpkg -S" in cmd:
+            return "dpkg-query: no path found matching pattern /usr/local/bin/docker", "", 1
+        return "", "", 1
+
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc)
+    assert OsUtil.whereis_docker() == "other: /usr/local/bin/docker"
+
+
+def test_os_util_whereis_docker_brew(monkeypatch):
+    """Verify whereis_docker returns 'brew' when installed via Homebrew."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/opt/homebrew/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: path)
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 1))
+    assert OsUtil.whereis_docker() == "brew"
+
+
+def test_os_util_whereis_docker_desktop(monkeypatch):
+    """Verify whereis_docker returns 'docker-desktop' when resolving to Docker.app."""
+    monkeypatch.setattr(OsUtil, "which", lambda name: "/usr/local/bin/docker" if name == "docker" else None)
+    monkeypatch.setattr(os.path, "realpath", lambda path: "/Applications/Docker.app/Contents/Resources/bin/docker")
+    monkeypatch.setattr(OsUtil, "subproc_bash", lambda cmd, **kwargs: ("", "", 1))
+    assert OsUtil.whereis_docker() == "docker-desktop"
+
+
+def test_suco_run_whereis_docker(capsys, monkeypatch):
+    """Verify 'suco whereis_docker' prints the result to stdout and returns True."""
+    monkeypatch.setattr(OsUtil, "whereis_docker", lambda logger=None: "apt (docker-ce)")
+    comp_setup = CompInitSetup()
+    res = comp_setup.run(["whereis_docker"])
+    assert res is True
+    captured = capsys.readouterr()
+    assert "apt (docker-ce)" in captured.out
+
+
+def _write_swap_fixtures(tmp_path, swaps_lines, mem_available_kb, fstab_text):
+    path_swaps = tmp_path / "swaps"
+    path_swaps.write_text("Filename\tType\tSize\tUsed\tPriority\n" + "".join(swaps_lines))
+    path_meminfo = tmp_path / "meminfo"
+    path_meminfo.write_text(f"MemTotal:       32556336 kB\nMemAvailable:   {mem_available_kb} kB\n")
+    path_fstab = tmp_path / "fstab"
+    path_fstab.write_text(fstab_text)
+    return str(path_swaps), str(path_meminfo), str(path_fstab)
+
+
+def test_setup_swapfile_resizes_and_persists(tmp_path, monkeypatch):
+    path_swapfile = str(tmp_path / "swapfile")
+    with open(path_swapfile, "wb") as f:
+        f.truncate(2 * 1024 * 1024 * 1024)
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 2097148 2095924 -2\n"], 5663964, "# empty\n")
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append((cmd, does_sudo))
+        if cmd.startswith("stat -f"):
+            return "ext2/ext3", "", 0
+        if cmd.startswith("swapon"):
+            with open(path_swaps, "w") as f:
+                f.write(f"Filename\tType\tSize\tUsed\tPriority\n{path_swapfile} file 16777212 0 -2\n")
+        if "tee -a" in cmd:
+            # The fstab target is under tmp_path, so the real command runs without sudo.
+            subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
+
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
+    cmds = [c for c, _ in executed_cmds if not c.startswith("stat -f")]
+    assert [c.split()[0] for c in cmds] == ["swapoff", "rm", "fallocate", "chmod", "mkswap", "swapon", "printf"]
+    assert "fallocate -l 16G" in cmds[2]
+    assert all(sudo for c, sudo in executed_cmds if not c.startswith("stat -f"))
+
+    # Re-running is a no-op once the swapfile is sized and persisted.
+    executed_cmds.clear()
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    assert executed_cmds == []
+
+
+def test_setup_swapfile_path_with_whitespace_and_quote(tmp_path, monkeypatch):
+    dir_swap = tmp_path / "my swap's dir"
+    dir_swap.mkdir()
+    path_swapfile = str(dir_swap / "swap\tfile")
+    path_encoded = OsUtil.encode_fstab_field(path_swapfile)
+    assert " " not in path_encoded and "\t" not in path_encoded
+    assert OsUtil.decode_fstab_field(path_encoded) == path_swapfile
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(tmp_path, [], 5663964, "# empty\n")
+
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        if cmd.startswith("stat -f"):
+            return "ext2/ext3", "", 0
+        if cmd.startswith("swapon"):
+            # The kernel escapes whitespace in /proc/swaps the same way as fstab.
+            with open(path_swaps, "w") as f:
+                f.write(f"Filename\tType\tSize\tUsed\tPriority\n{path_encoded} file 16777212 0 -2\n")
+        if "tee -a" in cmd:
+            subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
+
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is True
+    with open(path_fstab) as f:
+        entries = [line.split() for line in f if not line.startswith("#")]
+    assert entries == [[path_encoded, "none", "swap", "sw", "0", "0"]]
+
+    # Both /proc/swaps and fstab are matched after decoding, so a re-run is a no-op and adds no duplicate.
+    assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    with open(path_fstab) as f:
+        assert sum(1 for line in f if not line.startswith("#")) == 1
+
+
+@pytest.mark.parametrize("fstab_text,expected", [
+    ("UUID=abc / ext4 defaults 0 1", "UUID=abc / ext4 defaults 0 1\n{entry}\n"),     # no trailing newline
+    ("UUID=abc / ext4 defaults 0 1\n", "UUID=abc / ext4 defaults 0 1\n{entry}\n"),   # trailing newline
+    ("", "{entry}\n"),                                                               # empty
+    (None, "{entry}\n"),                                                             # missing
+])
+def test_setup_swapfile_fstab_entry_is_its_own_line(tmp_path, monkeypatch, fstab_text, expected):
+    path_swapfile = str(tmp_path / "swapfile")
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 16777212 0 -2\n"], 5663964, "")
+    if fstab_text is None:
+        os.remove(path_fstab)
+    else:
+        with open(path_fstab, "w") as f:
+            f.write(fstab_text)
+
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        assert cmd.startswith("printf "), cmd
+        subprocess.run(["/bin/sh", "-c", cmd], check=True)
+        return "", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+
+    # Already active at the requested size, so only the fstab entry is ensured. A re-run adds nothing.
+    for _ in range(2):
+        assert OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab) is False
+    with open(path_fstab) as f:
+        assert f.read() == expected.format(entry=f"{path_swapfile} none swap sw 0 0")
+
+
+def test_setup_swapfile_refuses_when_ram_cannot_absorb_swap(tmp_path, monkeypatch):
+    path_swapfile = str(tmp_path / "swapfile")
+    open(path_swapfile, "wb").close()
+    path_swaps, path_meminfo, path_fstab = _write_swap_fixtures(
+        tmp_path, [f"{path_swapfile} file 2097148 2095924 -2\n"], 1000000, f"{path_swapfile} none swap sw 0 0\n")
+
+    executed_cmds = []
+    def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
+        executed_cmds.append(cmd)
+        return "ext2/ext3", "", 0
+    monkeypatch.setattr(OsUtil, "subproc_bash", fake_subproc_bash)
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: argparse.Namespace(free=100 * 1024 ** 3))
+
+    with pytest.raises(RuntimeWarning, match="Retry when the system is less loaded"):
+        OsUtil.setup_swapfile(16, path_swapfile, path_swaps, path_meminfo, path_fstab)
+    assert not any(c.startswith("swapoff") for c in executed_cmds)
+
+    with pytest.raises(ValueError):
+        OsUtil.setup_swapfile(0, path_swapfile, path_swaps, path_meminfo, path_fstab)
+
+
+def test_setup_swapfile_skipped_per_os(monkeypatch):
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+
+    assert DebianSetup(args_in=args).setup_swapfile(skip=True) is False
+    assert ChromeOsSetup(args_in=args).setup_swapfile() is False
+    assert called == []
+    assert DebianSetup(args_in=args).setup_swapfile(size_gb=16) is True
+    assert called[0][0] == 16
+
+
+@pytest.mark.parametrize("err", [
+    RuntimeWarning("not enough disk space"),
+    RuntimeError("'mkswap /swapfile' failed"),
+    FileNotFoundError(2, "No such file or directory", "/proc/swaps"),
+    PermissionError(13, "Permission denied", "/etc/fstab"),
+])
+def test_debian_run_records_swapfile_errors(monkeypatch, err):
+    from hut_10sqft.abst_comp_setup import ShellCapableOsSetup
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
+    monkeypatch.setattr(ShellCapableOsSetup, "run", lambda self, *a, **kw: None)
+    def raise_err(*a, **kw):
+        raise err
+    monkeypatch.setattr(OsUtil, "setup_swapfile", raise_err)
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+
+    setup.run(HostConf("test-host", "bashrc", "emacs", "rsa", "pub"), conf_repo_remote="")
+    assert err in setup._list_runtime_issues
+
+
+def test_suco_setup_swap_subcommand(monkeypatch):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda size_gb, path_swapfile="/swapfile", logger=None: called.append((size_gb, path_swapfile)) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    monkeypatch.setattr(os.path, "exists", lambda p: False if p in ("/dev/.cros_milestone", "/mnt/chromeos") else os.path.lexists(p))
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: (OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE))
+    assert CompInitSetup().run(args_list=["setup_swap", "--swap_size_gb", "8"]) is True
+    assert called == [(8, DebianSetup.PATH_SWAPFILE)]
+
+
+@pytest.mark.parametrize("subcommand", ["setup", "setup_swap"])
+def test_suco_swap_size_gb_must_be_positive(subcommand, capsys):
+    for bad in ("0", "-5", "abc"):
+        with pytest.raises(SystemExit) as exc:
+            CompInitSetup()._cli_args([subcommand, "--swap_size_gb", bad])
+        assert exc.value.code == 2
+        assert "--swap_size_gb" in capsys.readouterr().err
+    assert CompInitSetup()._cli_args([subcommand, "--swap_size_gb", "8"]).swap_size_gb == 8
+    assert CompInitSetup()._cli_args([subcommand]).swap_size_gb == DebianSetup.SIZE_SWAPFILE_GB_DEFAULT
+
+
+def test_suco_setup_swap_stops_when_os_detection_fails(monkeypatch):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    def fail_get_os_type(logger=None):
+        raise OSError("cannot read /etc/os-release")
+    monkeypatch.setattr(OsUtil, "get_os_type", fail_get_os_type)
+    with pytest.raises(OSError, match="cannot read /etc/os-release"):
+        CompInitSetup().setup_swap(16, DebianSetup.PATH_SWAPFILE)
+    assert called == []
+
+
+def test_suco_run_os_detection_failure(monkeypatch):
+    monkeypatch.setattr(socket, "gethostname", lambda: "mocked-auto-host")
+    def fail_get_os_type(logger=None):
+        raise OSError("cannot read /etc/os-release")
+    monkeypatch.setattr(OsUtil, "get_os_type", fail_get_os_type)
+
+    # No usable fallback: the original detection error surfaces, not a NotImplementedError for an empty distro.
+    with pytest.raises(OSError, match="cannot read /etc/os-release"):
+        CompInitSetup().run(args_list=["setup"])
+
+    # A supported os_distro given by the user is enough to move on to building the setup.
+    captured_builder = []
+    def fake_run(self, host_cfg, conf_repo_remote="", conf_base_path=""):
+        captured_builder.append(self)
+    monkeypatch.setattr(MacOsSetup, "run", fake_run)
+    assert CompInitSetup().run(args_list=["setup", "--os_distro", MacOsSetup._OS_TYPE]) is True
+    assert isinstance(captured_builder[0], MacOsSetup)
+
+
+@pytest.mark.parametrize("hostname,os_type,os_distro", [
+    (CompInitSetupConfig.HOSTNAME_BRYA, OsUtil.TYPE_OS_LINUX, DebianSetup._OS_TYPE),            # ChromeOS Crostini
+    (CompInitSetupConfig.HOSTNAME_IL80D4KK, OsUtil.TYPE_OS_LINUX, UbuntuOsSetup._OS_TYPE),     # WSL2
+    ("mocked-mac-host", MacOsSetup._OS_TYPE, "None"),
+])
+def test_suco_setup_swap_skipped_on_unsupported_hosts(monkeypatch, hostname, os_type, os_distro):
+    called = []
+    monkeypatch.setattr(OsUtil, "setup_swapfile", lambda *a, **kw: called.append(a) or True)
+    monkeypatch.setattr(socket, "gethostname", lambda: hostname)
+    monkeypatch.setattr(OsUtil, "get_os_type", lambda logger=None: (os_type, os_distro))
+    assert CompInitSetup().setup_swap(16, DebianSetup.PATH_SWAPFILE) is False
+    assert called == []
+>>>>>>> 54d0978 (fix(suco): prevent agy binary corruption in tests and separate agy-rc alias)

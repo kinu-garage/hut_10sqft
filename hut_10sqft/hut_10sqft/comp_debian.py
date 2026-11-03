@@ -5,6 +5,13 @@
 
 import argparse
 import os
+<<<<<<< HEAD
+=======
+import pwd
+import re
+import shlex
+import stat
+>>>>>>> 1894ef8 (fix(setup): harden file permissions and wrapper creation)
 import subprocess
 
 from hut_10sqft.host_config import HostConf
@@ -138,6 +145,18 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
+    @staticmethod
+    def _make_executable_for_readers(path: str):
+        mode = os.stat(path).st_mode
+        if not (mode & stat.S_IRUSR):
+            raise PermissionError(f"Cannot grant execute permission on '{path}' without owner read permission.")
+        exec_bits = stat.S_IXUSR
+        if mode & stat.S_IRGRP:
+            exec_bits |= stat.S_IXGRP
+        if mode & stat.S_IROTH:
+            exec_bits |= stat.S_IXOTH
+        os.chmod(path, mode | exec_bits)
+
     def setup_antigravity_cli(self):
         """
         @summary: Install the Antigravity CLI and make sure its user-local binary path is available in shell startup files.
@@ -157,13 +176,54 @@ class DebianSetup(ShellCapableOsSetup):
             if path_export not in existing:
                 fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
 
-        cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
-        self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
-        OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
-
         path_agy = os.path.join(path_antigravity_bin, "agy")
-        if not os.path.exists(path_agy):
-            raise RuntimeError(f"Antigravity CLI installation did not create '{path_agy}'.")
+        # Clean up dangling symlink or identified corrupt stub (e.g. empty or bare shebang) so the official installer does not skip
+        if os.path.islink(path_agy) and not os.path.exists(path_agy):
+            try:
+                os.remove(path_agy)
+                self._logger.info(f"Removed broken symlink at '{path_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Could not remove broken symlink '{path_agy}': {e}")
+        elif os.path.isfile(path_agy) and not os.path.islink(path_agy):
+            try:
+                if os.path.getsize(path_agy) <= 50:
+                    with open(path_agy, "r", encoding="utf-8", errors="ignore") as fh:
+                        content = fh.read().strip()
+                    if content in ("", "#!/bin/sh", "#!/bin/bash"):
+                        self._logger.warning(f"Removing identified corrupt stub agy file at '{path_agy}'.")
+                        os.remove(path_agy)
+            except OSError as e:
+                self._logger.warning(f"Could not inspect or remove '{path_agy}': {e}")
+
+        # Check if agy is already installed in ~/.gemini/bin/agy and symlink to ~/.local/bin/agy if needed
+        path_gemini_agy = os.path.join(path_user_home, ".gemini", "bin", "agy")
+        if not os.path.exists(path_agy) and os.path.isfile(path_gemini_agy) and os.access(path_gemini_agy, os.X_OK):
+            try:
+                os.makedirs(path_antigravity_bin, exist_ok=True)
+                os.symlink(path_gemini_agy, path_agy)
+                self._logger.info(f"Symlinked '{path_agy}' -> '{path_gemini_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Failed to symlink '{path_gemini_agy}' to '{path_agy}': {e}")
+
+        if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
+            try:
+                self._make_executable_for_readers(path_agy)
+                self._logger.info(f"Repaired executable permissions on '{path_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
+
+        if not (os.path.exists(path_agy) and os.access(path_agy, os.X_OK)):
+            cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+            self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
+            OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
+            if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
+                try:
+                    self._make_executable_for_readers(path_agy)
+                except OSError as e:
+                    self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
+
+        if not (os.path.exists(path_agy) and os.access(path_agy, os.X_OK)):
+            raise RuntimeError(f"Antigravity CLI installation did not produce an executable binary at '{path_agy}'.")
 
         try:
             output, error, bash_return_code = OsUtil.subproc_bash("gh auth status", does_sudo=False, logger=self._logger)

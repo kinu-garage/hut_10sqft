@@ -14,6 +14,7 @@ import os
 import pathlib
 import pwd
 import shutil
+import tempfile
 from typing import List
 
 from hut_10sqft.config_dispatch import ConfigDispatch
@@ -217,6 +218,231 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         self.setup_file(conf_gitconf_local)
         self.setup_file(conf_gitignore)
 
+<<<<<<< HEAD
+=======
+    def setup_agent_skills(self, path_local_perm_conf: str = ""):
+        """
+        @summary: Set up AI agent skills (e.g., Antigravity and Claude Code) on POSIX OSes.
+        @param path_local_perm_conf: Path to configuration directory containing 'skills/'.
+        """
+        if not path_local_perm_conf:
+            return
+        path_skills_src = os.path.join(path_local_perm_conf, "skills")
+        if not os.path.exists(path_skills_src):
+            path_skills_src_sub = os.path.join(path_local_perm_conf, "hut_10sqft", "config", "skills")
+            if os.path.exists(path_skills_src_sub):
+                path_skills_src = path_skills_src_sub
+            else:
+                self._logger.info(f"No skills directory found at '{path_skills_src}'; skipping agent skills setup.")
+                return
+
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        # Target agent skills directories for Antigravity (IDE and CLI) and Claude Code
+        target_dirs = [
+            os.path.join(path_user_home, ".gemini", "antigravity", "skills"),
+            os.path.join(path_user_home, ".gemini", "antigravity-cli", "skills"),
+            os.path.join(path_user_home, ".claude", "skills"),
+        ]
+        for skill_name in os.listdir(path_skills_src):
+            src_skill_dir = os.path.join(path_skills_src, skill_name)
+            if not os.path.isdir(src_skill_dir):
+                continue
+            for target_base in target_dirs:
+                os.makedirs(target_base, exist_ok=True)
+                dest_skill_dir = os.path.join(target_base, skill_name)
+                if os.path.islink(dest_skill_dir):
+                    try:
+                        if os.path.realpath(dest_skill_dir) == os.path.realpath(src_skill_dir):
+                            self._logger.info(f"Skill '{skill_name}' already linked at '{dest_skill_dir}'; leaving unchanged.")
+                            continue
+                    except OSError:
+                        pass
+                    os.unlink(dest_skill_dir)
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Updated skill symlink '{dest_skill_dir}' -> '{src_skill_dir}'.")
+                elif os.path.exists(dest_skill_dir):
+                    self._logger.warning(
+                        f"Preserving existing non-symlink destination at '{dest_skill_dir}'; skipping skill link for '{skill_name}'."
+                    )
+                else:
+                    os.symlink(src_skill_dir, dest_skill_dir)
+                    self._logger.info(f"Configured agent skill '{skill_name}' at '{dest_skill_dir}'.")
+
+    def setup_agent_remote_control(self):
+        """
+        @summary: Configure local AI agents (Claude Code, Antigravity CLI, VS Code Antigravity) to enable remote-control by default.
+        """
+        self.setup_claude_code_remote_control()
+        self.setup_antigravity_cli_remote_control()
+        self.setup_vscode_antigravity_remote_control()
+
+    def setup_claude_code_remote_control(self):
+        """
+        @summary: Configure Claude Code to enable remote-control at startup in ~/.claude/settings.json.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        path_claude_dir = os.path.join(path_user_home, ".claude")
+        path_claude_settings = os.path.join(path_claude_dir, "settings.json")
+        try:
+            os.makedirs(path_claude_dir, exist_ok=True)
+            if os.path.exists(path_claude_settings):
+                with open(path_claude_settings, "r", encoding="utf-8") as fh:
+                    try:
+                        claude_settings = json.load(fh)
+                    except json.JSONDecodeError as jde:
+                        raise ValueError(f"Malformed JSON in existing settings file '{path_claude_settings}': {jde}") from jde
+            else:
+                claude_settings = {}
+            claude_settings["remoteControlAtStartup"] = True
+            with open(path_claude_settings, "w", encoding="utf-8") as fh:
+                json.dump(claude_settings, fh, indent=2)
+            self._logger.info(f"Configured 'remoteControlAtStartup: true' in '{path_claude_settings}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to configure Claude Code remote control at '{path_claude_settings}': {e}")
+
+    def setup_antigravity_cli_remote_control(self):
+        """
+        @summary: Configure Antigravity CLI to start the remote-control daemon, configure agy-rc alias in ~/.bashrc, and provide agy-rc executable wrapper.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+
+        # Ensure the remote-control background daemon is running
+        path_agy = shutil.which("agy") or os.path.join(path_user_home, ".local", "bin", "agy")
+        agy_exists = shutil.which("agy") is not None or os.path.exists(path_agy)
+        if agy_exists:
+            cmd_agy_rc = f"{shlex.quote(path_agy)} remote-control start"
+            try:
+                output, error, code = OsUtil.subproc_bash(cmd_agy_rc, does_sudo=False, logger=self._logger)
+                if code == 0:
+                    self._logger.info("Antigravity remote-control daemon registered and started.")
+                else:
+                    self._logger.warning(f"Failed to start Antigravity remote-control daemon (code {code}): {error or output}")
+            except Exception as e:
+                self.add_runtime_issue(e)
+                self._logger.warning(f"Error starting Antigravity remote-control: {e}")
+
+        # Antigravity CLI alias: alias agy-rc="agy --remote-control" in ~/.bashrc
+        path_bashrc = os.path.join(path_user_home, ".bashrc")
+        try:
+            if os.path.exists(path_bashrc):
+                with open(path_bashrc, "r", encoding="utf-8") as fh:
+                    bashrc_content = fh.read()
+                old_alias = 'alias agy="agy --remote-control"'
+                new_alias = 'alias agy-rc="agy --remote-control"'
+                has_agy_rc_alias = any(
+                    line.lstrip().startswith("alias agy-rc=")
+                    for line in bashrc_content.splitlines()
+                )
+                if old_alias in bashrc_content and has_agy_rc_alias:
+                    target_to_remove = (old_alias + "\n") if (old_alias + "\n") in bashrc_content else old_alias
+                    bashrc_content = bashrc_content.replace(target_to_remove, "")
+                    with open(path_bashrc, "w", encoding="utf-8") as fh:
+                        fh.write(bashrc_content)
+                    self._logger.info(f"Removed '{old_alias}' from '{path_bashrc}'.")
+                elif old_alias in bashrc_content:
+                    bashrc_content = bashrc_content.replace(old_alias, new_alias)
+                    with open(path_bashrc, "w", encoding="utf-8") as fh:
+                        fh.write(bashrc_content)
+                    self._logger.info(f"Updated '{old_alias}' to '{new_alias}' in '{path_bashrc}'.")
+                elif not has_agy_rc_alias:
+                    with open(path_bashrc, "a", encoding="utf-8") as fh:
+                        fh.write(f"\n# Enable remote control for Antigravity CLI\n{new_alias}\n")
+                    self._logger.info(f"Added '{new_alias}' to '{path_bashrc}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to configure agy-rc alias in '{path_bashrc}': {e}")
+
+        # Executable wrapper script agy-rc in ~/.local/bin
+        path_bin_dir = os.path.join(path_user_home, ".local", "bin")
+        path_agy_rc_bin = os.path.join(path_bin_dir, "agy-rc")
+        try:
+            os.makedirs(path_bin_dir, exist_ok=True)
+            wrapper_content = "#!/bin/sh\n# Generated by hut_10sqft for Antigravity remote-control\nexec agy --remote-control \"$@\"\n"
+            known_wrappers = {
+                wrapper_content,
+                "#!/bin/sh\nexec agy --remote-control \"$@\"\n",
+            }
+            should_write = True
+            if os.path.lexists(path_agy_rc_bin):
+                if not os.path.islink(path_agy_rc_bin) and os.path.isfile(path_agy_rc_bin):
+                    try:
+                        with open(path_agy_rc_bin, "r", encoding="utf-8") as fh:
+                            existing_content = fh.read()
+                        if existing_content in known_wrappers:
+                            if existing_content == wrapper_content:
+                                should_write = False
+                            if not os.access(path_agy_rc_bin, os.X_OK):
+                                try:
+                                    os.chmod(path_agy_rc_bin, 0o755)
+                                    self._logger.info(f"Restored execute permissions on '{path_agy_rc_bin}'.")
+                                except OSError as e:
+                                    self._logger.warning(f"Could not restore execute permissions on '{path_agy_rc_bin}': {e}")
+                        else:
+                            self._logger.warning(
+                                f"Preserving existing custom file at '{path_agy_rc_bin}' because it does not match a setup-managed wrapper."
+                            )
+                            should_write = False
+                    except (OSError, UnicodeDecodeError) as e:
+                        self._logger.warning(
+                            f"Could not read existing file at '{path_agy_rc_bin}'; preserving it: {e}"
+                        )
+                        should_write = False
+                else:
+                    self._logger.warning(f"Preserving existing non-regular file or symlink at '{path_agy_rc_bin}'.")
+                    should_write = False
+
+            if should_write:
+                temp_file = tempfile.NamedTemporaryFile(
+                    dir=path_bin_dir, prefix="agy-rc.", suffix=".tmp", mode="w", encoding="utf-8", delete=False
+                )
+                temp_path = temp_file.name
+                try:
+                    with temp_file as fh:
+                        fh.write(wrapper_content)
+                    os.chmod(temp_path, 0o755)
+                    os.replace(temp_path, path_agy_rc_bin)
+                    self._logger.info(f"Created executable wrapper at '{path_agy_rc_bin}'.")
+                finally:
+                    if os.path.lexists(temp_path):
+                        try:
+                            os.remove(temp_path)
+                        except OSError:
+                            pass
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to create agy-rc wrapper at '{path_agy_rc_bin}': {e}")
+
+    def setup_vscode_antigravity_remote_control(self):
+        """
+        @summary: Configure VS Code Antigravity extension setting 'antigravity.serverArgs' to include '--remote-control'.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+        path_vscode_dir = os.path.join(path_user_home, ".config", "Code", "User")
+        path_vscode_settings = os.path.join(path_vscode_dir, "settings.json")
+        try:
+            if os.path.exists(path_vscode_dir):
+                vscode_settings = {}
+                if os.path.exists(path_vscode_settings):
+                    with open(path_vscode_settings, "r", encoding="utf-8") as fh:
+                        try:
+                            vscode_settings = json.load(fh)
+                        except json.JSONDecodeError as jde:
+                            self._logger.warning(f"Preserving malformed VS Code settings at '{path_vscode_settings}': {jde}")
+                            vscode_settings = None
+                if vscode_settings is not None:
+                    server_args = vscode_settings.get("antigravity.serverArgs", [])
+                    if "--remote-control" not in server_args:
+                        server_args.append("--remote-control")
+                        vscode_settings["antigravity.serverArgs"] = server_args
+                        with open(path_vscode_settings, "w", encoding="utf-8") as fh:
+                            json.dump(vscode_settings, fh, indent=4)
+                        self._logger.info(f"Configured 'antigravity.serverArgs: [\"--remote-control\"]' in '{path_vscode_settings}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to configure VS Code Antigravity settings at '{path_vscode_settings}': {e}")
+
+>>>>>>> 54d0978 (fix(suco): prevent agy binary corruption in tests and separate agy-rc alias)
     def _setup_git_config_local(self):
         return "dot_gitconfig_local"
 
