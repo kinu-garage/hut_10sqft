@@ -825,9 +825,17 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
 
     # 5. Verify malformed Claude settings.json is preserved and not overwritten
     path_claude_settings.write_text("{malformed json content: [", encoding="utf-8")
-    setup.setup_agent_remote_control()
+    setup.setup_claude_code_remote_control()
     assert path_claude_settings.read_text(encoding="utf-8") == "{malformed json content: ["
     assert len(setup._list_runtime_issues) > 0
+
+    # 6. Verify independent sub methods can be invoked directly
+    path_claude_settings.unlink()
+    setup.setup_claude_code_remote_control()
+    assert path_claude_settings.exists()
+
+    setup.setup_antigravity_cli_remote_control()
+    setup.setup_vscode_antigravity_remote_control()
 
 
 def test_suco_auto_detect_hostname(monkeypatch):
