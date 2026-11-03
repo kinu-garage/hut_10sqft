@@ -8,6 +8,7 @@ import os
 import pwd
 import re
 import shlex
+import stat
 import subprocess
 
 from hut_10sqft.host_config import HostConf
@@ -155,6 +156,16 @@ class DebianSetup(ShellCapableOsSetup):
         OsUtil.install_pip_adhoc(pip_pkgs, allow_break=allow_pip_break)
         # TODO self.add_runtime_issue(f"'rosdep install' failed.\n\tOutput: {output}\n\tError: {error}")
 
+    @staticmethod
+    def _make_executable_for_readers(path: str):
+        mode = os.stat(path).st_mode
+        exec_bits = stat.S_IXUSR
+        if mode & stat.S_IRGRP:
+            exec_bits |= stat.S_IXGRP
+        if mode & stat.S_IROTH:
+            exec_bits |= stat.S_IXOTH
+        os.chmod(path, mode | exec_bits)
+
     def setup_antigravity_cli(self):
         """
         @summary: Install the Antigravity CLI and make sure its user-local binary path is available in shell startup files.
@@ -205,7 +216,7 @@ class DebianSetup(ShellCapableOsSetup):
 
         if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
             try:
-                os.chmod(path_agy, os.stat(path_agy).st_mode | 0o111)
+                self._make_executable_for_readers(path_agy)
                 self._logger.info(f"Repaired executable permissions on '{path_agy}'.")
             except OSError as e:
                 self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
@@ -216,7 +227,7 @@ class DebianSetup(ShellCapableOsSetup):
             OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
             if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
                 try:
-                    os.chmod(path_agy, os.stat(path_agy).st_mode | 0o111)
+                    self._make_executable_for_readers(path_agy)
                 except OSError as e:
                     self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
 
