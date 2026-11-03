@@ -336,10 +336,27 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
         try:
             os.makedirs(path_bin_dir, exist_ok=True)
             wrapper_content = "#!/bin/sh\nexec agy --remote-control \"$@\"\n"
-            with open(path_agy_rc_bin, "w", encoding="utf-8") as fh:
-                fh.write(wrapper_content)
-            os.chmod(path_agy_rc_bin, 0o755)
-            self._logger.info(f"Created executable wrapper at '{path_agy_rc_bin}'.")
+            should_write = True
+            if os.path.lexists(path_agy_rc_bin):
+                if not os.path.islink(path_agy_rc_bin) and os.path.isfile(path_agy_rc_bin):
+                    try:
+                        with open(path_agy_rc_bin, "r", encoding="utf-8") as fh:
+                            existing_content = fh.read()
+                        if existing_content == wrapper_content:
+                            should_write = False
+                    except OSError:
+                        pass
+                else:
+                    self._logger.warning(f"Preserving existing non-regular file or symlink at '{path_agy_rc_bin}'.")
+                    should_write = False
+
+            if should_write:
+                temp_wrapper = path_agy_rc_bin + ".tmp"
+                with open(temp_wrapper, "w", encoding="utf-8") as fh:
+                    fh.write(wrapper_content)
+                os.chmod(temp_wrapper, 0o755)
+                os.replace(temp_wrapper, path_agy_rc_bin)
+                self._logger.info(f"Created executable wrapper at '{path_agy_rc_bin}'.")
         except Exception as e:
             self.add_runtime_issue(e)
             self._logger.warning(f"Failed to create agy-rc wrapper at '{path_agy_rc_bin}': {e}")
