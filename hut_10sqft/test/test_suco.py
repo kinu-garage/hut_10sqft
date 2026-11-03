@@ -278,6 +278,17 @@ def test_setup_antigravity_cli_for_linux(tmp_path, monkeypatch, caplog):
     assert os.path.realpath(path_agy) == str(gemini_agy)
     assert not any("install.sh" in cmd for cmd in called["cmds"])
 
+    # Verify non-executable agy gets repaired with execute permissions without re-running installer
+    os.remove(path_agy)
+    with open(path_agy, "w", encoding="utf-8") as fh:
+        fh.write("#!/bin/sh\n" + "z" * 2000)
+    os.chmod(path_agy, 0o644)
+    assert not os.access(path_agy, os.X_OK)
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert os.access(path_agy, os.X_OK)
+    assert not any("install.sh" in cmd for cmd in called["cmds"])
+
 
 def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
