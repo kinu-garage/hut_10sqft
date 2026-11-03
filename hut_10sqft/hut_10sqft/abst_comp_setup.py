@@ -356,6 +356,12 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                             existing_content = fh.read()
                         if existing_content == wrapper_content:
                             should_write = False
+                            if not os.access(path_agy_rc_bin, os.X_OK):
+                                try:
+                                    os.chmod(path_agy_rc_bin, 0o755)
+                                    self._logger.info(f"Restored execute permissions on '{path_agy_rc_bin}'.")
+                                except OSError as e:
+                                    self._logger.warning(f"Could not restore execute permissions on '{path_agy_rc_bin}': {e}")
                     except OSError:
                         pass
                 else:
