@@ -269,11 +269,17 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
 
     def setup_agent_remote_control(self):
         """
-        @summary: Configure local AI agents (Claude Code and Antigravity) to enable remote-control by default.
+        @summary: Configure local AI agents (Claude Code, Antigravity CLI, VS Code Antigravity) to enable remote-control by default.
+        """
+        self.setup_claude_code_remote_control()
+        self.setup_antigravity_cli_remote_control()
+        self.setup_vscode_antigravity_remote_control()
+
+    def setup_claude_code_remote_control(self):
+        """
+        @summary: Configure Claude Code to enable remote-control at startup in ~/.claude/settings.json.
         """
         path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
-
-        # 1. Claude Code: set remoteControlAtStartup to True in ~/.claude/settings.json
         path_claude_dir = os.path.join(path_user_home, ".claude")
         path_claude_settings = os.path.join(path_claude_dir, "settings.json")
         try:
@@ -294,7 +300,13 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self.add_runtime_issue(e)
             self._logger.warning(f"Failed to configure Claude Code remote control at '{path_claude_settings}': {e}")
 
-        # 2. Antigravity CLI: ensure the remote-control background daemon is running
+    def setup_antigravity_cli_remote_control(self):
+        """
+        @summary: Configure Antigravity CLI to start the remote-control daemon, configure agy-rc alias in ~/.bashrc, and provide agy-rc executable wrapper.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
+
+        # Ensure the remote-control background daemon is running
         path_agy = shutil.which("agy") or os.path.join(path_user_home, ".local", "bin", "agy")
         agy_exists = shutil.which("agy") is not None or os.path.exists(path_agy)
         if agy_exists:
@@ -309,7 +321,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 self.add_runtime_issue(e)
                 self._logger.warning(f"Error starting Antigravity remote-control: {e}")
 
-        # 3. Antigravity CLI alias: alias agy-rc="agy --remote-control" in ~/.bashrc
+        # Antigravity CLI alias: alias agy-rc="agy --remote-control" in ~/.bashrc
         path_bashrc = os.path.join(path_user_home, ".bashrc")
         try:
             if os.path.exists(path_bashrc):
@@ -330,7 +342,7 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self.add_runtime_issue(e)
             self._logger.warning(f"Failed to configure agy-rc alias in '{path_bashrc}': {e}")
 
-        # Also create a wrapper script agy-rc in ~/.local/bin
+        # Executable wrapper script agy-rc in ~/.local/bin
         path_bin_dir = os.path.join(path_user_home, ".local", "bin")
         path_agy_rc_bin = os.path.join(path_bin_dir, "agy-rc")
         try:
@@ -361,7 +373,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
             self.add_runtime_issue(e)
             self._logger.warning(f"Failed to create agy-rc wrapper at '{path_agy_rc_bin}': {e}")
 
-        # 4. VS Code Antigravity extension: set "antigravity.serverArgs": ["--remote-control"] in ~/.config/Code/User/settings.json
+    def setup_vscode_antigravity_remote_control(self):
+        """
+        @summary: Configure VS Code Antigravity extension setting 'antigravity.serverArgs' to include '--remote-control'.
+        """
+        path_user_home = getattr(self, "_user_home_dir", os.path.expanduser("~"))
         path_vscode_dir = os.path.join(path_user_home, ".config", "Code", "User")
         path_vscode_settings = os.path.join(path_vscode_dir, "settings.json")
         try:
