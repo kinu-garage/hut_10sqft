@@ -543,6 +543,15 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
     assert 'alias agy="agy --remote-control"' not in bashrc_file.read_text(encoding="utf-8")
 
+    # Verify existing symlink at agy-rc is preserved without truncating target
+    target_custom = home_dir / "custom_script.sh"
+    target_custom.write_text("#!/bin/sh\necho custom\n", encoding="utf-8")
+    agy_rc_bin.unlink()
+    agy_rc_bin.symlink_to(target_custom)
+    setup.setup_agent_remote_control()
+    assert agy_rc_bin.is_symlink()
+    assert target_custom.read_text(encoding="utf-8") == "#!/bin/sh\necho custom\n"
+
     # 4. Antigravity extension serverArgs in VS Code settings.json
     data_vscode = json.loads(vscode_settings.read_text(encoding="utf-8"))
     assert "--remote-control" in data_vscode.get("antigravity.serverArgs", [])
