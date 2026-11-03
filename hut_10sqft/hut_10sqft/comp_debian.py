@@ -185,13 +185,25 @@ class DebianSetup(ShellCapableOsSetup):
             except OSError as e:
                 self._logger.warning(f"Failed to symlink '{path_gemini_agy}' to '{path_agy}': {e}")
 
-        if not os.path.exists(path_agy):
+        if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
+            try:
+                os.chmod(path_agy, os.stat(path_agy).st_mode | 0o111)
+                self._logger.info(f"Repaired executable permissions on '{path_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
+
+        if not (os.path.exists(path_agy) and os.access(path_agy, os.X_OK)):
             cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
             self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
             OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
+            if os.path.exists(path_agy) and not os.access(path_agy, os.X_OK):
+                try:
+                    os.chmod(path_agy, os.stat(path_agy).st_mode | 0o111)
+                except OSError as e:
+                    self._logger.warning(f"Could not set execute permissions on '{path_agy}': {e}")
 
-        if not os.path.exists(path_agy):
-            raise RuntimeError(f"Antigravity CLI installation did not create '{path_agy}'.")
+        if not (os.path.exists(path_agy) and os.access(path_agy, os.X_OK)):
+            raise RuntimeError(f"Antigravity CLI installation did not produce an executable binary at '{path_agy}'.")
 
         try:
             output, error, bash_return_code = OsUtil.subproc_bash("gh auth status", does_sudo=False, logger=self._logger)
