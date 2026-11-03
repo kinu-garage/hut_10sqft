@@ -604,6 +604,13 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     os.chmod(str(agy_rc_bin), 0o644)
     assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/bash\necho my-custom-tool\n"
 
+    # 10. Verify non-UTF-8 binary existing file is preserved without raising runtime issue
+    agy_rc_bin.write_bytes(b"\x7fELF\x02\x01\x01\x00\xff\xfe\xfd")
+    initial_issues_count = len(setup._list_runtime_issues)
+    setup.setup_antigravity_cli_remote_control()
+    assert agy_rc_bin.read_bytes() == b"\x7fELF\x02\x01\x01\x00\xff\xfe\xfd"
+    assert len(setup._list_runtime_issues) == initial_issues_count
+
 
 def test_suco_auto_detect_hostname(monkeypatch):
     monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host-130s")
