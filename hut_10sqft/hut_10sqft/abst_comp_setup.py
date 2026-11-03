@@ -330,12 +330,22 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                     bashrc_content = fh.read()
                 old_alias = 'alias agy="agy --remote-control"'
                 new_alias = 'alias agy-rc="agy --remote-control"'
-                if old_alias in bashrc_content:
+                has_agy_rc_alias = any(
+                    line.lstrip().startswith("alias agy-rc=")
+                    for line in bashrc_content.splitlines()
+                )
+                if old_alias in bashrc_content and has_agy_rc_alias:
+                    target_to_remove = (old_alias + "\n") if (old_alias + "\n") in bashrc_content else old_alias
+                    bashrc_content = bashrc_content.replace(target_to_remove, "")
+                    with open(path_bashrc, "w", encoding="utf-8") as fh:
+                        fh.write(bashrc_content)
+                    self._logger.info(f"Removed '{old_alias}' from '{path_bashrc}'.")
+                elif old_alias in bashrc_content:
                     bashrc_content = bashrc_content.replace(old_alias, new_alias)
                     with open(path_bashrc, "w", encoding="utf-8") as fh:
                         fh.write(bashrc_content)
                     self._logger.info(f"Updated '{old_alias}' to '{new_alias}' in '{path_bashrc}'.")
-                elif new_alias not in bashrc_content:
+                elif not has_agy_rc_alias:
                     with open(path_bashrc, "a", encoding="utf-8") as fh:
                         fh.write(f"\n# Enable remote control for Antigravity CLI\n{new_alias}\n")
                     self._logger.info(f"Added '{new_alias}' to '{path_bashrc}'.")
