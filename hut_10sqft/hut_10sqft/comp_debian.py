@@ -158,7 +158,7 @@ class DebianSetup(ShellCapableOsSetup):
                 fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
 
         path_agy = os.path.join(path_antigravity_bin, "agy")
-        # Clean up dangling symlink or corrupted stub (e.g. <= 1000 bytes) so the official installer does not skip
+        # Clean up dangling symlink or identified corrupt stub (e.g. empty or bare shebang) so the official installer does not skip
         if os.path.islink(path_agy) and not os.path.exists(path_agy):
             try:
                 os.remove(path_agy)
@@ -167,11 +167,12 @@ class DebianSetup(ShellCapableOsSetup):
                 self._logger.warning(f"Could not remove broken symlink '{path_agy}': {e}")
         elif os.path.isfile(path_agy) and not os.path.islink(path_agy):
             try:
-                if os.path.getsize(path_agy) < 1000:
-                    self._logger.warning(
-                        f"Removing corrupted or stub agy file at '{path_agy}' ({os.path.getsize(path_agy)} bytes) before installation."
-                    )
-                    os.remove(path_agy)
+                if os.path.getsize(path_agy) <= 50:
+                    with open(path_agy, "r", encoding="utf-8", errors="ignore") as fh:
+                        content = fh.read().strip()
+                    if content in ("", "#!/bin/sh", "#!/bin/bash"):
+                        self._logger.warning(f"Removing identified corrupt stub agy file at '{path_agy}'.")
+                        os.remove(path_agy)
             except OSError as e:
                 self._logger.warning(f"Could not inspect or remove '{path_agy}': {e}")
 
