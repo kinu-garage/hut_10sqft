@@ -208,12 +208,10 @@ def test_setup_rosdep():
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Antigravity CLI setup has only been verified for Linux so far on SUCO.")
-def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
-    """The shared Linux setup should install Antigravity CLI via pipx and export its PATH."""
-    parser = argparse.ArgumentParser(description="")
-    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+def test_setup_antigravity_cli_for_linux(tmp_path, monkeypatch, caplog):
+    """The shared Linux setup should install Antigravity CLI via curl installer and export its PATH."""
+    monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
     monkeypatch.setattr(DebianSetup, "apt_update", lambda self: None)
-    setup = DebianSetup(args_in=args)
 
     called = {}
 
@@ -223,6 +221,16 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     def fake_install_pip_adhoc(pip_pkgs=[], logger=None, allow_break=False):
         called["pip"] = pip_pkgs
 
+    monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
+    monkeypatch.setattr(OsUtil, "install_pip_adhoc", fake_install_pip_adhoc)
+
+    parser = argparse.ArgumentParser(description="")
+    args = argparse.Namespace(hostname="test-host", skip_setup_docker=True, user_id="test-user")
+    setup = DebianSetup(args_in=args)
+    home_dir = tmp_path / "home"
+    setup._user_home_dir = str(home_dir)
+    os.makedirs(home_dir, exist_ok=True)
+
     def fake_subproc_bash(cmd, does_sudo=False, print_stdout_err=False, logger=None, non_interactive=False):
         called.setdefault("cmds", []).append(cmd)
         if "install.sh" in cmd:
@@ -230,7 +238,7 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
             path_bin = os.path.join(path_user_home, ".local", "bin")
             os.makedirs(path_bin, exist_ok=True)
             with open(os.path.join(path_bin, "agy"), "w", encoding="utf-8") as fh:
-                fh.write("#!/bin/sh\n")
+                fh.write("#!/bin/sh\necho 'mock agy'\n" + "x" * 2000)
         return "", "", 0
 
     monkeypatch.setattr(OsUtil, "apt_install", fake_apt_install)
@@ -244,13 +252,31 @@ def test_setup_antigravity_cli_for_linux(monkeypatch, caplog):
     assert called["pip"] == []
     assert any("install.sh" in cmd for cmd in called["cmds"])
     assert any("gh auth status" in cmd for cmd in called["cmds"])
-    path_user_home = getattr(setup, "_user_home_dir", os.path.expanduser("~"))
-    path_bashrc = os.path.join(path_user_home, ".bashrc")
-    if not os.path.exists(path_bashrc):
-        with open(path_bashrc, "w", encoding="utf-8") as fh:
-            fh.write("")
+    path_bashrc = os.path.join(str(home_dir), ".bashrc")
     with open(path_bashrc, "r", encoding="utf-8") as fh:
         assert "antigravity" in fh.read().lower()
+    path_agy = os.path.join(str(home_dir), ".local", "bin", "agy")
+    assert os.path.exists(path_agy)
+
+    # Verify cleaning up corrupted stub (< 1000 bytes) triggers reinstallation
+    with open(path_agy, "w", encoding="utf-8") as fh:
+        fh.write("#!/bin/sh\n")  # 10 byte stub
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert any("install.sh" in cmd for cmd in called["cmds"])
+
+    # Verify existing ~/.gemini/bin/agy gets symlinked
+    os.remove(path_agy)
+    gemini_bin = home_dir / ".gemini" / "bin"
+    gemini_bin.mkdir(parents=True, exist_ok=True)
+    gemini_agy = gemini_bin / "agy"
+    gemini_agy.write_text("#!/bin/sh\n" + "y" * 2000, encoding="utf-8")
+    gemini_agy.chmod(0o755)
+    called["cmds"].clear()
+    setup.setup_antigravity_cli()
+    assert os.path.islink(path_agy)
+    assert os.path.realpath(path_agy) == str(gemini_agy)
+    assert not any("install.sh" in cmd for cmd in called["cmds"])
 
 
 def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
@@ -761,8 +787,17 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     # 2. Antigravity remote-control command safely quoted
     assert any("'/custom path with spaces/bin/agy' remote-control start" in cmd for cmd in executed_cmds)
 
-    # 3. Antigravity CLI alias in .bashrc
-    assert 'alias agy="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+    # 3. Antigravity CLI alias in .bashrc and executable wrapper
+    assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+    agy_rc_bin = home_dir / ".local" / "bin" / "agy-rc"
+    assert agy_rc_bin.exists()
+    assert os.access(str(agy_rc_bin), os.X_OK)
+
+    # Verify migration of legacy alias agy="agy --remote-control"
+    bashrc_file.write_text('alias agy="agy --remote-control"\n', encoding="utf-8")
+    setup.setup_agent_remote_control()
+    assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
+    assert 'alias agy="agy --remote-control"' not in bashrc_file.read_text(encoding="utf-8")
 
     # 4. Antigravity extension serverArgs in VS Code settings.json
     data_vscode = json.loads(vscode_settings.read_text(encoding="utf-8"))
