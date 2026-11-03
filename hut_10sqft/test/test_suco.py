@@ -865,6 +865,12 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     setup.setup_antigravity_cli_remote_control()
     assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/bash\necho my-custom-tool\n"
 
+    # 9. Verify unreadable existing file is preserved and not overwritten
+    os.chmod(str(agy_rc_bin), 0o000)
+    setup.setup_antigravity_cli_remote_control()
+    os.chmod(str(agy_rc_bin), 0o644)
+    assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/bash\necho my-custom-tool\n"
+
 
 def test_suco_auto_detect_hostname(monkeypatch):
     monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host-130s")

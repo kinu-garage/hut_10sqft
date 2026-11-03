@@ -373,8 +373,11 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                                 f"Preserving existing custom file at '{path_agy_rc_bin}' because it does not match a setup-managed wrapper."
                             )
                             should_write = False
-                    except OSError:
-                        pass
+                    except OSError as e:
+                        self._logger.warning(
+                            f"Could not read existing file at '{path_agy_rc_bin}'; preserving it: {e}"
+                        )
+                        should_write = False
                 else:
                     self._logger.warning(f"Preserving existing non-regular file or symlink at '{path_agy_rc_bin}'.")
                     should_write = False
