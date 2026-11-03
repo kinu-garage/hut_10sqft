@@ -837,6 +837,15 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     setup.setup_antigravity_cli_remote_control()
     setup.setup_vscode_antigravity_remote_control()
 
+    # 7. Verify non-executable existing wrapper restores execute permissions without content rewrite
+    agy_rc_bin.unlink()
+    agy_rc_bin.write_text("#!/bin/sh\nexec agy --remote-control \"$@\"\n", encoding="utf-8")
+    os.chmod(str(agy_rc_bin), 0o644)
+    assert not os.access(str(agy_rc_bin), os.X_OK)
+    setup.setup_antigravity_cli_remote_control()
+    assert os.access(str(agy_rc_bin), os.X_OK)
+    assert agy_rc_bin.read_text(encoding="utf-8") == "#!/bin/sh\nexec agy --remote-control \"$@\"\n"
+
 
 def test_suco_auto_detect_hostname(monkeypatch):
     monkeypatch.setattr(socket, "gethostname", lambda: "mocked-host-130s")
