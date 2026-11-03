@@ -309,20 +309,40 @@ class ShellCapableOsSetup(AbstCompSetupFactory):
                 self.add_runtime_issue(e)
                 self._logger.warning(f"Error starting Antigravity remote-control: {e}")
 
-        # 3. Antigravity CLI alias: alias agy="agy --remote-control" in ~/.bashrc
+        # 3. Antigravity CLI alias: alias agy-rc="agy --remote-control" in ~/.bashrc
         path_bashrc = os.path.join(path_user_home, ".bashrc")
         try:
             if os.path.exists(path_bashrc):
                 with open(path_bashrc, "r", encoding="utf-8") as fh:
                     bashrc_content = fh.read()
-                alias_line = 'alias agy="agy --remote-control"'
-                if alias_line not in bashrc_content:
+                old_alias = 'alias agy="agy --remote-control"'
+                new_alias = 'alias agy-rc="agy --remote-control"'
+                if old_alias in bashrc_content:
+                    bashrc_content = bashrc_content.replace(old_alias, new_alias)
+                    with open(path_bashrc, "w", encoding="utf-8") as fh:
+                        fh.write(bashrc_content)
+                    self._logger.info(f"Updated '{old_alias}' to '{new_alias}' in '{path_bashrc}'.")
+                elif new_alias not in bashrc_content:
                     with open(path_bashrc, "a", encoding="utf-8") as fh:
-                        fh.write(f"\n# Enable remote control by default for Antigravity CLI\n{alias_line}\n")
-                    self._logger.info(f"Added '{alias_line}' to '{path_bashrc}'.")
+                        fh.write(f"\n# Enable remote control for Antigravity CLI\n{new_alias}\n")
+                    self._logger.info(f"Added '{new_alias}' to '{path_bashrc}'.")
         except Exception as e:
             self.add_runtime_issue(e)
-            self._logger.warning(f"Failed to add agy alias to '{path_bashrc}': {e}")
+            self._logger.warning(f"Failed to configure agy-rc alias in '{path_bashrc}': {e}")
+
+        # Also create a wrapper script agy-rc in ~/.local/bin
+        path_bin_dir = os.path.join(path_user_home, ".local", "bin")
+        path_agy_rc_bin = os.path.join(path_bin_dir, "agy-rc")
+        try:
+            os.makedirs(path_bin_dir, exist_ok=True)
+            wrapper_content = "#!/bin/sh\nexec agy --remote-control \"$@\"\n"
+            with open(path_agy_rc_bin, "w", encoding="utf-8") as fh:
+                fh.write(wrapper_content)
+            os.chmod(path_agy_rc_bin, 0o755)
+            self._logger.info(f"Created executable wrapper at '{path_agy_rc_bin}'.")
+        except Exception as e:
+            self.add_runtime_issue(e)
+            self._logger.warning(f"Failed to create agy-rc wrapper at '{path_agy_rc_bin}': {e}")
 
         # 4. VS Code Antigravity extension: set "antigravity.serverArgs": ["--remote-control"] in ~/.config/Code/User/settings.json
         path_vscode_dir = os.path.join(path_user_home, ".config", "Code", "User")

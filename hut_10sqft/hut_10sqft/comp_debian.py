@@ -174,11 +174,39 @@ class DebianSetup(ShellCapableOsSetup):
             if path_export not in existing:
                 fh.write(f"\n# Added by hut_10sqft for Antigravity CLI\n{path_export}\n")
 
-        cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
-        self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
-        OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
-
         path_agy = os.path.join(path_antigravity_bin, "agy")
+        # Clean up dangling symlink or corrupted stub (e.g. <= 1000 bytes) so the official installer does not skip
+        if os.path.islink(path_agy) and not os.path.exists(path_agy):
+            try:
+                os.remove(path_agy)
+                self._logger.info(f"Removed broken symlink at '{path_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Could not remove broken symlink '{path_agy}': {e}")
+        elif os.path.isfile(path_agy) and not os.path.islink(path_agy):
+            try:
+                if os.path.getsize(path_agy) < 1000:
+                    self._logger.warning(
+                        f"Removing corrupted or stub agy file at '{path_agy}' ({os.path.getsize(path_agy)} bytes) before installation."
+                    )
+                    os.remove(path_agy)
+            except OSError as e:
+                self._logger.warning(f"Could not inspect or remove '{path_agy}': {e}")
+
+        # Check if agy is already installed in ~/.gemini/bin/agy and symlink to ~/.local/bin/agy if needed
+        path_gemini_agy = os.path.join(path_user_home, ".gemini", "bin", "agy")
+        if not os.path.exists(path_agy) and os.path.isfile(path_gemini_agy) and os.access(path_gemini_agy, os.X_OK):
+            try:
+                os.makedirs(path_antigravity_bin, exist_ok=True)
+                os.symlink(path_gemini_agy, path_agy)
+                self._logger.info(f"Symlinked '{path_agy}' -> '{path_gemini_agy}'.")
+            except OSError as e:
+                self._logger.warning(f"Failed to symlink '{path_gemini_agy}' to '{path_agy}': {e}")
+
+        if not os.path.exists(path_agy):
+            cmd_install_antigravity = "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+            self._logger.info(f"Installing the Antigravity CLI using the official installer: '{cmd_install_antigravity}'")
+            OsUtil.subproc_bash(cmd_install_antigravity, does_sudo=False, logger=self._logger)
+
         if not os.path.exists(path_agy):
             raise RuntimeError(f"Antigravity CLI installation did not create '{path_agy}'.")
 
