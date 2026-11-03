@@ -159,6 +159,8 @@ class DebianSetup(ShellCapableOsSetup):
     @staticmethod
     def _make_executable_for_readers(path: str):
         mode = os.stat(path).st_mode
+        if not (mode & stat.S_IRUSR):
+            raise PermissionError(f"Cannot grant execute permission on '{path}' without owner read permission.")
         exec_bits = stat.S_IXUSR
         if mode & stat.S_IRGRP:
             exec_bits |= stat.S_IXGRP

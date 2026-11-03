@@ -297,6 +297,12 @@ def test_setup_antigravity_cli_for_linux(tmp_path, monkeypatch, caplog):
     setup.setup_antigravity_cli()
     assert os.stat(path_agy).st_mode & 0o777 == 0o700
 
+    # Verify _make_executable_for_readers preserves mode and raises PermissionError when owner read is missing
+    os.chmod(path_agy, 0o200)
+    with pytest.raises(PermissionError):
+        DebianSetup._make_executable_for_readers(path_agy)
+    assert os.stat(path_agy).st_mode & 0o777 == 0o200
+
 
 def test_ubuntu_setup_egpu(tmp_path, monkeypatch):
     monkeypatch.setattr(DebianSetup, "_setup_git", lambda self: None)
