@@ -818,6 +818,20 @@ def test_setup_agent_remote_control(tmp_path, monkeypatch):
     assert 'alias agy-rc="agy --remote-control"' in bashrc_file.read_text(encoding="utf-8")
     assert 'alias agy="agy --remote-control"' not in bashrc_file.read_text(encoding="utf-8")
 
+    # Verify migration preserves existing agy-rc alias when legacy alias is present
+    bashrc_file.write_text('alias agy-rc="custom_command"\nalias agy="agy --remote-control"\n', encoding="utf-8")
+    setup.setup_agent_remote_control()
+    bashrc_lines = [l for l in bashrc_file.read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert 'alias agy-rc="custom_command"' in bashrc_lines
+    assert 'alias agy="agy --remote-control"' not in bashrc_lines
+    assert 'alias agy-rc="agy --remote-control"' not in bashrc_lines
+    assert len([l for l in bashrc_lines if l.startswith("alias agy-rc=")]) == 1
+
+    # Verify setup does not append a duplicate when an agy-rc alias already exists
+    setup.setup_agent_remote_control()
+    bashrc_lines_after = [l for l in bashrc_file.read_text(encoding="utf-8").splitlines() if l.strip()]
+    assert len([l for l in bashrc_lines_after if l.startswith("alias agy-rc=")]) == 1
+
     # Verify existing symlink at agy-rc is preserved without truncating target
     target_custom = home_dir / "custom_script.sh"
     target_custom.write_text("#!/bin/sh\necho custom\n", encoding="utf-8")
