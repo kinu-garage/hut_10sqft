@@ -812,6 +812,56 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert lock_file.exists()
     assert (tmp_path / "test_wake.lock.flock").exists()
 
+    # Verify negative cases: unhealthy monitors do not create or overwrite snapshot
+    unhealthy_file = tmp_path / "unhealthy.json"
+    runner_unhealthy = tmp_path / "run_test_unhealthy.sh"
+    runner_unhealthy.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{unhealthy_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 1; }}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_unhealthy.chmod(0o755)
+    res_unhealthy = subprocess.run([str(runner_unhealthy)], capture_output=True, text=True)
+    assert res_unhealthy.returncode == 0
+    assert not unhealthy_file.exists()
+
+    # Verify existing snapshot is unchanged if monitors become unhealthy
+    unhealthy_file.write_text("[\"preserved\"]", encoding="utf-8")
+    res_unhealthy2 = subprocess.run([str(runner_unhealthy)], capture_output=True, text=True)
+    assert res_unhealthy2.returncode == 0
+    assert unhealthy_file.read_text(encoding="utf-8") == "[\"preserved\"]"
+
+    # Verify negative cases: missing layout file or corrupt JSON returns without issuing xdotool commands
+    xdotool_log.unlink(missing_ok=True)
+    corrupt_file = tmp_path / "corrupt.json"
+    corrupt_file.write_text("{invalid json", encoding="utf-8")
+
+    runner_restore_corrupt = tmp_path / "run_test_corrupt.sh"
+    runner_restore_corrupt.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{corrupt_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n"
+        f"export WINDOW_LAYOUT_FILE=\"{tmp_path / 'nonexistent.json'}\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_restore_corrupt.chmod(0o755)
+    res_corrupt = subprocess.run([str(runner_restore_corrupt)], capture_output=True, text=True)
+    assert res_corrupt.returncode == 0
+    assert not xdotool_log.exists()
+
 
 
 
