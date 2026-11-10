@@ -219,8 +219,15 @@ sys.exit(1)
 " >/dev/null 2>&1
 }
 
-LOCK_FILE="${LOCK_FILE:-/tmp/wake-all-monitors-${UID}.lock}"
-WINDOW_LAYOUT_FILE="${WINDOW_LAYOUT_FILE:-/tmp/window-layout-${UID}.json}"
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "${XDG_RUNTIME_DIR}" ]; then
+    _DEFAULT_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
+else
+    _DEFAULT_RUNTIME_DIR="${TMPDIR:-/tmp}/wake-all-monitors-${UID}"
+    mkdir -p -m 0700 "$_DEFAULT_RUNTIME_DIR" 2>/dev/null || true
+fi
+
+LOCK_FILE="${LOCK_FILE:-${_DEFAULT_RUNTIME_DIR}/wake-all-monitors.lock}"
+WINDOW_LAYOUT_FILE="${WINDOW_LAYOUT_FILE:-${_DEFAULT_RUNTIME_DIR}/window-layout.json}"
 DEBOUNCE_SEC=15
 
 # @summary: Snapshot geometry (x, y, width, height) of active top-level application windows.
@@ -264,7 +271,9 @@ for wid, name, classes, w, h, x, y in pattern.findall(out):
 if wins:
     tmp_path = f'{target}.tmp'
     try:
-        with open(tmp_path, 'w') as f:
+        os.makedirs(os.path.dirname(os.path.abspath(target)), mode=0o700, exist_ok=True)
+        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with open(fd, 'w') as f:
             json.dump(wins, f)
         os.replace(tmp_path, target)
         print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Saved geometry of {len(wins)} windows to {target}')

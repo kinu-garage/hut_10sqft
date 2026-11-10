@@ -710,6 +710,62 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert any("windowmove 0x800004 4576 2224" in cmd for cmd in xdotool_cmds)
     assert any("windowsize 0x800004 1250 1478" in cmd for cmd in xdotool_cmds)
 
+    # Verify per-user XDG_RUNTIME_DIR default resolution when WINDOW_LAYOUT_FILE is unset
+    xdg_runtime = tmp_path / "run" / "user" / "1000"
+    xdg_runtime.mkdir(parents=True)
+    runner_xdg = tmp_path / "run_test_xdg.sh"
+    runner_xdg.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"export XDG_RUNTIME_DIR=\"{xdg_runtime}\"\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^if \\[ -n \"\\${{XDG_RUNTIME_DIR/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n"
+        f"echo \"RESOLVED_FILE=$WINDOW_LAYOUT_FILE\"\n",
+        encoding="utf-8",
+    )
+    runner_xdg.chmod(0o755)
+    res_xdg = subprocess.run([str(runner_xdg)], capture_output=True, text=True)
+    assert res_xdg.returncode == 0
+    assert f"RESOLVED_FILE={xdg_runtime}/window-layout.json" in res_xdg.stdout
+    assert (xdg_runtime / "window-layout.json").exists()
+    st_xdg = os.stat(xdg_runtime / "window-layout.json")
+    assert oct(st_xdg.st_mode & 0o777) == "0o600"
+
+    # Verify fallback directory with 0700 permissions when XDG_RUNTIME_DIR is unset
+    custom_tmp = tmp_path / "custom_tmp"
+    custom_tmp.mkdir()
+    runner_fallback = tmp_path / "run_test_fallback.sh"
+    runner_fallback.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{custom_tmp}\"\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^if \\[ -n \"\\${{XDG_RUNTIME_DIR/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n"
+        f"echo \"RESOLVED_FILE=$WINDOW_LAYOUT_FILE\"\n",
+        encoding="utf-8",
+    )
+    runner_fallback.chmod(0o755)
+    res_fallback = subprocess.run([str(runner_fallback)], capture_output=True, text=True)
+    assert res_fallback.returncode == 0
+    expected_fallback_dir = custom_tmp / f"wake-all-monitors-{os.getuid()}"
+    assert expected_fallback_dir.exists()
+    st_dir = os.stat(expected_fallback_dir)
+    assert oct(st_dir.st_mode & 0o777) == "0o700"
+    assert (expected_fallback_dir / "window-layout.json").exists()
+
 
 
 
