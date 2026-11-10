@@ -766,6 +766,52 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert oct(st_dir.st_mode & 0o777) == "0o700"
     assert (expected_fallback_dir / "window-layout.json").exists()
 
+    # Verify save_window_layout propagates failure when xwininfo fails
+    fail_bin = tmp_path / "fail_bin"
+    fail_bin.mkdir()
+    (fail_bin / "xwininfo").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (fail_bin / "xwininfo").chmod(0o755)
+
+    runner_fail = tmp_path / "run_test_fail.sh"
+    runner_fail.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"export PATH=\"{fail_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{tmp_path / 'fail.json'}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_fail.chmod(0o755)
+    res_fail = subprocess.run([str(runner_fail)], capture_output=True, text=True)
+    assert res_fail.returncode == 1
+    assert "Error querying xwininfo" in res_fail.stderr
+
+    # Verify wake_and_restore serializes execution and sets lock timestamp on finish
+    lock_file = tmp_path / "test_wake.lock"
+    runner_wake = tmp_path / "run_test_wake.sh"
+    runner_wake.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export LOCK_FILE=\"{lock_file}\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{layout_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"xset() {{ :; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"restore_window_layout() {{ :; }}\n"
+        f"eval \"$(sed -n '/^wake_and_restore()/,/^}}/p' '{script_path}')\"\n"
+        f"wake_and_restore \"test_wake\"\n",
+        encoding="utf-8",
+    )
+    runner_wake.chmod(0o755)
+    res_wake = subprocess.run([str(runner_wake)], capture_output=True, text=True)
+    assert res_wake.returncode == 0
+    assert lock_file.exists()
+    assert (tmp_path / "test_wake.lock.flock").exists()
+
 
 
 

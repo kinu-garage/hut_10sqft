@@ -249,12 +249,14 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 target = sys.argv[1]
 try:
     out = subprocess.check_output(['xwininfo', '-root', '-children'], timeout=3).decode('utf-8', errors='ignore')
-except Exception:
-    sys.exit(0)
+except Exception as e:
+    print(f'Error querying xwininfo: {e}', file=sys.stderr)
+    sys.exit(1)
 
 pattern = re.compile(
     r'^\s*(0x[0-9a-fA-F]+)\s+(\"[^\"]*\"|\(has no name\)):\s+(\([^\)]*\))\s+(\d+)x(\d+)\+([-0-9]+)\+([-0-9]+)',
@@ -268,18 +270,28 @@ for wid, name, classes, w, h, x, y in pattern.findall(out):
     if w > 50 and h > 50 and w < 9000 and 'Desktop Icons' not in name:
         wins.append({'id': wid, 'name': name, 'x': x, 'y': y, 'w': w, 'h': h})
 
-if wins:
-    tmp_path = f'{target}.tmp'
-    try:
-        os.makedirs(os.path.dirname(os.path.abspath(target)), mode=0o700, exist_ok=True)
-        fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with open(fd, 'w') as f:
-            json.dump(wins, f)
-        os.replace(tmp_path, target)
-        print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Saved geometry of {len(wins)} windows to {target}')
-    except Exception:
-        pass
-" "$WINDOW_LAYOUT_FILE" >/dev/null 2>&1 || true
+if not wins:
+    sys.exit(0)
+
+target_dir = os.path.dirname(os.path.abspath(target))
+tmp_path = None
+try:
+    os.makedirs(target_dir, mode=0o700, exist_ok=True)
+    with tempfile.NamedTemporaryFile('w', dir=target_dir, prefix=f'{os.path.basename(target)}.{os.getpid()}.', delete=False) as tf:
+        os.chmod(tf.name, 0o600)
+        json.dump(wins, tf)
+        tmp_path = tf.name
+    os.replace(tmp_path, target)
+    print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Saved geometry of {len(wins)} windows to {target}')
+except Exception as e:
+    if tmp_path and os.path.exists(tmp_path):
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+    print(f'Error saving window layout to {target}: {e}', file=sys.stderr)
+    sys.exit(1)
+" "$WINDOW_LAYOUT_FILE" || return 1
 }
 
 # @summary: Restore saved window geometries for active windows after display layout has stabilized.
@@ -338,19 +350,29 @@ if restored > 0:
 # @return: 0 if successfully restored or if debounced; 1 on failure.
 wake_and_restore() {
     local reason="$1"
+    local flock_file="${LOCK_FILE}.flock"
+    exec 200>"$flock_file"
+    if ! flock -n 200; then
+        return 0
+    fi
+
     local now
     now=$(date +%s)
     if [ -f "$LOCK_FILE" ]; then
         local last
         last=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
         if [ $((now - last)) -lt "$DEBOUNCE_SEC" ]; then
+            flock -u 200 2>/dev/null || true
             return 0
         fi
     fi
-    echo "$now" > "$LOCK_FILE"
 
     local disp
-    disp=$(detect_display) || return 0
+    disp=$(detect_display)
+    if [ -z "$disp" ]; then
+        flock -u 200 2>/dev/null || true
+        return 0
+    fi
     export DISPLAY="$disp"
 
     echo "[$(date -Iseconds)] Triggered monitor wake ($reason) on DISPLAY=$DISPLAY"
@@ -395,6 +417,7 @@ wake_and_restore() {
     done
 
     date +%s > "$LOCK_FILE"
+    flock -u 200 2>/dev/null || true
 }
 
 # Background watcher 1: Monitor DPMS transitions (Off/Standby/Suspend -> On) on keyboard wake
