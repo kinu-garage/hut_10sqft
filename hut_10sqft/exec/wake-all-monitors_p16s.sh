@@ -219,8 +219,110 @@ sys.exit(1)
 " >/dev/null 2>&1
 }
 
-LOCK_FILE="/tmp/wake-all-monitors-${UID}.lock"
+LOCK_FILE="${LOCK_FILE:-/tmp/wake-all-monitors-${UID}.lock}"
+WINDOW_LAYOUT_FILE="${WINDOW_LAYOUT_FILE:-/tmp/window-layout-${UID}.json}"
 DEBOUNCE_SEC=15
+
+# @summary: Snapshot geometry (x, y, width, height) of active top-level application windows.
+# @param: None (queries X11 root window children via xwininfo on current $DISPLAY).
+# @return: 0 if successfully saved or if monitors are not configured; 1 on failure.
+save_window_layout() {
+    # Only save layout when all 3 monitors are verified healthy to avoid saving a transient/collapsed layout
+    if ! are_monitors_configured; then
+        return 0
+    fi
+
+    local disp
+    disp=$(detect_display) || return 0
+    export DISPLAY="$disp"
+
+    python3 -c "
+import json
+import os
+import re
+import subprocess
+import sys
+
+target = sys.argv[1]
+try:
+    out = subprocess.check_output(['xwininfo', '-root', '-children'], timeout=3).decode('utf-8', errors='ignore')
+except Exception:
+    sys.exit(0)
+
+pattern = re.compile(
+    r'^\s*(0x[0-9a-fA-F]+)\s+(\"[^\"]*\"|\(has no name\)):\s+(\([^\)]*\))\s+(\d+)x(\d+)\+([-0-9]+)\+([-0-9]+)',
+    re.M
+)
+
+wins = []
+for wid, name, classes, w, h, x, y in pattern.findall(out):
+    w, h, x, y = int(w), int(h), int(x), int(y)
+    # Ignore tiny background helpers, full desktop root overlay, and desktop icon managers
+    if w > 50 and h > 50 and w < 9000 and 'Desktop Icons' not in name:
+        wins.append({'id': wid, 'name': name, 'x': x, 'y': y, 'w': w, 'h': h})
+
+if wins:
+    tmp_path = f'{target}.tmp'
+    try:
+        with open(tmp_path, 'w') as f:
+            json.dump(wins, f)
+        os.replace(tmp_path, target)
+        print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Saved geometry of {len(wins)} windows to {target}')
+    except Exception:
+        pass
+" "$WINDOW_LAYOUT_FILE" >/dev/null 2>&1 || true
+}
+
+# @summary: Restore saved window geometries for active windows after display layout has stabilized.
+# @param: None.
+# @return: 0 if layout was restored or nothing to restore; 1 on error.
+restore_window_layout() {
+    [ ! -f "$WINDOW_LAYOUT_FILE" ] && return 0
+    if ! command -v xdotool >/dev/null 2>&1; then
+        return 0
+    fi
+
+    local disp
+    disp=$(detect_display) || return 0
+    export DISPLAY="$disp"
+
+    python3 -c "
+import json
+import os
+import subprocess
+import sys
+import time
+
+target = sys.argv[1]
+if not os.path.exists(target):
+    sys.exit(0)
+
+try:
+    with open(target) as f:
+        wins = json.load(f)
+except Exception:
+    sys.exit(0)
+
+# Allow Mutter constraint solver and desktop workarea to settle
+time.sleep(0.5)
+
+restored = 0
+for win in wins:
+    wid = win['id']
+    x, y, w, h = win['x'], win['y'], win['w'], win['h']
+    try:
+        # Verify the window is still open on X11
+        subprocess.check_output(['xdotool', 'getwindowgeometry', wid], timeout=1, stderr=subprocess.DEVNULL)
+        subprocess.run(['xdotool', 'windowmove', wid, str(x), str(y)], timeout=1, stderr=subprocess.DEVNULL)
+        subprocess.run(['xdotool', 'windowsize', wid, str(w), str(h)], timeout=1, stderr=subprocess.DEVNULL)
+        restored += 1
+    except Exception:
+        pass
+
+if restored > 0:
+    print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Restored geometry of {restored} windows from {target}')
+" "$WINDOW_LAYOUT_FILE" >/dev/null 2>&1 || true
+}
 
 # @summary: Wake and restore display layouts if debounce window has elapsed.
 # @param reason: String describing the wake trigger (e.g. DPMS change, GNOME ScreenSaver signal).
@@ -252,6 +354,7 @@ wake_and_restore() {
 
         # Fast-path: check cached Xorg state without re-probing DDC/EDID or reallocating PRIME dmabufs.
         if are_monitors_configured; then
+            restore_window_layout
             break
         fi
 
@@ -259,6 +362,7 @@ wake_and_restore() {
         if apply_layout_by_edid; then
             xset dpms force on >/dev/null 2>&1 || true
             if are_monitors_configured; then
+                restore_window_layout
                 break
             fi
         else
@@ -274,6 +378,7 @@ wake_and_restore() {
                     --output HDMI-1 --mode 3440x1440 --pos 6000x2400 --rotate normal >/dev/null 2>&1 || true
                 xset dpms force on >/dev/null 2>&1 || true
                 if are_monitors_configured; then
+                    restore_window_layout
                     break
                 fi
             fi
@@ -300,6 +405,8 @@ watch_dpms() {
                     if ! is_screen_locked; then
                         wake_and_restore "DPMS $prev_state -> On" &
                     fi
+                elif [ "$prev_state" = "On" ] && [ "$cur_state" != "On" ]; then
+                    save_window_layout &
                 fi
                 prev_state="$cur_state"
             fi
@@ -312,10 +419,12 @@ watch_dpms &
 DPMS_PID=$!
 trap 'kill $DPMS_PID 2>/dev/null || true' EXIT
 
-# Watcher 2: Listen for GNOME ScreenSaver WakeUpScreen and ActiveChanged(false) D-Bus signals
+# Watcher 2: Listen for GNOME ScreenSaver WakeUpScreen, ActiveChanged(false), and ActiveChanged(true) D-Bus signals
 dbus-monitor --session "type='signal',interface='org.gnome.ScreenSaver'" | \
 while read -r line; do
     if echo "$line" | grep -qE "member=WakeUpScreen|boolean false"; then
         wake_and_restore "GNOME ScreenSaver signal: $line" &
+    elif echo "$line" | grep -q "boolean true"; then
+        save_window_layout &
     fi
 done
