@@ -862,6 +862,10 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert res_corrupt.returncode == 0
     assert not xdotool_log.exists()
 
+    # Verify Debian package dependencies include tools required for window layout
+    assert "x11-utils" in DebianSetup._DEBIAN_DEB_DEPS
+    assert "xdotool" in DebianSetup._DEBIAN_DEB_DEPS
+
 
 
 
