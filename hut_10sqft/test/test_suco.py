@@ -659,6 +659,7 @@ def test_wake_all_monitors_window_layout(tmp_path):
         "     0x800004 \"Emacs\": (\"mutter-x11-frames\" \"mutter-x11-frames\")  1250x1478+4576+2224  +4576+2224\n"
         "     0x6a00010 \"Desktop Icons\": (\"gjs\" \"Gjs\")  3440x1440+6000+2400  +6000+2400\n"
         "     0x2400004 (has no name): ()  10x10+10+10  +10+10\n"
+        "     0x3500001 \"Huge Canvas\": (\"canvas\" \"Canvas\")  1920x9500+0+0  +0+0\n"
         "EOF\n",
         encoding="utf-8",
     )

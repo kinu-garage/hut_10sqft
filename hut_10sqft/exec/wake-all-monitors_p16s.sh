@@ -267,7 +267,7 @@ wins = []
 for wid, name, classes, w, h, x, y in pattern.findall(out):
     w, h, x, y = int(w), int(h), int(x), int(y)
     # Ignore tiny background helpers, full desktop root overlay, and desktop icon managers
-    if w > 50 and h > 50 and w < 9000 and 'Desktop Icons' not in name:
+    if w > 50 and h > 50 and w < 9000 and h < 9000 and 'Desktop Icons' not in name:
         wins.append({'id': wid, 'name': name, 'x': x, 'y': y, 'w': w, 'h': h})
 
 if not wins:
