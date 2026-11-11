@@ -767,6 +767,74 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert oct(st_dir.st_mode & 0o777) == "0o700"
     assert (expected_fallback_dir / "window-layout.json").exists()
 
+    # Verify reusing existing fallback directory succeeds when valid and private
+    res_fallback_reuse = subprocess.run([str(runner_fallback)], capture_output=True, text=True)
+    assert res_fallback_reuse.returncode == 0
+
+    # Verify rejection of insecure symlink fallback runtime directory
+    symlink_tmp = tmp_path / "symlink_tmp"
+    symlink_tmp.mkdir()
+    target_dir = tmp_path / "other_target"
+    target_dir.mkdir()
+    symlink_fallback = symlink_tmp / f"wake-all-monitors-{os.getuid()}"
+    symlink_fallback.symlink_to(target_dir)
+
+    runner_symlink = tmp_path / "run_test_symlink.sh"
+    runner_symlink.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{symlink_tmp}\"\n"
+        f"eval \"$(sed -n '/^if \\[ -n \"\\${{XDG_RUNTIME_DIR/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n",
+        encoding="utf-8",
+    )
+    runner_symlink.chmod(0o755)
+    res_symlink = subprocess.run([str(runner_symlink)], capture_output=True, text=True)
+    assert res_symlink.returncode == 1
+    assert "Insecure runtime directory" in res_symlink.stderr
+
+    # Verify rejection of fallback directory with loose (non-private) permissions
+    bad_perm_tmp = tmp_path / "bad_perm_tmp"
+    bad_perm_tmp.mkdir()
+    bad_dir = bad_perm_tmp / f"wake-all-monitors-{os.getuid()}"
+    bad_dir.mkdir(mode=0o777)
+    bad_dir.chmod(0o777)
+
+    runner_bad_perm = tmp_path / "run_test_bad_perm.sh"
+    runner_bad_perm.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{bad_perm_tmp}\"\n"
+        f"eval \"$(sed -n '/^if \\[ -n \"\\${{XDG_RUNTIME_DIR/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n",
+        encoding="utf-8",
+    )
+    runner_bad_perm.chmod(0o755)
+    res_bad_perm = subprocess.run([str(runner_bad_perm)], capture_output=True, text=True)
+    assert res_bad_perm.returncode == 1
+    assert "Insecure runtime directory" in res_bad_perm.stderr
+
+    # Verify save_window_layout exports DISPLAY before checking are_monitors_configured
+    runner_disp = tmp_path / "run_test_disp.sh"
+    runner_disp.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset DISPLAY\n"
+        f"detect_display() {{ echo \":42\"; }}\n"
+        f"are_monitors_configured() {{\n"
+        f"    if [ \"$DISPLAY\" != \":42\" ]; then exit 2; fi\n"
+        f"    return 1\n"
+        f"}}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_disp.chmod(0o755)
+    res_disp = subprocess.run([str(runner_disp)], capture_output=True, text=True)
+    assert res_disp.returncode == 0
+
     # Verify save_window_layout propagates failure when xwininfo fails
     fail_bin = tmp_path / "fail_bin"
     fail_bin.mkdir()

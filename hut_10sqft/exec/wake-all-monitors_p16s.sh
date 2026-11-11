@@ -223,7 +223,28 @@ if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "${XDG_RUNTIME_DIR}" ]; then
     _DEFAULT_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
 else
     _DEFAULT_RUNTIME_DIR="${TMPDIR:-/tmp}/wake-all-monitors-${UID}"
-    mkdir -p -m 0700 "$_DEFAULT_RUNTIME_DIR" 2>/dev/null || true
+    if ! mkdir -m 0700 "$_DEFAULT_RUNTIME_DIR" 2>/dev/null; then
+        if ! python3 -c '
+import os, sys, stat
+p = sys.argv[1]
+try:
+    if os.path.islink(p):
+        sys.exit(1)
+    st = os.stat(p)
+    if not stat.S_ISDIR(st.st_mode):
+        sys.exit(1)
+    if st.st_uid != os.getuid():
+        sys.exit(1)
+    if (st.st_mode & 0o077) != 0:
+        sys.exit(1)
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+' "$_DEFAULT_RUNTIME_DIR"; then
+            echo "Error: Insecure runtime directory: $_DEFAULT_RUNTIME_DIR" >&2
+            exit 1
+        fi
+    fi
 fi
 
 LOCK_FILE="${LOCK_FILE:-${_DEFAULT_RUNTIME_DIR}/wake-all-monitors.lock}"
@@ -234,14 +255,14 @@ DEBOUNCE_SEC=15
 # @param: None (queries X11 root window children via xwininfo on current $DISPLAY).
 # @return: 0 if successfully saved or if monitors are not configured; 1 on failure.
 save_window_layout() {
+    local disp
+    disp=$(detect_display) || return 0
+    export DISPLAY="$disp"
+
     # Only save layout when all 3 monitors are verified healthy to avoid saving a transient/collapsed layout
     if ! are_monitors_configured; then
         return 0
     fi
-
-    local disp
-    disp=$(detect_display) || return 0
-    export DISPLAY="$disp"
 
     python3 -c "
 import json
