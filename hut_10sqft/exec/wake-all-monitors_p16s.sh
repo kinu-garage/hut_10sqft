@@ -219,12 +219,8 @@ sys.exit(1)
 " >/dev/null 2>&1
 }
 
-if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "${XDG_RUNTIME_DIR}" ]; then
-    _DEFAULT_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
-else
-    _DEFAULT_RUNTIME_DIR="${TMPDIR:-/tmp}/wake-all-monitors-${UID}"
-    if ! mkdir -m 0700 "$_DEFAULT_RUNTIME_DIR" 2>/dev/null; then
-        if ! python3 -c '
+verify_secure_runtime_dir() {
+    python3 -c '
 import os, sys, stat
 p = sys.argv[1]
 try:
@@ -240,7 +236,15 @@ try:
     sys.exit(0)
 except Exception:
     sys.exit(1)
-' "$_DEFAULT_RUNTIME_DIR"; then
+' "$1"
+}
+
+if [ -n "${XDG_RUNTIME_DIR:-}" ] && [ -d "${XDG_RUNTIME_DIR}" ] && verify_secure_runtime_dir "${XDG_RUNTIME_DIR}"; then
+    _DEFAULT_RUNTIME_DIR="${XDG_RUNTIME_DIR}"
+else
+    _DEFAULT_RUNTIME_DIR="${TMPDIR:-/tmp}/wake-all-monitors-${UID}"
+    if ! mkdir -m 0700 "$_DEFAULT_RUNTIME_DIR" 2>/dev/null; then
+        if ! verify_secure_runtime_dir "$_DEFAULT_RUNTIME_DIR"; then
             echo "Error: Insecure runtime directory: $_DEFAULT_RUNTIME_DIR" >&2
             exit 1
         fi
@@ -264,6 +268,13 @@ save_window_layout() {
         return 0
     fi
 
+    local save_lock="${WINDOW_LAYOUT_FILE}.lock"
+    exec 201>"$save_lock"
+    if ! flock -n 201 2>/dev/null; then
+        return 0
+    fi
+
+    local ret=0
     python3 -c "
 import json
 import os
@@ -312,13 +323,22 @@ except Exception as e:
             pass
     print(f'Error saving window layout to {target}: {e}', file=sys.stderr)
     sys.exit(1)
-" "$WINDOW_LAYOUT_FILE" || return 1
+" "$WINDOW_LAYOUT_FILE" || ret=$?
+    flock -u 201 2>/dev/null || true
+    return $ret
 }
 
 # @summary: Restore saved window geometries for active windows after display layout has stabilized.
 # @param: None.
 # @return: 0 if layout was restored or nothing to restore; 1 on error.
 restore_window_layout() {
+    local save_lock="${WINDOW_LAYOUT_FILE}.lock"
+    if [ -f "$save_lock" ] && command -v flock >/dev/null 2>&1; then
+        exec 201>"$save_lock"
+        flock -w 3 201 2>/dev/null || true
+        flock -u 201 2>/dev/null || true
+    fi
+
     [ ! -f "$WINDOW_LAYOUT_FILE" ] && return 0
     if ! command -v xdotool >/dev/null 2>&1; then
         return 0
@@ -355,15 +375,19 @@ for win in wins:
     try:
         # Verify the window is still open on X11
         subprocess.check_output(['xdotool', 'getwindowgeometry', wid], timeout=1, stderr=subprocess.DEVNULL)
-        subprocess.run(['xdotool', 'windowmove', wid, str(x), str(y)], timeout=1, stderr=subprocess.DEVNULL)
-        subprocess.run(['xdotool', 'windowsize', wid, str(w), str(h)], timeout=1, stderr=subprocess.DEVNULL)
-        restored += 1
+        res_m = subprocess.run(['xdotool', 'windowmove', wid, str(x), str(y)], timeout=1, stderr=subprocess.PIPE, text=True)
+        res_s = subprocess.run(['xdotool', 'windowsize', wid, str(w), str(h)], timeout=1, stderr=subprocess.PIPE, text=True)
+        if res_m.returncode == 0 and res_s.returncode == 0:
+            restored += 1
+        else:
+            err = res_m.stderr.strip() or res_s.stderr.strip() or 'unknown error'
+            print(f'Failed to restore window {wid} ({win.get(\"name\", \"\")}): {err}', file=sys.stderr)
     except Exception:
         pass
 
 if restored > 0:
     print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Restored geometry of {restored} windows from {target}')
-" "$WINDOW_LAYOUT_FILE" >/dev/null 2>&1 || true
+" "$WINDOW_LAYOUT_FILE" >/dev/null || true
 }
 
 # @summary: Wake and restore display layouts if debounce window has elapsed.
@@ -371,6 +395,10 @@ if restored > 0:
 # @return: 0 if successfully restored or if debounced; 1 on failure.
 wake_and_restore() {
     local reason="$1"
+    if ! command -v flock >/dev/null 2>&1; then
+        echo "Error: flock is required for wake locking" >&2
+        return 1
+    fi
     local flock_file="${LOCK_FILE}.flock"
     exec 200>"$flock_file"
     if ! flock -n 200; then
