@@ -1075,7 +1075,9 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert res_coord.returncode == 0
     assert coord_log.exists()
     # It must have restored the updated window (0x888), having waited for the bg save
-    assert "0x888" in coord_log.read_text(encoding="utf-8")
+    coord_text = coord_log.read_text(encoding="utf-8")
+    assert "windowmove 0x888 5 5" in coord_text
+    assert "windowsize 0x888 500 500" in coord_text
 
     # Verify Debian package dependencies include tools required for window layout
     assert "x11-utils" in DebianSetup._DEBIAN_DEB_DEPS
