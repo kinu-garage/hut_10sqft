@@ -1003,17 +1003,21 @@ def test_wake_all_monitors_window_layout(tmp_path):
     timeout_lock.touch()
 
     # Pre-acquire save lock from separate process and hold it past 3s timeout
+    timeout_ready = tmp_path / "timeout_ready"
     runner_timeout = tmp_path / "run_timeout_restore.sh"
     runner_timeout.write_text(
         f"#!/usr/bin/env bash\n"
+        f"set -e\n"
         f"export PATH=\"{fail_xdotool_bin}:$PATH\"\n"
         f"export WINDOW_LAYOUT_FILE=\"{timeout_layout}\"\n"
         f"export DISPLAY=\":99\"\n"
         f"detect_display() {{ echo \":99\"; }}\n"
-        f"( exec 201>\"{timeout_lock}\"; flock 201; sleep 5 ) &\n"
+        f"( exec 201>\"{timeout_lock}\"; flock 201; touch \"{timeout_ready}\"; sleep 5 ) &\n"
         f"BG_PID=$!\n"
         f"trap 'kill $BG_PID 2>/dev/null || true' EXIT\n"
-        f"sleep 0.1\n"
+        f"for i in $(seq 1 50); do [ -f \"{timeout_ready}\" ] && break; sleep 0.02; done\n"
+        f"if [ ! -f \"{timeout_ready}\" ]; then echo 'Timeout waiting for background lock' >&2; exit 2; fi\n"
+        f"set +e\n"
         f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
         f"restore_window_layout\n",
         encoding="utf-8",

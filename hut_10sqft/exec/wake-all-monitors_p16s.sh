@@ -281,6 +281,12 @@ save_window_layout() {
         return 0
     fi
 
+    # Recheck monitor health after acquiring coordination lock before proceeding
+    if ! are_monitors_configured; then
+        flock -u 201 2>/dev/null || true
+        return 0
+    fi
+
     local ret=0
     python3 -c "
 import json
@@ -386,6 +392,10 @@ for win in wins:
     try:
         # Verify the window is still open on X11
         subprocess.check_output(['xdotool', 'getwindowgeometry', wid], timeout=1, stderr=subprocess.DEVNULL)
+    except Exception:
+        continue
+
+    try:
         res_m = subprocess.run(['xdotool', 'windowmove', wid, str(x), str(y)], timeout=1, stderr=subprocess.PIPE, text=True)
         res_s = subprocess.run(['xdotool', 'windowsize', wid, str(w), str(h)], timeout=1, stderr=subprocess.PIPE, text=True)
         if res_m.returncode == 0 and res_s.returncode == 0:
@@ -394,8 +404,9 @@ for win in wins:
             failed += 1
             err = res_m.stderr.strip() or res_s.stderr.strip() or 'unknown error'
             print(f'Failed to restore window {wid} ({win.get(\"name\", \"\")}): {err}', file=sys.stderr)
-    except Exception:
-        pass
+    except Exception as e:
+        failed += 1
+        print(f'Failed to restore window {wid} ({win.get(\"name\", \"\")}): {e}', file=sys.stderr)
 
 if restored > 0:
     print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Restored geometry of {restored} windows from {target}')
@@ -428,12 +439,21 @@ wake_and_restore() {
         fi
     fi
 
+    # Hold the coordination lock with snapshots through completion of wake & restoration
+    local target_dir
+    target_dir=$(dirname "$WINDOW_LAYOUT_FILE")
+    mkdir -p -m 0700 "$target_dir" 2>/dev/null || true
+    local save_lock="${WINDOW_LAYOUT_FILE}.lock"
+    exec 201>"$save_lock"
+    flock 201 2>/dev/null || true
+
     local now
     now=$(date +%s)
     if [ -f "$LOCK_FILE" ]; then
         local last
         last=$(cat "$LOCK_FILE" 2>/dev/null || echo 0)
         if [ $((now - last)) -lt "$DEBOUNCE_SEC" ]; then
+            flock -u 201 2>/dev/null || true
             flock -u 200 2>/dev/null || true
             return 0
         fi
@@ -442,6 +462,7 @@ wake_and_restore() {
     local disp
     disp=$(detect_display)
     if [ -z "$disp" ]; then
+        flock -u 201 2>/dev/null || true
         flock -u 200 2>/dev/null || true
         return 0
     fi
@@ -489,6 +510,7 @@ wake_and_restore() {
     done
 
     date +%s > "$LOCK_FILE"
+    flock -u 201 2>/dev/null || true
     flock -u 200 2>/dev/null || true
 }
 
