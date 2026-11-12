@@ -657,6 +657,7 @@ def test_wake_all_monitors_window_layout(tmp_path):
         "xwininfo: Window id: 0x64f (the root window) (has no name)\n"
         "     0x2e0001c \"Chrome\": (\"google-chrome\" \"Google-chrome\")  3063x1727+777+1702  +777+1702\n"
         "     0x800004 \"Emacs\": (\"mutter-x11-frames\" \"mutter-x11-frames\")  1250x1478+4576+2224  +4576+2224\n"
+        "     0x4f00012 \"Search \"example\" - Google Chrome\": (\"google-chrome\" \"Google-chrome\")  1920x1080+100+200  +100+200\n"
         "     0x6a00010 \"Desktop Icons\": (\"gjs\" \"Gjs\")  3440x1440+6000+2400  +6000+2400\n"
         "     0x2400004 (has no name): ()  10x10+10+10  +10+10\n"
         "     0x3500001 \"Huge Canvas\": (\"canvas\" \"Canvas\")  1920x9500+0+0  +0+0\n"
@@ -696,13 +697,16 @@ def test_wake_all_monitors_window_layout(tmp_path):
 
     with open(layout_file, "r", encoding="utf-8") as f:
         saved = json.load(f)
-    assert len(saved) == 2
+    assert len(saved) == 3
     assert saved[0]["id"] == "0x2e0001c"
     assert saved[0]["w"] == 3063 and saved[0]["h"] == 1727
     assert saved[0]["x"] == 777 and saved[0]["y"] == 1702
     assert saved[1]["id"] == "0x800004"
     assert saved[1]["w"] == 1250 and saved[1]["h"] == 1478
     assert saved[1]["x"] == 4576 and saved[1]["y"] == 2224
+    assert saved[2]["id"] == "0x4f00012"
+    assert saved[2]["w"] == 1920 and saved[2]["h"] == 1080
+    assert saved[2]["x"] == 100 and saved[2]["y"] == 200
 
     assert xdotool_log.exists()
     xdotool_cmds = xdotool_log.read_text(encoding="utf-8").splitlines()
@@ -710,6 +714,8 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert any("windowsize 0x2e0001c 3063 1727" in cmd for cmd in xdotool_cmds)
     assert any("windowmove 0x800004 4576 2224" in cmd for cmd in xdotool_cmds)
     assert any("windowsize 0x800004 1250 1478" in cmd for cmd in xdotool_cmds)
+    assert any("windowmove 0x4f00012 100 200" in cmd for cmd in xdotool_cmds)
+    assert any("windowsize 0x4f00012 1920 1080" in cmd for cmd in xdotool_cmds)
 
     # Verify per-user XDG_RUNTIME_DIR default resolution when WINDOW_LAYOUT_FILE is unset
     xdg_runtime = tmp_path / "run" / "user" / "1000"

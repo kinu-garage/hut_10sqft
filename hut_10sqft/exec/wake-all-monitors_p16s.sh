@@ -280,7 +280,7 @@ except Exception as e:
     sys.exit(1)
 
 pattern = re.compile(
-    r'^\s*(0x[0-9a-fA-F]+)\s+(\"[^\"]*\"|\(has no name\)):\s+(\([^\)]*\))\s+(\d+)x(\d+)\+([-0-9]+)\+([-0-9]+)',
+    r'^\s*(0x[0-9a-fA-F]+)\s+(\".*\"|\(has no name\)):\s+(\([^\)]*\))\s+(\d+)x(\d+)\+([-0-9]+)\+([-0-9]+)',
     re.M
 )
 
