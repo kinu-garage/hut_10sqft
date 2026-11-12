@@ -641,6 +641,449 @@ def test_dropbox_swap_watchdog_script(tmp_path):
     assert log_file.read_text(encoding="utf-8").splitlines() == ["status", "stop", "start"]
 
 
+def test_wake_all_monitors_window_layout(tmp_path):
+    """Verify save_window_layout snapshots valid windows and restore_window_layout restores them."""
+    test_dir = os.path.dirname(os.path.abspath(__file__))
+    script_path = os.path.normpath(os.path.join(test_dir, "..", "exec", "wake-all-monitors_p16s.sh"))
+
+    layout_file = tmp_path / "window-layout.json"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+
+    fake_xwininfo = bin_dir / "xwininfo"
+    fake_xwininfo.write_text(
+        "#!/bin/sh\n"
+        "cat << 'EOF'\n"
+        "xwininfo: Window id: 0x64f (the root window) (has no name)\n"
+        "     0x2e0001c \"Chrome\": (\"google-chrome\" \"Google-chrome\")  3063x1727+777+1702  +777+1702\n"
+        "     0x800004 \"Emacs\": (\"mutter-x11-frames\" \"mutter-x11-frames\")  1250x1478+4576+2224  +4576+2224\n"
+        "     0x4f00012 \"Search \"example\" - Google Chrome\": (\"google-chrome\" \"Google-chrome\")  1920x1080+100+200  +100+200\n"
+        "     0x6a00010 \"Desktop Icons\": (\"gjs\" \"Gjs\")  3440x1440+6000+2400  +6000+2400\n"
+        "     0x2400004 (has no name): ()  10x10+10+10  +10+10\n"
+        "     0x3500001 \"Huge Canvas\": (\"canvas\" \"Canvas\")  1920x9500+0+0  +0+0\n"
+        "EOF\n",
+        encoding="utf-8",
+    )
+    fake_xwininfo.chmod(0o755)
+
+    xdotool_log = tmp_path / "xdotool.log"
+    fake_xdotool = bin_dir / "xdotool"
+    fake_xdotool.write_text(
+        f"#!/bin/sh\necho \"$*\" >> '{xdotool_log}'\n",
+        encoding="utf-8",
+    )
+    fake_xdotool.chmod(0o755)
+
+    runner = tmp_path / "run_test.sh"
+    runner.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{layout_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner.chmod(0o755)
+
+    res = subprocess.run([str(runner)], capture_output=True, text=True)
+    assert res.returncode == 0
+    assert layout_file.exists()
+
+    with open(layout_file, "r", encoding="utf-8") as f:
+        saved = json.load(f)
+    assert len(saved) == 3
+    assert saved[0]["id"] == "0x2e0001c"
+    assert saved[0]["w"] == 3063 and saved[0]["h"] == 1727
+    assert saved[0]["x"] == 777 and saved[0]["y"] == 1702
+    assert saved[1]["id"] == "0x800004"
+    assert saved[1]["w"] == 1250 and saved[1]["h"] == 1478
+    assert saved[1]["x"] == 4576 and saved[1]["y"] == 2224
+    assert saved[2]["id"] == "0x4f00012"
+    assert saved[2]["w"] == 1920 and saved[2]["h"] == 1080
+    assert saved[2]["x"] == 100 and saved[2]["y"] == 200
+
+    assert xdotool_log.exists()
+    xdotool_cmds = xdotool_log.read_text(encoding="utf-8").splitlines()
+    assert any("windowmove 0x2e0001c 777 1702" in cmd for cmd in xdotool_cmds)
+    assert any("windowsize 0x2e0001c 3063 1727" in cmd for cmd in xdotool_cmds)
+    assert any("windowmove 0x800004 4576 2224" in cmd for cmd in xdotool_cmds)
+    assert any("windowsize 0x800004 1250 1478" in cmd for cmd in xdotool_cmds)
+    assert any("windowmove 0x4f00012 100 200" in cmd for cmd in xdotool_cmds)
+    assert any("windowsize 0x4f00012 1920 1080" in cmd for cmd in xdotool_cmds)
+
+    # Verify per-user XDG_RUNTIME_DIR default resolution when WINDOW_LAYOUT_FILE is unset
+    xdg_runtime = tmp_path / "run" / "user" / str(os.getuid())
+    xdg_runtime.mkdir(parents=True, mode=0o700)
+    xdg_runtime.chmod(0o700)
+    runner_xdg = tmp_path / "run_test_xdg.sh"
+    runner_xdg.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"export XDG_RUNTIME_DIR=\"{xdg_runtime}\"\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^verify_secure_runtime_dir()/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n"
+        f"echo \"RESOLVED_FILE=$WINDOW_LAYOUT_FILE\"\n",
+        encoding="utf-8",
+    )
+    runner_xdg.chmod(0o755)
+    res_xdg = subprocess.run([str(runner_xdg)], capture_output=True, text=True)
+    assert res_xdg.returncode == 0
+    assert f"RESOLVED_FILE={xdg_runtime}/window-layout.json" in res_xdg.stdout
+    assert (xdg_runtime / "window-layout.json").exists()
+    st_xdg = os.stat(xdg_runtime / "window-layout.json")
+    assert oct(st_xdg.st_mode & 0o777) == "0o600"
+
+    # Verify insecure XDG_RUNTIME_DIR (loose permissions) is rejected and falls back
+    insecure_xdg = tmp_path / "insecure_xdg"
+    insecure_xdg.mkdir(mode=0o777)
+    insecure_xdg.chmod(0o777)
+    fallback_parent = tmp_path / "fallback_parent"
+    fallback_parent.mkdir()
+    runner_insecure_xdg = tmp_path / "run_test_insecure_xdg.sh"
+    runner_insecure_xdg.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"export XDG_RUNTIME_DIR=\"{insecure_xdg}\"\n"
+        f"export TMPDIR=\"{fallback_parent}\"\n"
+        f"eval \"$(sed -n '/^verify_secure_runtime_dir()/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n"
+        f"echo \"RESOLVED_DIR=$_DEFAULT_RUNTIME_DIR\"\n",
+        encoding="utf-8",
+    )
+    runner_insecure_xdg.chmod(0o755)
+    res_insecure_xdg = subprocess.run([str(runner_insecure_xdg)], capture_output=True, text=True)
+    assert res_insecure_xdg.returncode == 0
+    assert str(insecure_xdg) not in res_insecure_xdg.stdout
+    assert f"RESOLVED_DIR={fallback_parent}/wake-all-monitors-{os.getuid()}" in res_insecure_xdg.stdout
+
+    # Verify fallback directory with 0700 permissions when XDG_RUNTIME_DIR is unset
+    custom_tmp = tmp_path / "custom_tmp"
+    custom_tmp.mkdir()
+    runner_fallback = tmp_path / "run_test_fallback.sh"
+    runner_fallback.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{custom_tmp}\"\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^verify_secure_runtime_dir()/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n"
+        f"echo \"RESOLVED_FILE=$WINDOW_LAYOUT_FILE\"\n",
+        encoding="utf-8",
+    )
+    runner_fallback.chmod(0o755)
+    res_fallback = subprocess.run([str(runner_fallback)], capture_output=True, text=True)
+    assert res_fallback.returncode == 0
+    expected_fallback_dir = custom_tmp / f"wake-all-monitors-{os.getuid()}"
+    assert expected_fallback_dir.exists()
+    st_dir = os.stat(expected_fallback_dir)
+    assert oct(st_dir.st_mode & 0o777) == "0o700"
+    assert (expected_fallback_dir / "window-layout.json").exists()
+
+    # Verify reusing existing fallback directory succeeds when valid and private
+    res_fallback_reuse = subprocess.run([str(runner_fallback)], capture_output=True, text=True)
+    assert res_fallback_reuse.returncode == 0
+
+    # Verify rejection of insecure symlink fallback runtime directory
+    symlink_tmp = tmp_path / "symlink_tmp"
+    symlink_tmp.mkdir()
+    target_dir = tmp_path / "other_target"
+    target_dir.mkdir()
+    symlink_fallback = symlink_tmp / f"wake-all-monitors-{os.getuid()}"
+    symlink_fallback.symlink_to(target_dir)
+
+    runner_symlink = tmp_path / "run_test_symlink.sh"
+    runner_symlink.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{symlink_tmp}\"\n"
+        f"eval \"$(sed -n '/^verify_secure_runtime_dir()/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n",
+        encoding="utf-8",
+    )
+    runner_symlink.chmod(0o755)
+    res_symlink = subprocess.run([str(runner_symlink)], capture_output=True, text=True)
+    assert res_symlink.returncode == 1
+    assert "Insecure runtime directory" in res_symlink.stderr
+
+    # Verify rejection of fallback directory with loose (non-private) permissions
+    bad_perm_tmp = tmp_path / "bad_perm_tmp"
+    bad_perm_tmp.mkdir()
+    bad_dir = bad_perm_tmp / f"wake-all-monitors-{os.getuid()}"
+    bad_dir.mkdir(mode=0o777)
+    bad_dir.chmod(0o777)
+
+    runner_bad_perm = tmp_path / "run_test_bad_perm.sh"
+    runner_bad_perm.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset WINDOW_LAYOUT_FILE\n"
+        f"unset XDG_RUNTIME_DIR\n"
+        f"export TMPDIR=\"{bad_perm_tmp}\"\n"
+        f"eval \"$(sed -n '/^verify_secure_runtime_dir()/,/^DEBOUNCE_SEC=15/p' '{script_path}')\"\n",
+        encoding="utf-8",
+    )
+    runner_bad_perm.chmod(0o755)
+    res_bad_perm = subprocess.run([str(runner_bad_perm)], capture_output=True, text=True)
+    assert res_bad_perm.returncode == 1
+    assert "Insecure runtime directory" in res_bad_perm.stderr
+
+    # Verify save_window_layout exports DISPLAY before checking are_monitors_configured
+    runner_disp = tmp_path / "run_test_disp.sh"
+    runner_disp.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"unset DISPLAY\n"
+        f"detect_display() {{ echo \":42\"; }}\n"
+        f"are_monitors_configured() {{\n"
+        f"    if [ \"$DISPLAY\" != \":42\" ]; then exit 2; fi\n"
+        f"    return 1\n"
+        f"}}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_disp.chmod(0o755)
+    res_disp = subprocess.run([str(runner_disp)], capture_output=True, text=True)
+    assert res_disp.returncode == 0
+
+    # Verify save_window_layout propagates failure when xwininfo fails
+    fail_bin = tmp_path / "fail_bin"
+    fail_bin.mkdir()
+    (fail_bin / "xwininfo").write_text("#!/bin/sh\nexit 1\n", encoding="utf-8")
+    (fail_bin / "xwininfo").chmod(0o755)
+
+    runner_fail = tmp_path / "run_test_fail.sh"
+    runner_fail.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"export PATH=\"{fail_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{tmp_path / 'fail.json'}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_fail.chmod(0o755)
+    res_fail = subprocess.run([str(runner_fail)], capture_output=True, text=True)
+    assert res_fail.returncode == 1
+    assert "Error querying xwininfo" in res_fail.stderr
+
+    # Verify wake_and_restore serializes execution and sets lock timestamp on finish
+    lock_file = tmp_path / "test_wake.lock"
+    runner_wake = tmp_path / "run_test_wake.sh"
+    runner_wake.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export LOCK_FILE=\"{lock_file}\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{layout_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"xset() {{ :; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"restore_window_layout() {{ :; }}\n"
+        f"eval \"$(sed -n '/^wake_and_restore()/,/^}}/p' '{script_path}')\"\n"
+        f"wake_and_restore \"test_wake\"\n",
+        encoding="utf-8",
+    )
+    runner_wake.chmod(0o755)
+    res_wake = subprocess.run([str(runner_wake)], capture_output=True, text=True)
+    assert res_wake.returncode == 0
+    assert lock_file.exists()
+    assert (tmp_path / "test_wake.lock.flock").exists()
+
+    # Verify negative cases: unhealthy monitors do not create or overwrite snapshot
+    unhealthy_file = tmp_path / "unhealthy.json"
+    runner_unhealthy = tmp_path / "run_test_unhealthy.sh"
+    runner_unhealthy.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{unhealthy_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"are_monitors_configured() {{ return 1; }}\n"
+        f"eval \"$(sed -n '/^save_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"save_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_unhealthy.chmod(0o755)
+    res_unhealthy = subprocess.run([str(runner_unhealthy)], capture_output=True, text=True)
+    assert res_unhealthy.returncode == 0
+    assert not unhealthy_file.exists()
+
+    # Verify existing snapshot is unchanged if monitors become unhealthy
+    unhealthy_file.write_text("[\"preserved\"]", encoding="utf-8")
+    res_unhealthy2 = subprocess.run([str(runner_unhealthy)], capture_output=True, text=True)
+    assert res_unhealthy2.returncode == 0
+    assert unhealthy_file.read_text(encoding="utf-8") == "[\"preserved\"]"
+
+    # Verify negative cases: missing layout file or corrupt JSON returns without issuing xdotool commands
+    xdotool_log.unlink(missing_ok=True)
+    corrupt_file = tmp_path / "corrupt.json"
+    corrupt_file.write_text("{invalid json", encoding="utf-8")
+
+    runner_restore_corrupt = tmp_path / "run_test_corrupt.sh"
+    runner_restore_corrupt.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{bin_dir}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{corrupt_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n"
+        f"export WINDOW_LAYOUT_FILE=\"{tmp_path / 'nonexistent.json'}\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_restore_corrupt.chmod(0o755)
+    res_corrupt = subprocess.run([str(runner_restore_corrupt)], capture_output=True, text=True)
+    assert res_corrupt.returncode == 0
+    assert not xdotool_log.exists()
+
+    # Verify restore_window_layout checks move/size command exit codes and logs failure
+    fail_xdotool_bin = tmp_path / "fail_xdotool_bin"
+    fail_xdotool_bin.mkdir()
+    fake_xdotool_fail = fail_xdotool_bin / "xdotool"
+    fake_xdotool_fail.write_text(
+        "#!/bin/sh\n"
+        "if [ \"$1\" = 'windowmove' ]; then\n"
+        "    echo \"Simulated move failure\" >&2\n"
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    fake_xdotool_fail.chmod(0o755)
+
+    valid_layout_file = tmp_path / "valid_restore.json"
+    valid_layout_file.write_text('[{"id": "0x123", "name": "Test", "x": 10, "y": 20, "w": 300, "h": 400}]', encoding="utf-8")
+
+    runner_fail_restore = tmp_path / "run_fail_restore.sh"
+    runner_fail_restore.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{fail_xdotool_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{valid_layout_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_fail_restore.chmod(0o755)
+    res_fail_restore = subprocess.run([str(runner_fail_restore)], capture_output=True, text=True)
+    assert res_fail_restore.returncode == 1
+    assert "Failed to restore window 0x123 (Test): Simulated move failure" in res_fail_restore.stderr
+
+    # Verify save-lock timeout causes restore_window_layout to skip restoration with warning
+    timeout_layout = tmp_path / "timeout_layout.json"
+    timeout_lock = tmp_path / "timeout_layout.json.lock"
+    timeout_layout.write_text('[{"id": "0x111", "name": "Old", "x": 1, "y": 1, "w": 100, "h": 100}]', encoding="utf-8")
+    timeout_lock.touch()
+
+    # Pre-acquire save lock from separate process and hold it past 3s timeout
+    timeout_ready = tmp_path / "timeout_ready"
+    runner_timeout = tmp_path / "run_timeout_restore.sh"
+    runner_timeout.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{fail_xdotool_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{timeout_layout}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"( exec 201>\"{timeout_lock}\"; flock 201; touch \"{timeout_ready}\"; sleep 5 ) &\n"
+        f"BG_PID=$!\n"
+        f"trap 'kill $BG_PID 2>/dev/null || true' EXIT\n"
+        f"for i in $(seq 1 50); do [ -f \"{timeout_ready}\" ] && break; sleep 0.02; done\n"
+        f"if [ ! -f \"{timeout_ready}\" ]; then echo 'Timeout waiting for background lock' >&2; exit 2; fi\n"
+        f"set +e\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_timeout.chmod(0o755)
+    res_timeout = subprocess.run([str(runner_timeout)], capture_output=True, text=True)
+    assert res_timeout.returncode == 1
+    assert "Timed out waiting for save lock" in res_timeout.stderr
+
+    # Verify restore_window_layout coordinates with active save lock
+    coord_layout = tmp_path / "coord_layout.json"
+    coord_lock = tmp_path / "coord_layout.json.lock"
+    coord_layout.write_text('[{"id": "0x999", "name": "Old", "x": 1, "y": 1, "w": 100, "h": 100}]', encoding="utf-8")
+    coord_log = tmp_path / "coord.log"
+
+    coord_bin = tmp_path / "coord_bin"
+    coord_bin.mkdir()
+    (coord_bin / "xdotool").write_text(
+        f"#!/bin/sh\necho \"$*\" >> '{coord_log}'\n",
+        encoding="utf-8",
+    )
+    (coord_bin / "xdotool").chmod(0o755)
+
+    # In background, hold flock on coord_lock while updating the file
+    ready_file = tmp_path / "bg_ready"
+    bg_script = tmp_path / "run_bg_save.sh"
+    bg_script.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"exec 201>\"{coord_lock}\"\n"
+        f"flock 201\n"
+        f"touch \"{ready_file}\"\n"
+        f"sleep 0.4\n"
+        f"echo '[{{\"id\": \"0x888\", \"name\": \"Updated\", \"x\": 5, \"y\": 5, \"w\": 500, \"h\": 500}}]' > \"{coord_layout}\"\n"
+        f"flock -u 201\n",
+        encoding="utf-8",
+    )
+    bg_script.chmod(0o755)
+
+    runner_coord = tmp_path / "run_coord.sh"
+    runner_coord.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"set -e\n"
+        f"export PATH=\"{coord_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{coord_layout}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"\"{bg_script}\" &\n"
+        f"for i in $(seq 1 50); do [ -f \"{ready_file}\" ] && break; sleep 0.02; done\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_coord.chmod(0o755)
+    res_coord = subprocess.run([str(runner_coord)], capture_output=True, text=True)
+    assert res_coord.returncode == 0
+    assert coord_log.exists()
+    # It must have restored the updated window (0x888), having waited for the bg save
+    coord_text = coord_log.read_text(encoding="utf-8")
+    assert "windowmove 0x888 5 5" in coord_text
+    assert "windowsize 0x888 500 500" in coord_text
+
+    # Verify Debian package dependencies include tools required for window layout
+    assert "x11-utils" in DebianSetup._DEBIAN_DEB_DEPS
+    assert "xdotool" in DebianSetup._DEBIAN_DEB_DEPS
+
+
 
 
 def test_emacs_lisp_syntax():
