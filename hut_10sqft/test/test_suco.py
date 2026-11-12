@@ -993,8 +993,35 @@ def test_wake_all_monitors_window_layout(tmp_path):
     )
     runner_fail_restore.chmod(0o755)
     res_fail_restore = subprocess.run([str(runner_fail_restore)], capture_output=True, text=True)
-    assert res_fail_restore.returncode == 0
+    assert res_fail_restore.returncode == 1
     assert "Failed to restore window 0x123 (Test): Simulated move failure" in res_fail_restore.stderr
+
+    # Verify save-lock timeout causes restore_window_layout to skip restoration with warning
+    timeout_layout = tmp_path / "timeout_layout.json"
+    timeout_lock = tmp_path / "timeout_layout.json.lock"
+    timeout_layout.write_text('[{"id": "0x111", "name": "Old", "x": 1, "y": 1, "w": 100, "h": 100}]', encoding="utf-8")
+    timeout_lock.touch()
+
+    # Pre-acquire save lock from separate process and hold it past 3s timeout
+    runner_timeout = tmp_path / "run_timeout_restore.sh"
+    runner_timeout.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"export PATH=\"{fail_xdotool_bin}:$PATH\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{timeout_layout}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"( exec 201>\"{timeout_lock}\"; flock 201; sleep 5 ) &\n"
+        f"BG_PID=$!\n"
+        f"trap 'kill $BG_PID 2>/dev/null || true' EXIT\n"
+        f"sleep 0.1\n"
+        f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
+        f"restore_window_layout\n",
+        encoding="utf-8",
+    )
+    runner_timeout.chmod(0o755)
+    res_timeout = subprocess.run([str(runner_timeout)], capture_output=True, text=True)
+    assert res_timeout.returncode == 1
+    assert "Timed out waiting for save lock" in res_timeout.stderr
 
     # Verify restore_window_layout coordinates with active save lock
     coord_layout = tmp_path / "coord_layout.json"

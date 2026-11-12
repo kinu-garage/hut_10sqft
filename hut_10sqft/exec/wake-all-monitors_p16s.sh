@@ -342,7 +342,10 @@ restore_window_layout() {
     local save_lock="${WINDOW_LAYOUT_FILE}.lock"
     if [ -f "$save_lock" ] && command -v flock >/dev/null 2>&1; then
         exec 201>"$save_lock"
-        flock -w 3 201 2>/dev/null || true
+        if ! flock -w 3 201 2>/dev/null; then
+            echo "Warning: Timed out waiting for save lock $save_lock; skipping restoration" >&2
+            return 1
+        fi
         flock -u 201 2>/dev/null || true
     fi
 
@@ -376,6 +379,7 @@ except Exception:
 time.sleep(0.5)
 
 restored = 0
+failed = 0
 for win in wins:
     wid = win['id']
     x, y, w, h = win['x'], win['y'], win['w'], win['h']
@@ -387,6 +391,7 @@ for win in wins:
         if res_m.returncode == 0 and res_s.returncode == 0:
             restored += 1
         else:
+            failed += 1
             err = res_m.stderr.strip() or res_s.stderr.strip() or 'unknown error'
             print(f'Failed to restore window {wid} ({win.get(\"name\", \"\")}): {err}', file=sys.stderr)
     except Exception:
@@ -394,7 +399,10 @@ for win in wins:
 
 if restored > 0:
     print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Restored geometry of {restored} windows from {target}')
-" "$WINDOW_LAYOUT_FILE" >/dev/null || true
+
+if failed > 0:
+    sys.exit(1)
+" "$WINDOW_LAYOUT_FILE" >/dev/null || return 1
 }
 
 # @summary: Wake and restore display layouts if debounce window has elapsed.
@@ -409,7 +417,15 @@ wake_and_restore() {
     local flock_file="${LOCK_FILE}.flock"
     exec 200>"$flock_file"
     if ! flock -n 200; then
-        return 0
+        # Another wake attempt is currently running. Wait for it to finish and check if monitors are configured.
+        if flock -w 10 200; then
+            if are_monitors_configured; then
+                flock -u 200 2>/dev/null || true
+                return 0
+            fi
+        else
+            return 0
+        fi
     fi
 
     local now
@@ -482,6 +498,7 @@ wake_and_restore() {
 # @return: Runs indefinitely in background until terminated.
 watch_dpms() {
     local prev_state="On"
+    local healthy_poll_count=0
     while true; do
         local disp
         if disp=$(detect_display); then
@@ -495,6 +512,12 @@ watch_dpms() {
                     fi
                 elif [ "$prev_state" = "On" ] && [ "$cur_state" != "On" ]; then
                     save_window_layout &
+                elif [ "$cur_state" = "On" ]; then
+                    # Periodically refresh layout while monitors are active and healthy
+                    healthy_poll_count=$(( (healthy_poll_count + 1) % 15 ))
+                    if [ "$healthy_poll_count" -eq 0 ]; then
+                        save_window_layout &
+                    fi
                 fi
                 prev_state="$cur_state"
             fi
