@@ -268,8 +268,15 @@ save_window_layout() {
         return 0
     fi
 
+    local target_dir
+    target_dir=$(dirname "$WINDOW_LAYOUT_FILE")
+    mkdir -p -m 0700 "$target_dir" 2>/dev/null || true
+
     local save_lock="${WINDOW_LAYOUT_FILE}.lock"
-    exec 201>"$save_lock"
+    if ! exec 201>"$save_lock"; then
+        echo "Error: Failed to open save lock file: $save_lock" >&2
+        return 1
+    fi
     if ! flock -n 201 2>/dev/null; then
         return 0
     fi

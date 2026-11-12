@@ -1011,11 +1011,13 @@ def test_wake_all_monitors_window_layout(tmp_path):
     (coord_bin / "xdotool").chmod(0o755)
 
     # In background, hold flock on coord_lock while updating the file
+    ready_file = tmp_path / "bg_ready"
     bg_script = tmp_path / "run_bg_save.sh"
     bg_script.write_text(
         f"#!/usr/bin/env bash\n"
         f"exec 201>\"{coord_lock}\"\n"
         f"flock 201\n"
+        f"touch \"{ready_file}\"\n"
         f"sleep 0.4\n"
         f"echo '[{{\"id\": \"0x888\", \"name\": \"Updated\", \"x\": 5, \"y\": 5, \"w\": 500, \"h\": 500}}]' > \"{coord_layout}\"\n"
         f"flock -u 201\n",
@@ -1032,7 +1034,7 @@ def test_wake_all_monitors_window_layout(tmp_path):
         f"export DISPLAY=\":99\"\n"
         f"detect_display() {{ echo \":99\"; }}\n"
         f"\"{bg_script}\" &\n"
-        f"sleep 0.1\n"
+        f"for i in $(seq 1 50); do [ -f \"{ready_file}\" ] && break; sleep 0.02; done\n"
         f"eval \"$(sed -n '/^restore_window_layout()/,/^}}/p' '{script_path}')\"\n"
         f"restore_window_layout\n",
         encoding="utf-8",
