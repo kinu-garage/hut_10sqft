@@ -12,6 +12,7 @@ setup(
    ],
  install_requires=[
      'colcon-common-extensions',
+     'python-dateutil',
      'setuptools',
      ],
  zip_safe=True,
