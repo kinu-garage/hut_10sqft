@@ -80,6 +80,93 @@ class TestGithubGraphQL(unittest.TestCase):
             graphql_query("query { test }", token="invalid-token")
         self.assertIn("HTTP Error 401: Unauthorized", str(ctx.exception))
         self.assertIs(ctx.exception.__cause__, http_err)
+        self.assertEqual(mock_urlopen.call_count, 1)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_graphql_query_retry_on_504_success(self, mock_urlopen, mock_sleep):
+        import io
+        import urllib.error
+
+        err_fp = io.BytesIO(b"<!DOCTYPE html><html>Gateway Timeout</html>")
+        http_504 = urllib.error.HTTPError(
+            url="https://api.github.com/graphql",
+            code=504,
+            msg="Gateway Timeout",
+            hdrs={},
+            fp=err_fp,
+        )
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"data": {"result": "ok"}}).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.side_effect = [http_504, mock_resp]
+
+        res = graphql_query("query { test }", token="dummy-token", retries=2, backoff_factor=0.5)
+        self.assertEqual(res, {"result": "ok"})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        mock_sleep.assert_called_once_with(0.5)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_graphql_query_retry_exhaustion_on_504(self, mock_urlopen, mock_sleep):
+        import io
+        import urllib.error
+
+        def make_504():
+            err_fp = io.BytesIO(b"Gateway Timeout")
+            return urllib.error.HTTPError(
+                url="https://api.github.com/graphql",
+                code=504,
+                msg="Gateway Timeout",
+                hdrs={},
+                fp=err_fp,
+            )
+
+        mock_urlopen.side_effect = [make_504(), make_504(), make_504()]
+
+        with self.assertRaises(RuntimeError) as ctx:
+            graphql_query("query { test }", token="dummy-token", retries=2, backoff_factor=1.0)
+        self.assertIn("HTTP Error 504: Gateway Timeout", str(ctx.exception))
+        self.assertEqual(mock_urlopen.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_graphql_query_retry_on_network_timeout(self, mock_urlopen, mock_sleep):
+        timeout_err = TimeoutError("The read operation timed out")
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"data": {"status": "recovered"}}).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.side_effect = [timeout_err, mock_resp]
+
+        res = graphql_query("query { test }", token="dummy-token", retries=2, backoff_factor=1.0)
+        self.assertEqual(res, {"status": "recovered"})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        mock_sleep.assert_called_once_with(1.0)
+
+    @patch("time.sleep")
+    @patch("urllib.request.urlopen")
+    def test_graphql_query_retry_after_header(self, mock_urlopen, mock_sleep):
+        import io
+        import urllib.error
+
+        err_fp = io.BytesIO(b"Rate limit exceeded")
+        http_429 = urllib.error.HTTPError(
+            url="https://api.github.com/graphql",
+            code=429,
+            msg="Too Many Requests",
+            hdrs={"Retry-After": "5"},
+            fp=err_fp,
+        )
+        mock_resp = MagicMock()
+        mock_resp.read.return_value = json.dumps({"data": {"status": "ok"}}).encode("utf-8")
+        mock_resp.__enter__.return_value = mock_resp
+        mock_urlopen.side_effect = [http_429, mock_resp]
+
+        res = graphql_query("query { test }", token="dummy-token", retries=1)
+        self.assertEqual(res, {"status": "ok"})
+        self.assertEqual(mock_urlopen.call_count, 2)
+        mock_sleep.assert_called_once_with(5.0)
 
 
 if __name__ == "__main__":
