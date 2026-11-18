@@ -68,7 +68,7 @@ Replace sensitive strings with clear placeholders:
 
 ## 4. Agent & Model Identifiers
 
-Determine the agent runtime and model being used:
+Determine the agent runtime, model, and effort level being used:
 - **Agent name:**
   - Antigravity: `Antigravity`
   - Claude Code: `Claude Code`
@@ -76,12 +76,20 @@ Determine the agent runtime and model being used:
 - **Model label:**
   - Gemini 3.8: `Gemini 3.8`
   - Gemini 4 Argon: `Gemini 4 Argon`
+  - Gemini 4 Hydrogen: `Gemini 4 Hydrogen`
   - Claude Sonnet 5.5: `Sonnet 5.5 Medium`
   - (Adapt to the active model reported in system metadata / user settings)
+- **Effort level:**
+  - e.g., `low`, `medium`, `high` (from active model/reasoning settings, when applicable)
 
 Example prefix:
 ```text
 Antigravity. Gemini 3.8.
+```
+
+Example signature:
+```text
+Assisted by Antigravity (Gemini 4 Hydrogen, medium)
 ```
 
 ## 5. Formatting Contract
@@ -101,6 +109,8 @@ Each transaction posted as a comment to the GitHub issue MUST follow this exact 
 
 <Screened Agent Response Content>
 </details>
+
+Assisted by <Agent Name> (<Model Name>, <Effort>)
 ```
 
 ### Formatting Rules:
@@ -110,6 +120,9 @@ Each transaction posted as a comment to the GitHub issue MUST follow this exact 
    - Place the first line or a brief title in `<summary>User Request / Logs ...</summary>`.
    - Place the screened text/logs directly beneath `</summary>`, followed by a separator line (`----` or 4 consecutive `-`).
    - Follow with the agent's identification header and screened response inside the `</details>` block.
+4. **Signature Requirement:** Always append the signature line at the very end of the post (after `</details>`).
+   - For Antigravity: `Assisted by Antigravity (<Model Name>, <Effort>)` (e.g., `Assisted by Antigravity (Gemini 4 Hydrogen, medium)`).
+   - For other agents: `Assisted by <Agent Name> (<Model Name>, <Effort>)` (omit `, <Effort>` if no effort level applies).
 
 ## 6. Posting via GitHub CLI (`gh`)
 
@@ -123,11 +136,11 @@ Or execute via the companion script (which automatically normalizes `owner/repo#
 
 - **From repository root:**
   ```bash
-  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "[EFFORT]"
   ```
 - **From within the skill directory** (or installed skill location):
   ```bash
-  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "[EFFORT]"
   ```
 
 ## 7. Workflow Execution Steps
