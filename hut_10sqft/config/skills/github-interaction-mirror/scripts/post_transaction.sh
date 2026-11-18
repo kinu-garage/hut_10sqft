@@ -23,7 +23,7 @@
 #   https://github.com/kinu-garage/hut_10sqft/issues/1509
 #
 # USAGE:
-#   post_transaction.sh <ISSUE_TARGET> <AGENT_NAME> <MODEL_NAME> <USER_PROMPT_FILE> <AGENT_RESP_FILE>
+#   post_transaction.sh <ISSUE_TARGET> <AGENT_NAME> <MODEL_NAME> <USER_PROMPT_FILE> <AGENT_RESP_FILE> [EFFORT]
 #
 # INPUTS:
 #   Positional Arguments:
@@ -33,10 +33,11 @@
 #                          - Issue number: #<num> or <num>
 #     2. AGENT_NAME        Name of AI agent (e.g. "Antigravity", "Claude Code").
 #                          Default: "Antigravity".
-#     3. MODEL_NAME        Name of model used (e.g. "Gemini 3.8", "Sonnet 5.5 Medium").
+#     3. MODEL_NAME        Name of model used (e.g. "Gemini 4 Hydrogen", "Sonnet 5.5 Medium").
 #                          Default: "Gemini 3.8".
 #     4. USER_PROMPT_FILE  Path to readable file containing the user's prompt text.
 #     5. AGENT_RESP_FILE   Path to readable file containing the agent's response text.
+#     6. EFFORT            Optional reasoning/effort level (e.g. "low", "medium", "high").
 #   Prerequisites:
 #     - GitHub CLI ('gh') installed and authenticated with issue write permissions.
 #
@@ -58,10 +59,11 @@ AGENT_NAME="${2:-Antigravity}"
 MODEL_NAME="${3:-Gemini 3.8}"
 USER_PROMPT_FILE="${4:-}"
 AGENT_RESP_FILE="${5:-}"
+EFFORT="${6:-}"
 
 if [ -z "$ISSUE_TARGET" ] || [ -z "$USER_PROMPT_FILE" ] || [ -z "$AGENT_RESP_FILE" ]; then
     echo "Error: Missing arguments." >&2
-    echo "Usage: $0 <ISSUE_TARGET> <AGENT_NAME> <MODEL_NAME> <USER_PROMPT_FILE> <AGENT_RESP_FILE>" >&2
+    echo "Usage: $0 <ISSUE_TARGET> <AGENT_NAME> <MODEL_NAME> <USER_PROMPT_FILE> <AGENT_RESP_FILE> [EFFORT]" >&2
     exit 1
 fi
 
@@ -256,6 +258,12 @@ LINE_COUNT=$(echo "$USER_PROMPT" | wc -l)
     echo ""
     echo "$AGENT_RESP"
     echo "</details>"
+    echo ""
+    if [ -n "$EFFORT" ]; then
+        echo "Assisted by ${DISPLAY_AGENT} (${MODEL_NAME}, ${EFFORT})"
+    else
+        echo "Assisted by ${DISPLAY_AGENT} (${MODEL_NAME})"
+    fi
 } > "$TMP_COMMENT"
 
 gh issue comment "$ISSUE_TARGET" --body-file "$TMP_COMMENT"
