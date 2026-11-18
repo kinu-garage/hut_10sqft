@@ -472,22 +472,28 @@ wake_and_restore() {
 
     xset dpms force on >/dev/null 2>&1 || true
 
+    local restore_status=1
     for delay in 2 3; do
         sleep "$delay"
         xset dpms force on >/dev/null 2>&1 || true
 
         # Fast-path: check cached Xorg state without re-probing DDC/EDID or reallocating PRIME dmabufs.
         if are_monitors_configured; then
-            restore_window_layout
-            break
+            if restore_window_layout; then
+                restore_status=0
+                break
+            fi
+            continue
         fi
 
         # Dynamically map and restore monitors by EDID vendor/model
         if apply_layout_by_edid; then
             xset dpms force on >/dev/null 2>&1 || true
             if are_monitors_configured; then
-                restore_window_layout
-                break
+                if restore_window_layout; then
+                    restore_status=0
+                    break
+                fi
             fi
         else
             # Fallback for known static connector names if dynamic EDID lookup had not completed
@@ -502,16 +508,21 @@ wake_and_restore() {
                     --output HDMI-1 --mode 3440x1440 --pos 6000x2400 --rotate normal >/dev/null 2>&1 || true
                 xset dpms force on >/dev/null 2>&1 || true
                 if are_monitors_configured; then
-                    restore_window_layout
-                    break
+                    if restore_window_layout; then
+                        restore_status=0
+                        break
+                    fi
                 fi
             fi
         fi
     done
 
-    date +%s > "$LOCK_FILE"
+    if [ "$restore_status" -eq 0 ]; then
+        date +%s > "$LOCK_FILE"
+    fi
     flock -u 201 2>/dev/null || true
     flock -u 200 2>/dev/null || true
+    return "$restore_status"
 }
 
 # Background watcher 1: Monitor DPMS transitions (Off/Standby/Suspend -> On) on keyboard wake

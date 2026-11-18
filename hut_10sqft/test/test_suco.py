@@ -911,6 +911,28 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert lock_file.exists()
     assert (tmp_path / "test_wake.lock.flock").exists()
 
+    # Verify wake_and_restore does not write debounce lock file if restore_window_layout fails
+    fail_wake_lock = tmp_path / "test_wake_fail.lock"
+    runner_wake_fail = tmp_path / "run_test_wake_fail.sh"
+    runner_wake_fail.write_text(
+        f"#!/usr/bin/env bash\n"
+        f"export LOCK_FILE=\"{fail_wake_lock}\"\n"
+        f"export WINDOW_LAYOUT_FILE=\"{layout_file}\"\n"
+        f"export DISPLAY=\":99\"\n"
+        f"sleep() {{ :; }}\n"
+        f"detect_display() {{ echo \":99\"; }}\n"
+        f"xset() {{ :; }}\n"
+        f"are_monitors_configured() {{ return 0; }}\n"
+        f"restore_window_layout() {{ return 1; }}\n"
+        f"eval \"$(sed -n '/^wake_and_restore()/,/^}}/p' '{script_path}')\"\n"
+        f"wake_and_restore \"test_wake_fail\"\n",
+        encoding="utf-8",
+    )
+    runner_wake_fail.chmod(0o755)
+    res_wake_fail = subprocess.run([str(runner_wake_fail)], capture_output=True, text=True)
+    assert res_wake_fail.returncode == 1
+    assert not fail_wake_lock.exists()
+
     # Verify negative cases: unhealthy monitors do not create or overwrite snapshot
     unhealthy_file = tmp_path / "unhealthy.json"
     runner_unhealthy = tmp_path / "run_test_unhealthy.sh"
