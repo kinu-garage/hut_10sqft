@@ -185,6 +185,153 @@ def update_section_body(
     )
 
 
+def normalize_checklist_text(line: str) -> str:
+    """Normalize a markdown bullet/checklist line for duplicate comparison."""
+    stripped = re.sub(r"^\s*[-*+]\s+(?:\[[ xX]\]\s+)?", "", line.strip())
+    return " ".join(stripped.split())
+
+
+def _parse_daily_blocks(
+    daily_lines: List[str],
+) -> List[Tuple[str, str, List[str]]]:
+    """Group rendered daily lines into [(date_key, header_line, item_lines), ...]."""
+    blocks: List[Tuple[str, str, List[str]]] = []
+    date_re = re.compile(r"^\s*[-*+]\s+(\d{1,2}/\d{1,2})\b")
+    for line in daily_lines:
+        m = date_re.match(line)
+        if m:
+            blocks.append((m.group(1), line, []))
+        elif blocks and line.strip():
+            blocks[-1][2].append(line)
+    return blocks
+
+
+def merge_daily_section(
+    original_body: str,
+    daily_lines: List[str],
+    section_header_regex: str = r"Daily",
+    default_header: str = "## Daily",
+) -> str:
+    """Merge date-grouped daily schedule lines into a markdown section without duplicates.
+
+    Preserves existing checked (`- [x]`) items and manual entries under each date,
+    inserts only missing items under matching `- M/D` headers, and appends any
+    dates not yet present in the section.
+    """
+    if not daily_lines:
+        return original_body or ""
+    if not original_body or not original_body.strip():
+        return update_section_body(
+            original_body,
+            daily_lines,
+            section_header_regex,
+            default_header=default_header,
+        )
+
+    lines = original_body.splitlines()
+    sec_idx, end_idx = extract_section_bounds(lines, section_header_regex)
+    if sec_idx is None:
+        return update_section_body(
+            original_body,
+            daily_lines,
+            section_header_regex,
+            default_header=default_header,
+        )
+
+    date_re = re.compile(r"^\s*[-*+]\s+(\d{1,2}/\d{1,2})\b")
+    section_lines = lines[sec_idx + 1 : end_idx]
+
+    date_starts: List[Tuple[str, int]] = []
+    for idx, line in enumerate(section_lines):
+        m = date_re.match(line)
+        if m:
+            date_starts.append((m.group(1), idx))
+
+    date_spans = {}
+    for i, (dk, start_i) in enumerate(date_starts):
+        end_i = date_starts[i + 1][1] if i + 1 < len(date_starts) else len(section_lines)
+        date_spans[dk] = (start_i, end_i)
+
+    missing_date_lines: List[str] = []
+    insertions: List[Tuple[int, List[str]]] = []
+    for dk, header_line, cal_items in _parse_daily_blocks(daily_lines):
+        if dk not in date_spans:
+            missing_date_lines.append(header_line)
+            missing_date_lines.extend(cal_items)
+            continue
+
+        start_i, end_i = date_spans[dk]
+        existing_norms = {
+            normalize_checklist_text(l)
+            for l in section_lines[start_i + 1 : end_i]
+            if l.strip()
+        }
+        to_add: List[str] = []
+        for item in cal_items:
+            norm = normalize_checklist_text(item)
+            if norm and norm not in existing_norms:
+                to_add.append(item)
+                existing_norms.add(norm)
+        if to_add:
+            ins_i = end_i
+            while ins_i > start_i + 1 and not section_lines[ins_i - 1].strip():
+                ins_i -= 1
+            insertions.append((ins_i, to_add))
+
+    for ins_i, to_add in sorted(insertions, key=lambda x: x[0], reverse=True):
+        section_lines = section_lines[:ins_i] + to_add + section_lines[ins_i:]
+
+    merged_body = "\n".join(lines[: sec_idx + 1] + section_lines + lines[end_idx:])
+    if original_body.endswith("\n") and not merged_body.endswith("\n"):
+        merged_body += "\n"
+
+    if missing_date_lines:
+        merged_body = update_section_body(
+            merged_body,
+            missing_date_lines,
+            section_header_regex,
+            default_header=default_header,
+        )
+    return merged_body
+
+
+def merge_section_unique_lines(
+    original_body: str,
+    candidate_lines: List[str],
+    section_header_regex: str,
+    default_header: Optional[str] = None,
+) -> str:
+    """Append candidate bullet lines to a section, skipping lines already present."""
+    if not candidate_lines:
+        return original_body or ""
+    lines = (original_body or "").splitlines()
+    sec_idx, end_idx = extract_section_bounds(lines, section_header_regex)
+    if sec_idx is None:
+        return update_section_body(
+            original_body,
+            candidate_lines,
+            section_header_regex,
+            default_header=default_header,
+        )
+
+    existing_norms = {
+        normalize_checklist_text(l)
+        for l in lines[sec_idx + 1 : end_idx]
+        if l.strip()
+    }
+    missing = [
+        l for l in candidate_lines if normalize_checklist_text(l) not in existing_norms
+    ]
+    if not missing:
+        return original_body
+    return update_section_body(
+        original_body,
+        missing,
+        section_header_regex,
+        default_header=default_header,
+    )
+
+
 def extract_issue_keys_from_bullet(
     line: str, default_repo: Optional[str] = None
 ) -> List[str]:

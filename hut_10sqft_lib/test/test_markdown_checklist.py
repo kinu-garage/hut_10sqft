@@ -19,6 +19,8 @@ from hut_10sqft_lib.markdown_checklist import (
     extract_issue_keys_from_bullet,
     extract_section_bounds,
     filter_missing_items,
+    merge_daily_section,
+    merge_section_unique_lines,
     update_section_body,
 )
 
@@ -205,6 +207,58 @@ class TestMarkdownChecklist(unittest.TestCase):
         line2 = "- [ ] #10 and #20"
         keys2 = extract_issue_keys_from_bullet(line2, default_repo="fallback")
         self.assertEqual(keys2, ["fallback#10", "fallback#20"])
+
+    def test_merge_daily_section_idempotent_and_preserves_checked(self):
+        original_body = (
+            "## Key milestone\n\n"
+            "### Daily\n"
+            "- 11/23 Mon\n"
+            "   - [x] 430p-6p Hs basketball\n"
+            "   - [ ] Manual note\n"
+        )
+        daily_lines = [
+            "- 11/23 Mon",
+            "   - [ ] 430p-6p Hs basketball",
+            "   - [ ] 605p-650p Hs TKD",
+            "- 11/24 Tue",
+            "   - [ ] 5p-6p As Mathnasium",
+        ]
+
+        updated = merge_daily_section(original_body, daily_lines)
+
+        self.assertEqual(updated.count("430p-6p Hs basketball"), 1)
+        self.assertIn("   - [x] 430p-6p Hs basketball", updated)
+        self.assertIn("   - [ ] Manual note", updated)
+        self.assertIn("   - [ ] 605p-650p Hs TKD", updated)
+        self.assertEqual(updated.count("- 11/23 Mon"), 1)
+        self.assertIn("- 11/24 Tue\n   - [ ] 5p-6p As Mathnasium", updated)
+
+        # Second run is a complete no-op
+        self.assertEqual(merge_daily_section(updated, daily_lines), updated)
+
+    def test_merge_section_unique_lines(self):
+        original_body = (
+            "### Notable period\n"
+            "- 11/25 We – 11/27 Fr Thanksgiving week\n"
+        )
+        candidates = [
+            "- 11/25 We – 11/27 Fr Thanksgiving week",
+            "- 11/28 Sa – 11/29 Su Weekend trip",
+        ]
+        updated = merge_section_unique_lines(
+            original_body,
+            candidates,
+            r"Notable period",
+            default_header="## Notable period",
+        )
+        self.assertEqual(updated.count("11/25 We – 11/27 Fr Thanksgiving week"), 1)
+        self.assertIn("- 11/28 Sa – 11/29 Su Weekend trip", updated)
+        self.assertEqual(
+            merge_section_unique_lines(
+                updated, candidates, r"Notable period", default_header="## Notable period"
+            ),
+            updated,
+        )
 
 
 if __name__ == "__main__":
