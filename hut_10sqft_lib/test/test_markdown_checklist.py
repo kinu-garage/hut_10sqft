@@ -260,6 +260,58 @@ class TestMarkdownChecklist(unittest.TestCase):
             updated,
         )
 
+    def test_merge_with_managed_tag_prunes_deleted_and_preserves_manual(self):
+        tag = "<!-- gcal -->"
+        original_body = (
+            "### Notable period\n"
+            f"- 11/25 We – 11/27 Fr Old Trip {tag}\n"
+            "- Manual milestone\n\n"
+            "### Daily\n"
+            "- 11/23 Mon\n"
+            f"   - [x] 430p-6p Hs basketball {tag}\n"
+            f"   - [ ] 5p-6p Cancelled event {tag}\n"
+            "   - [ ] Manual task\n"
+        )
+        daily_lines = [
+            "- 11/23 Mon",
+            "   - [ ] 430p-6p Hs basketball",
+            "   - [ ] 605p-650p Hs TKD",
+        ]
+        notable_lines = [
+            "- 11/28 Sa – 11/29 Su New Trip",
+        ]
+
+        updated = merge_daily_section(original_body, daily_lines, managed_tag=tag)
+        updated = merge_section_unique_lines(
+            updated,
+            notable_lines,
+            r"Notable period",
+            default_header="## Notable period",
+            managed_tag=tag,
+        )
+
+        # Checked tagged item preserved, deleted tagged item pruned, manual kept
+        self.assertIn(f"   - [x] 430p-6p Hs basketball {tag}", updated)
+        self.assertNotIn("Cancelled event", updated)
+        self.assertIn("   - [ ] Manual task", updated)
+        self.assertIn(f"   - [ ] 605p-650p Hs TKD {tag}", updated)
+
+        # Notable period: old tagged pruned, manual kept, new tagged added
+        self.assertNotIn("Old Trip", updated)
+        self.assertIn("- Manual milestone", updated)
+        self.assertIn(f"- 11/28 Sa – 11/29 Su New Trip {tag}", updated)
+
+        # Idempotent on second run
+        second = merge_daily_section(updated, daily_lines, managed_tag=tag)
+        second = merge_section_unique_lines(
+            second,
+            notable_lines,
+            r"Notable period",
+            default_header="## Notable period",
+            managed_tag=tag,
+        )
+        self.assertEqual(second, updated)
+
 
 if __name__ == "__main__":
     unittest.main()
