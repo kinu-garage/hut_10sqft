@@ -57,7 +57,6 @@ class DebianSetup(ShellCapableOsSetup):
                 "synaptic",
                 "x11-utils",          # https://github.com/kinu-garage/hut_10sqft/issues/1520 (xwininfo for window layout restore)
                 "xbindkeys",
-                "xdotool",            # https://github.com/kinu-garage/hut_10sqft/issues/1077, https://github.com/kinu-garage/hut_10sqft/issues/1520
                 "xsel",     # https://github.com/kinu-garage/hut_10sqft/issues/1077
                 "vulkan-tools",       #https://github.com/kinu-garage/hut_10sqft/issues/1317#issuecomment-3531300663
                 "whois",

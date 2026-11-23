@@ -1105,9 +1105,9 @@ def test_wake_all_monitors_window_layout(tmp_path):
     assert "windowmove 0x888 5 5" in coord_text
     assert "windowsize 0x888 500 500" in coord_text
 
-    # Verify Debian package dependencies include tools required for window layout
+    # Verify Debian package dependencies include tools required for window layout (xdotool is via rosdep/package.xml)
     assert "x11-utils" in DebianSetup._DEBIAN_DEB_DEPS
-    assert "xdotool" in DebianSetup._DEBIAN_DEB_DEPS
+    assert "xdotool" not in DebianSetup._DEBIAN_DEB_DEPS
 
 
 
