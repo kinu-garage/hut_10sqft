@@ -131,7 +131,40 @@ def update_section_body(
     section_header_regex: str,
     default_header: Optional[str] = None,
 ) -> str:
-    """Insert or append bullet lines under the specified section header."""
+    """Insert or append bullet lines under the specified section header.
+
+    Cleans empty placeholder bullets (`- [ ] `), preserves multi-line continuations
+    under existing bullets, and prepends a new section using `default_header` if no
+    matching header exists in `original_body`.
+
+    Args:
+        original_body: Existing markdown document text. Example:
+
+            ## Key milestone/focused areas
+            - [ ] #101 Existing task
+              Indented details for #101
+            - [ ] 
+
+            ## Daily
+            - 11/16 Mon
+        new_bullet_lines: List of markdown bullet lines to append into the section. Example:
+
+            ["- [ ] #102 Newly added task"]
+        section_header_regex: Regex pattern matching the target markdown header.
+        default_header: Header line (e.g. `## Key milestone/focused areas`) to create
+            if no section matching `section_header_regex` is found.
+
+    Returns:
+        Updated markdown document string. Example:
+
+            ## Key milestone/focused areas
+            - [ ] #101 Existing task
+              Indented details for #101
+            - [ ] #102 Newly added task
+
+            ## Daily
+            - 11/16 Mon
+    """
     if not new_bullet_lines:
         return original_body or ""
     if not original_body or not original_body.strip():
@@ -241,25 +274,28 @@ def _parse_daily_blocks(
 
     Uses regex to detect top-level date bullet headers.
     Non-matching non-empty lines following a date header are collected as its ``item_lines``.
+    Args:
+        daily_lines (List[str]): The list of markdown lines representing the daily schedule.
+           Example input ``daily_lines``::
+               [
+                   "- 11/16 Mon",
+                   "   - [ ] 545p-615p Wiley swimming",
+                   "- 11/17 Tue",
+                   "- 11/21 Sat",
+                   "   - [ ] 7a-8a @40z: Portland half",
+                   "   - [ ] 9a-1230p: 2ndary school",
+               ]
 
-    Example input ``daily_lines``::
+    Returns:
+        List[Tuple[str, str, List[str]]]: A list of tuples containing the date key, header line, and item lines for each date.
+            Example:
 
-        [
-            "- 11/16 Mon",
-            "   - [ ] 545p-615p Wiley swimming",
-            "- 11/17 Tue",
-            "- 11/21 Sat",
-            "   - [ ] 7a-8a @40z: Portland half",
-            "   - [ ] 9a-1230p: 2ndary school",
-        ]
-
-    Returns::
-
-        [
-            ("11/16", "- 11/16 Mon", ["   - [ ] 545p-615p Wiley swimming"]),
-            ("11/17", "- 11/17 Tue", []),
-            ("11/21", "- 11/21 Sat", ["   - [ ] 7a-8a @40z: Portland half", "   - [ ] 9a-1230p: 2ndary school"]),
-        ]
+                Returns::
+                    [
+                        ("11/16", "- 11/16 Mon", ["   - [ ] 545p-615p Wiley swimming"]),
+                        ("11/17", "- 11/17 Tue", []),
+                        ("11/21", "- 11/21 Sat", ["   - [ ] 7a-8a @40z: Portland half", "   - [ ] 9a-1230p: 2ndary school"]),
+                    ]    
     """
     blocks: List[Tuple[str, str, List[str]]] = []
     date_re = re.compile(r"^\s*[-*+]\s+(\d{1,2}/\d{1,2})\b")
@@ -285,11 +321,30 @@ def merge_daily_section(
     inserts only missing items under matching `- M/D` headers, and appends any
     dates not yet present in the section.
 
-    When ``managed_tag`` (e.g. ``<!-- gcal -->``) is provided:
-    - Newly added items are suffixed with ``managed_tag``.
-    - Existing lines containing ``managed_tag`` under a synced date that are no
-      longer present in ``daily_lines`` for that date are pruned, while untagged
+    When `managed_tag` (e.g. `<!-- gcal -->`) is provided:
+    - Newly added items are suffixed with `managed_tag`.
+    - Existing lines containing `managed_tag` under a synced date that are no
+      longer present in `daily_lines` for that date are pruned, while untagged
       (manual) lines are always preserved.
+
+    Args:
+        original_body: Full markdown document text to update.
+        daily_lines: Rendered date headers and checklist items to merge.
+            Example input ``daily_lines``::
+               [
+                   "- 11/16 Mon",
+                   "   - [ ] 545p-615p Wiley swimming",
+                   "- 11/17 Tue",
+                   "- 11/21 Sat",
+                   "   - [ ] 7a-8a @40z: Portland half",
+                   "   - [ ] 9a-1230p: 2ndary school",
+               ]
+        section_header_regex: Regex to identify the target section header.
+        default_header: Default header to create if the section is not found.
+        managed_tag: Optional tag to mark and prune managed lines.
+
+    Returns:
+        Updated markdown document string.
     """
     if not daily_lines:
         return original_body or ""
