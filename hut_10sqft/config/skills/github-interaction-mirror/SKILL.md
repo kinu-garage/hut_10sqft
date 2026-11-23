@@ -132,15 +132,23 @@ Use `gh issue comment` with a temporary file or standard input to avoid shell es
 gh issue comment "<ISSUE_URL_OR_NUMBER>" --body-file /path/to/comment.md
 ```
 
-Or execute via the companion script (which automatically normalizes `owner/repo#123` to full issue URLs and `#123` to plain numbers):
+Or execute via the companion script (which automatically normalizes `owner/repo#123` to full issue URLs and `#123` to plain numbers). Pass the optional 6th argument only when an effort level applies (e.g., `"medium"`); omitting it produces the no-effort signature (`Assisted by <Agent Name> (<Model Name>)`):
 
 - **From repository root:**
   ```bash
-  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "[EFFORT]"
+  # Without effort level:
+  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+
+  # With effort level:
+  hut_10sqft/config/skills/github-interaction-mirror/scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "medium"
   ```
 - **From within the skill directory** (or installed skill location):
   ```bash
-  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "[EFFORT]"
+  # Without effort level:
+  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt"
+
+  # With effort level:
+  ./scripts/post_transaction.sh "<ISSUE_URL_OR_NUMBER>" "<AGENT_NAME>" "<MODEL_NAME>" "/path/to/user_prompt.txt" "/path/to/agent_response.txt" "medium"
   ```
 
 ## 7. Workflow Execution Steps
