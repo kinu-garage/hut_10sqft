@@ -641,6 +641,10 @@ def test_dropbox_swap_watchdog_script(tmp_path):
     assert log_file.read_text(encoding="utf-8").splitlines() == ["status", "stop", "start"]
 
 
+@pytest.mark.skipif(
+    sys.platform == "darwin",
+    reason="wake-all-monitors_p16s.sh targets Linux X11 (requires flock).",
+)
 def test_wake_all_monitors_window_layout(tmp_path):
     """Verify save_window_layout snapshots valid windows and restore_window_layout restores them."""
     test_dir = os.path.dirname(os.path.abspath(__file__))

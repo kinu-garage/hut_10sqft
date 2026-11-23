@@ -273,12 +273,16 @@ save_window_layout() {
     mkdir -p -m 0700 "$target_dir" 2>/dev/null || true
 
     local save_lock="${WINDOW_LAYOUT_FILE}.lock"
-    if ! exec 201>"$save_lock"; then
-        echo "Error: Failed to open save lock file: $save_lock" >&2
-        return 1
-    fi
-    if ! flock -n 201 2>/dev/null; then
-        return 0
+    local has_flock=false
+    if command -v flock >/dev/null 2>&1; then
+        has_flock=true
+        if ! exec 201>"$save_lock"; then
+            echo "Error: Failed to open save lock file: $save_lock" >&2
+            return 1
+        fi
+        if ! flock -n 201 2>/dev/null; then
+            return 0
+        fi
     fi
 
     # Recheck monitor health after acquiring coordination lock before proceeding
@@ -289,6 +293,7 @@ save_window_layout() {
 
     local ret=0
     python3 -c "
+from datetime import datetime
 import json
 import os
 import re
@@ -327,7 +332,7 @@ try:
         json.dump(wins, tf)
         tmp_path = tf.name
     os.replace(tmp_path, target)
-    print(f'[{subprocess.check_output([\"date\", \"-Iseconds\"]).decode().strip()}] Saved geometry of {len(wins)} windows to {target}')
+    print(f'[{datetime.now().astimezone().isoformat(timespec=\"seconds\")}] Saved geometry of {len(wins)} windows to {target}')
 except Exception as e:
     if tmp_path and os.path.exists(tmp_path):
         try:
