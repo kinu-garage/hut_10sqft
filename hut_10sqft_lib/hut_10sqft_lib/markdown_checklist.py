@@ -12,6 +12,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""Utilities for parsing and updating structured Markdown checklist documents.
+
+Primary intended use case:
+    Automating recurring planning documents (e.g., weekly or sprint tracking GitHub
+    issue bodies) that combine:
+      1. Milestone / focused task checklists referencing GitHub issues
+         (carried over across periods or synced with GitHub Projects).
+      2. Notable multi-day events / spans for the period.
+      3. Daily schedules grouped under ``- M/D <Day>`` date bullets with nested
+         ``- [ ]`` / ``- [x]`` checklist items (e.g., populated from iCalendar feeds
+         via ``calendar_util`` while preserving manual edits and completed items).
+
+Example target Markdown format (anonymized)::
+
+    ## Key milestone/focused areas
+    - [ ] #2495 2026 Annual project planning
+      Additional indented notes for this item
+    - [x] org-name/repo-name#1479 Account configuration
+
+    ## Notable period
+    - 11/16 Mon – 11/17 Tue Fall Camp
+
+    ## Daily
+    - 11/16 Mon
+       - [x] 9a-10a Sprint planning
+       - [ ] 545p-615p Wiley swimming
+    - 11/17 Tue
+    - 11/21 Sat
+       - [ ] 7a-8a @40z: Portland half
+"""
+
 import re
 from typing import List, Optional, Set, Tuple
 
@@ -185,16 +216,51 @@ def update_section_body(
     )
 
 
-def normalize_checklist_text(line: str) -> str:
+def normalize_checklist_text(
+    line: str, managed_tag: Optional[str] = None
+) -> str:
     """Normalize a markdown bullet/checklist line for duplicate comparison."""
-    stripped = re.sub(r"^\s*[-*+]\s+(?:\[[ xX]\]\s+)?", "", line.strip())
+    text = line.strip()
+    if managed_tag:
+        text = text.replace(managed_tag, "").strip()
+    stripped = re.sub(r"^\s*[-*+]\s+(?:\[[ xX]\]\s+)?", "", text)
     return " ".join(stripped.split())
+
+
+def _tag_line(line: str, managed_tag: Optional[str]) -> str:
+    """Append ``managed_tag`` to ``line`` if provided and not already present."""
+    if not managed_tag or managed_tag in line:
+        return line
+    return f"{line} {managed_tag}"
 
 
 def _parse_daily_blocks(
     daily_lines: List[str],
 ) -> List[Tuple[str, str, List[str]]]:
-    """Group rendered daily lines into [(date_key, header_line, item_lines), ...]."""
+    """Group rendered daily lines into [(date_key, header_line, item_lines), ...].
+
+    Uses regex to detect top-level date bullet headers.
+    Non-matching non-empty lines following a date header are collected as its ``item_lines``.
+
+    Example input ``daily_lines``::
+
+        [
+            "- 11/16 Mon",
+            "   - [ ] 545p-615p Wiley swimming",
+            "- 11/17 Tue",
+            "- 11/21 Sat",
+            "   - [ ] 7a-8a @40z: Portland half",
+            "   - [ ] 9a-1230p: 2ndary school",
+        ]
+
+    Returns::
+
+        [
+            ("11/16", "- 11/16 Mon", ["   - [ ] 545p-615p Wiley swimming"]),
+            ("11/17", "- 11/17 Tue", []),
+            ("11/21", "- 11/21 Sat", ["   - [ ] 7a-8a @40z: Portland half", "   - [ ] 9a-1230p: 2ndary school"]),
+        ]
+    """
     blocks: List[Tuple[str, str, List[str]]] = []
     date_re = re.compile(r"^\s*[-*+]\s+(\d{1,2}/\d{1,2})\b")
     for line in daily_lines:
@@ -211,19 +277,27 @@ def merge_daily_section(
     daily_lines: List[str],
     section_header_regex: str = r"Daily",
     default_header: str = "## Daily",
+    managed_tag: Optional[str] = None,
 ) -> str:
     """Merge date-grouped daily schedule lines into a markdown section without duplicates.
 
     Preserves existing checked (`- [x]`) items and manual entries under each date,
     inserts only missing items under matching `- M/D` headers, and appends any
     dates not yet present in the section.
+
+    When ``managed_tag`` (e.g. ``<!-- gcal -->``) is provided:
+    - Newly added items are suffixed with ``managed_tag``.
+    - Existing lines containing ``managed_tag`` under a synced date that are no
+      longer present in ``daily_lines`` for that date are pruned, while untagged
+      (manual) lines are always preserved.
     """
     if not daily_lines:
         return original_body or ""
+    tagged_all = [_tag_line(l, managed_tag) if re.match(r"^\s+[-*+]\s+", l) else l for l in daily_lines]
     if not original_body or not original_body.strip():
         return update_section_body(
             original_body,
-            daily_lines,
+            tagged_all,
             section_header_regex,
             default_header=default_header,
         )
@@ -233,7 +307,7 @@ def merge_daily_section(
     if sec_idx is None:
         return update_section_body(
             original_body,
-            daily_lines,
+            tagged_all,
             section_header_regex,
             default_header=default_header,
         )
@@ -253,33 +327,51 @@ def merge_daily_section(
         date_spans[dk] = (start_i, end_i)
 
     missing_date_lines: List[str] = []
-    insertions: List[Tuple[int, List[str]]] = []
+    # Track per-span replacements/insertions: (start_i, end_i, new_block_lines)
+    span_updates: List[Tuple[int, int, List[str]]] = []
     for dk, header_line, cal_items in _parse_daily_blocks(daily_lines):
         if dk not in date_spans:
             missing_date_lines.append(header_line)
-            missing_date_lines.extend(cal_items)
+            missing_date_lines.extend(_tag_line(item, managed_tag) for item in cal_items)
             continue
 
         start_i, end_i = date_spans[dk]
+        block_body = section_lines[start_i + 1 : end_i]
+        cal_norms = {
+            normalize_checklist_text(item, managed_tag=managed_tag)
+            for item in cal_items
+        }
+        if managed_tag:
+            block_body = [
+                l
+                for l in block_body
+                if managed_tag not in l
+                or normalize_checklist_text(l, managed_tag=managed_tag) in cal_norms
+            ]
+
         existing_norms = {
-            normalize_checklist_text(l)
-            for l in section_lines[start_i + 1 : end_i]
+            normalize_checklist_text(l, managed_tag=managed_tag)
+            for l in block_body
             if l.strip()
         }
         to_add: List[str] = []
         for item in cal_items:
-            norm = normalize_checklist_text(item)
+            norm = normalize_checklist_text(item, managed_tag=managed_tag)
             if norm and norm not in existing_norms:
-                to_add.append(item)
+                to_add.append(_tag_line(item, managed_tag))
                 existing_norms.add(norm)
-        if to_add:
-            ins_i = end_i
-            while ins_i > start_i + 1 and not section_lines[ins_i - 1].strip():
-                ins_i -= 1
-            insertions.append((ins_i, to_add))
 
-    for ins_i, to_add in sorted(insertions, key=lambda x: x[0], reverse=True):
-        section_lines = section_lines[:ins_i] + to_add + section_lines[ins_i:]
+        if to_add:
+            ins_i = len(block_body)
+            while ins_i > 0 and not block_body[ins_i - 1].strip():
+                ins_i -= 1
+            block_body = block_body[:ins_i] + to_add + block_body[ins_i:]
+
+        if block_body != section_lines[start_i + 1 : end_i]:
+            span_updates.append((start_i + 1, end_i, block_body))
+
+    for s_i, e_i, new_block in sorted(span_updates, key=lambda x: x[0], reverse=True):
+        section_lines = section_lines[:s_i] + new_block + section_lines[e_i:]
 
     merged_body = "\n".join(lines[: sec_idx + 1] + section_lines + lines[end_idx:])
     if original_body.endswith("\n") and not merged_body.endswith("\n"):
@@ -300,32 +392,66 @@ def merge_section_unique_lines(
     candidate_lines: List[str],
     section_header_regex: str,
     default_header: Optional[str] = None,
+    managed_tag: Optional[str] = None,
 ) -> str:
-    """Append candidate bullet lines to a section, skipping lines already present."""
-    if not candidate_lines:
+    """Append candidate bullet lines to a section, skipping lines already present.
+
+    When ``managed_tag`` is provided, newly appended lines are suffixed with
+    ``managed_tag`` and existing ``managed_tag`` lines in the section that are
+    no longer in ``candidate_lines`` are pruned.
+    """
+    if not candidate_lines and not managed_tag:
         return original_body or ""
     lines = (original_body or "").splitlines()
     sec_idx, end_idx = extract_section_bounds(lines, section_header_regex)
     if sec_idx is None:
+        if not candidate_lines:
+            return original_body or ""
+        tagged = [_tag_line(l, managed_tag) for l in candidate_lines]
         return update_section_body(
             original_body,
-            candidate_lines,
+            tagged,
             section_header_regex,
             default_header=default_header,
         )
 
+    section_lines = lines[sec_idx + 1 : end_idx]
+    cand_norms = {
+        normalize_checklist_text(l, managed_tag=managed_tag)
+        for l in candidate_lines
+    }
+    if managed_tag:
+        pruned_section = [
+            l
+            for l in section_lines
+            if managed_tag not in l
+            or normalize_checklist_text(l, managed_tag=managed_tag) in cand_norms
+        ]
+    else:
+        pruned_section = section_lines
+
+    working_body = original_body
+    if pruned_section != section_lines:
+        working_body = "\n".join(
+            lines[: sec_idx + 1] + pruned_section + lines[end_idx:]
+        )
+        if original_body.endswith("\n") and not working_body.endswith("\n"):
+            working_body += "\n"
+
     existing_norms = {
-        normalize_checklist_text(l)
-        for l in lines[sec_idx + 1 : end_idx]
+        normalize_checklist_text(l, managed_tag=managed_tag)
+        for l in pruned_section
         if l.strip()
     }
     missing = [
-        l for l in candidate_lines if normalize_checklist_text(l) not in existing_norms
+        _tag_line(l, managed_tag)
+        for l in candidate_lines
+        if normalize_checklist_text(l, managed_tag=managed_tag) not in existing_norms
     ]
     if not missing:
-        return original_body
+        return working_body
     return update_section_body(
-        original_body,
+        working_body,
         missing,
         section_header_regex,
         default_header=default_header,
